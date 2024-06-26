@@ -244,6 +244,7 @@ impl CursorPos {
 mod cursor_state_keys {
     pub const POS: &str = "pos";
     pub const BOLD: &str = "bold";
+    pub const ITALIC: &str = "italic";
     pub const COLOR: &str = "color";
 }
 
@@ -255,6 +256,10 @@ enum LoadCursorStateErrorPriv {
     BoldNotPresent,
     #[error("bold field is not a bool")]
     BoldNotBool,
+    #[error("italic field is not present")]
+    ItalicNotPresent,
+    #[error("italic field is not a bool")]
+    ItalicNotBool,
     #[error("color field is not present")]
     ColorNotPresent,
     #[error("color field is not a bool")]
@@ -275,6 +280,7 @@ pub struct LoadCursorStateError(#[from] LoadCursorStateErrorPriv);
 struct CursorState {
     pos: CursorPos,
     bold: bool,
+    italic: bool,
     color: TerminalColor,
 }
 
@@ -291,6 +297,11 @@ impl CursorState {
             Err(BoldNotBool)?
         };
 
+        let italic = map.remove(cursor_state_keys::ITALIC).ok_or(BoldNotPresent)?;
+        let SnapshotItem::Bool(italic) = italic else {
+            Err(BoldNotBool)?
+        };
+
         let color = map
             .remove(cursor_state_keys::COLOR)
             .ok_or(ColorNotPresent)?;
@@ -302,7 +313,7 @@ impl CursorState {
         let pos = map.remove(cursor_state_keys::POS).ok_or(PosNotPresent)?;
         let pos = CursorPos::from_snapshot(pos).map_err(FailParsePos)?;
 
-        Ok(Self { pos, bold, color })
+        Ok(Self { pos, bold, italic, color })
     }
 
     fn snapshot(&self) -> Result<SnapshotItem, SnapshotCursorPosError> {
@@ -470,6 +481,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             cursor_state: CursorState {
                 pos: CursorPos { x: 0, y: 0 },
                 bold: false,
+                italic: false,
                 color: TerminalColor::Default,
             },
             recorder: Recorder::new(recording_path),
@@ -668,8 +680,11 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         } else if sgr == SelectGraphicRendition::Reset {
             self.cursor_state.color = TerminalColor::Default;
             self.cursor_state.bold = false;
+            self.cursor_state.italic = false;
         } else if sgr == SelectGraphicRendition::Bold {
             self.cursor_state.bold = true;
+        } else if sgr == SelectGraphicRendition::Italic {
+            self.cursor_state.italic = true;
         } else {
             warn!("Unhandled sgr: {:?}", sgr);
         }
@@ -804,24 +819,28 @@ mod test {
                 end: 5,
                 color: TerminalColor::Blue,
                 bold: true,
+                italic: false,
             },
             FormatTag {
                 start: 5,
                 end: 7,
                 color: TerminalColor::Red,
                 bold: false,
+                italic: false,
             },
             FormatTag {
                 start: 7,
                 end: 10,
                 color: TerminalColor::Blue,
                 bold: true,
+                italic: false,
             },
             FormatTag {
                 start: 10,
                 end: usize::MAX,
                 color: TerminalColor::Red,
                 bold: true,
+                italic: false,
             },
         ];
 
@@ -840,6 +859,7 @@ mod test {
                 end: usize::MAX,
                 color: TerminalColor::Red,
                 bold: true,
+                italic: false,
             },]
         );
 
@@ -853,18 +873,21 @@ mod test {
                     end: 5,
                     color: TerminalColor::Blue,
                     bold: true,
+                    italic: false,
                 },
                 FormatTag {
                     start: 5,
                     end: 7,
                     color: TerminalColor::Red,
                     bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 7,
                     end: 9,
                     color: TerminalColor::Blue,
                     bold: true,
+                    italic: false,
                 },
             ]
         );
@@ -876,12 +899,14 @@ mod test {
                     end: 1,
                     color: TerminalColor::Blue,
                     bold: true,
+                    italic: false,
                 },
                 FormatTag {
                     start: 1,
                     end: usize::MAX,
                     color: TerminalColor::Red,
                     bold: true,
+                    italic: false,
                 },
             ]
         );
@@ -892,6 +917,7 @@ mod test {
         let state = CursorState {
             pos: CursorPos { x: 10, y: 50 },
             bold: false,
+            italic: false,
             color: TerminalColor::Magenta,
         };
 

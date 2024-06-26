@@ -17,6 +17,8 @@ use std::borrow::Cow;
 
 const REGULAR_FONT_NAME: &str = "hack";
 const BOLD_FONT_NAME: &str = "hack-bold";
+const ITALIC_FONT_NAME: &str = "hack-italic";
+const BOLD_ITALIC_FONT_NAME: &str = "hack-bold-italic";
 
 
 
@@ -206,6 +208,16 @@ fn setup_fonts(ctx: &egui::Context) {
         FontData::from_static(include_bytes!("../../res/Hack-Bold.ttf")),
     );
 
+    fonts.font_data.insert(
+        ITALIC_FONT_NAME.to_owned(),
+        FontData::from_static(include_bytes!("../../res/Hack-Italic.ttf")),
+    );
+
+    fonts.font_data.insert(
+        BOLD_ITALIC_FONT_NAME.to_owned(),
+        FontData::from_static(include_bytes!("../../res/Hack-BoldItalic.ttf")),
+    );
+
     fonts
         .families
         .get_mut(&FontFamily::Monospace)
@@ -220,6 +232,14 @@ fn setup_fonts(ctx: &egui::Context) {
         FontFamily::Name(BOLD_FONT_NAME.to_string().into()),
         vec![BOLD_FONT_NAME.to_string()],
     );
+    fonts.families.insert(
+        FontFamily::Name(ITALIC_FONT_NAME.to_string().into()),
+        vec![ITALIC_FONT_NAME.to_string()],
+    );
+    fonts.families.insert(
+        FontFamily::Name(BOLD_ITALIC_FONT_NAME.to_string().into()),
+        vec![BOLD_ITALIC_FONT_NAME.to_string()],
+    );
 
     ctx.set_fonts(fonts);
 }
@@ -227,21 +247,30 @@ fn setup_fonts(ctx: &egui::Context) {
 struct TerminalFonts {
     regular: FontFamily,
     bold: FontFamily,
+    italic: FontFamily,
+    bold_italic: FontFamily,
 }
 
 impl TerminalFonts {
     fn new() -> Self {
         let bold = FontFamily::Name(BOLD_FONT_NAME.to_string().into());
         let regular = FontFamily::Name(REGULAR_FONT_NAME.to_string().into());
+        let italic = FontFamily::Name(ITALIC_FONT_NAME.to_string().into());
+        let bold_italic = FontFamily::Name(BOLD_ITALIC_FONT_NAME.to_string().into());
 
-        Self { regular, bold }
+        Self { regular, bold, italic, bold_italic }
     }
 
-    fn get_family(&self, is_bold: bool) -> FontFamily {
-        if is_bold {
-            self.bold.clone()
-        } else {
+    fn get_family(&self, is_bold: bool, is_italic: bool) -> FontFamily {
+        if !is_bold && !is_italic {
             self.regular.clone()
+        } else if is_bold && !is_italic {
+            self.bold.clone()
+        } else if !is_bold && is_italic {
+            self.italic.clone()
+        } else {
+            info!("Using bold italic font");
+            self.bold_italic.clone()
         }
     }
 }
@@ -316,7 +345,7 @@ fn add_terminal_data_to_ui(
             range.end = data.len();
         }
 
-        textformat.font_id.family = terminal_fonts.get_family(tag.bold);
+        textformat.font_id.family = terminal_fonts.get_family(tag.bold, tag.italic);
         textformat.font_id.size = font_size;
         textformat.color = terminal_color_to_egui(default_color, color);
 

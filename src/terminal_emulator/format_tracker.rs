@@ -64,6 +64,7 @@ fn adjust_existing_format_range(
                 end: existing_elem.end,
                 color: existing_elem.color,
                 bold: existing_elem.bold,
+                italic: existing_elem.italic,
             });
         }
 
@@ -143,6 +144,10 @@ enum LoadFormatTagSnapshotError {
     BoldMissing,
     #[error("bold element not bool")]
     BoldNotBool,
+    #[error("italic element not present")]
+    ItalicNotPresent,
+    #[error("italic element not bool")]
+    ItalicNotBool,
     #[error("color element is missing")]
     ColorMissing,
     #[error("color not a string")]
@@ -168,6 +173,7 @@ mod format_tag_keys {
     pub const END: &str = "end";
     pub const COLOR: &str = "color";
     pub const BOLD: &str = "bold";
+    pub const ITALIC: &str = "italic";
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -176,13 +182,14 @@ pub struct FormatTag {
     pub end: usize,
     pub color: TerminalColor,
     pub bold: bool,
+    pub italic: bool,
 }
 
 impl FormatTag {
     fn from_snapshot(snapshot: SnapshotItem) -> Result<Self, LoadFormatTagSnapshotError> {
         use LoadFormatTagSnapshotError::{
             BoldMissing, BoldNotBool, ColorMissing, ColorNotString, EndMissing, EndNotInt,
-            EndNotUsize, ParseColor, RootNotMap, StartMissing, StartNotUsize,
+            EndNotUsize, ParseColor, RootNotMap, StartMissing, StartNotUsize, ItalicNotPresent, ItalicNotBool,
         };
         let mut root = snapshot.into_map().map_err(|_| RootNotMap)?;
 
@@ -200,6 +207,9 @@ impl FormatTag {
         let bold = root.remove(format_tag_keys::BOLD).ok_or(BoldMissing)?;
         let bold = bold.into_bool().map_err(|_| BoldNotBool)?;
 
+        let italic = root.remove(format_tag_keys::ITALIC).ok_or(ItalicNotPresent)?;
+        let italic = italic.into_bool().map_err(|_| ItalicNotBool)?;
+
         let color = root.remove(format_tag_keys::COLOR).ok_or(ColorMissing)?;
         let color = color.into_string().map_err(|_| ColorNotString)?;
         let color = color.parse().map_err(ParseColor)?;
@@ -209,6 +219,7 @@ impl FormatTag {
             end,
             color,
             bold,
+            italic,
         })
     }
 
@@ -257,6 +268,7 @@ impl FormatTracker {
                 end: usize::MAX,
                 color: TerminalColor::Default,
                 bold: false,
+                italic: false,
             }],
         }
     }
@@ -288,6 +300,7 @@ impl FormatTracker {
             end: range.end,
             color: cursor.color,
             bold: cursor.bold,
+            italic: cursor.italic,
         });
 
         // FIXME: Insertion sort
@@ -375,6 +388,7 @@ mod test {
             pos: CursorPos { x: 0, y: 0 },
             color: TerminalColor::Default,
             bold: false,
+            italic: false,
         };
 
         cursor_state.color = TerminalColor::Yellow;
@@ -387,19 +401,22 @@ mod test {
                     start: 0,
                     end: 3,
                     color: TerminalColor::Default,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 3,
                     end: 10,
                     color: TerminalColor::Yellow,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 10,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
             ]
         );
@@ -414,31 +431,36 @@ mod test {
                     start: 0,
                     end: 3,
                     color: TerminalColor::Default,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 3,
                     end: 5,
                     color: TerminalColor::Yellow,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 5,
                     end: 7,
                     color: TerminalColor::Blue,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 7,
                     end: 10,
                     color: TerminalColor::Yellow,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 10,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
             ]
         );
@@ -453,37 +475,43 @@ mod test {
                     start: 0,
                     end: 3,
                     color: TerminalColor::Default,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 3,
                     end: 5,
                     color: TerminalColor::Yellow,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 5,
                     end: 7,
                     color: TerminalColor::Blue,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 7,
                     end: 9,
                     color: TerminalColor::Green,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 9,
                     end: 10,
                     color: TerminalColor::Yellow,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 10,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
             ]
         );
@@ -499,31 +527,36 @@ mod test {
                     start: 0,
                     end: 3,
                     color: TerminalColor::Default,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 3,
                     end: 5,
                     color: TerminalColor::Yellow,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 5,
                     end: 6,
                     color: TerminalColor::Blue,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 6,
                     end: 11,
                     color: TerminalColor::Red,
-                    bold: true
+                    bold: true,
+                    italic: false,
                 },
                 FormatTag {
                     start: 11,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
             ]
         );
@@ -546,6 +579,7 @@ mod test {
             pos: CursorPos { x: 0, y: 0 },
             color: TerminalColor::Blue,
             bold: false,
+            italic: false,
         };
         format_tracker.push_range(&cursor, 0..10);
         cursor.color = TerminalColor::Red;
@@ -559,19 +593,22 @@ mod test {
                     start: 0,
                     end: 8,
                     color: TerminalColor::Blue,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 8,
                     end: 18,
                     color: TerminalColor::Red,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 18,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 }
             ]
         );
@@ -584,19 +621,22 @@ mod test {
                     start: 0,
                     end: 6,
                     color: TerminalColor::Blue,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 6,
                     end: 16,
                     color: TerminalColor::Red,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 16,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 }
             ]
         );
@@ -609,19 +649,22 @@ mod test {
                     start: 0,
                     end: 4,
                     color: TerminalColor::Blue,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 4,
                     end: 14,
                     color: TerminalColor::Red,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 14,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 }
             ]
         );
@@ -634,19 +677,22 @@ mod test {
                     start: 0,
                     end: 2,
                     color: TerminalColor::Blue,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 2,
                     end: 9,
                     color: TerminalColor::Red,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 9,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false
+                    bold: false,
+                    italic: false,
                 }
             ]
         );
@@ -659,6 +705,7 @@ mod test {
             pos: CursorPos { x: 0, y: 0 },
             color: TerminalColor::Blue,
             bold: false,
+            italic: false,
         };
         format_tracker.push_range(&cursor, 0..5);
         cursor.color = TerminalColor::Red;
@@ -672,18 +719,21 @@ mod test {
                     end: 5,
                     color: TerminalColor::Blue,
                     bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 5,
                     end: 10,
                     color: TerminalColor::Red,
                     bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 10,
                     end: usize::MAX,
                     color: TerminalColor::Default,
                     bold: false,
+                    italic: false,
                 },
             ]
         );
@@ -698,18 +748,21 @@ mod test {
                     end: 8,
                     color: TerminalColor::Blue,
                     bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 8,
                     end: 13,
                     color: TerminalColor::Red,
                     bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 13,
                     end: usize::MAX,
                     color: TerminalColor::Default,
                     bold: false,
+                    italic: false,
                 },
             ]
         );
@@ -724,18 +777,21 @@ mod test {
                     end: 8,
                     color: TerminalColor::Blue,
                     bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 8,
                     end: 13,
                     color: TerminalColor::Red,
                     bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 13,
                     end: usize::MAX,
                     color: TerminalColor::Default,
                     bold: false,
+                    italic: false,
                 },
             ]
         );
@@ -751,18 +807,21 @@ mod test {
                     end: 8,
                     color: TerminalColor::Blue,
                     bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 8,
                     end: 15,
                     color: TerminalColor::Red,
                     bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 15,
                     end: usize::MAX,
                     color: TerminalColor::Default,
                     bold: false,
+                    italic: false,
                 },
             ]
         );
@@ -776,6 +835,7 @@ mod test {
             end: usize::MAX,
             color: TerminalColor::Blue,
             bold: true,
+            italic: false,
         };
 
         let loaded = FormatTag::from_snapshot(tag.snapshot().expect("failed to snapshot"))
@@ -788,6 +848,7 @@ mod test {
             end: 105,
             color: TerminalColor::Red,
             bold: false,
+            italic: false,
         };
         let loaded = FormatTag::from_snapshot(tag.snapshot().expect("failed to snapshot"))
             .expect("failed to load snapshot");
@@ -803,12 +864,14 @@ mod test {
                     end: 5,
                     color: TerminalColor::Black,
                     bold: false,
+                    italic: false,
                 },
                 FormatTag {
                     start: 5,
                     end: usize::MAX,
                     color: TerminalColor::Red,
                     bold: true,
+                    italic: false,
                 },
             ],
         };

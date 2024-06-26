@@ -15,6 +15,7 @@ pub enum SelectGraphicRendition {
     // NOTE: Non-exhaustive list
     Reset,
     Bold,
+    Italic,
     ForegroundBlack,
     ForegroundRed,
     ForegroundGreen,
@@ -39,6 +40,7 @@ impl SelectGraphicRendition {
         match val {
             0 => Self::Reset,
             1 => Self::Bold,
+            3 => Self::Italic,
             30 => Self::ForegroundBlack,
             31 => Self::ForegroundRed,
             32 => Self::ForegroundGreen,
