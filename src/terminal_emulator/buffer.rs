@@ -720,7 +720,7 @@ mod test {
         assert_eq!(response.new_cursor_pos, CursorPos { x: 4, y: 1 });
         assert_eq!(canvas.data().visible, b"as        \n1234      12345\n");
 
-        // Insertion at non-existant buffer pos
+        // Insertion at non-existent buffer pos
         let response = canvas.insert_spaces(&CursorPos { x: 2, y: 4 }, 3);
         assert_eq!(response.written_range, 30..33);
         assert_eq!(response.insertion_range, 27..34);

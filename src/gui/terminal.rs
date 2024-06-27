@@ -314,7 +314,7 @@ pub const fn lookup_256_color_by_index(index: usize) -> (usize, usize, usize) {
         15 | 231 => (255, 255, 255),
         // gray scale
         232..=255 => {
-            let value = (2056 + 2570 * (index - 232) ) / 256;
+            let value = (2056 + 2570 * (index - 232)) / 256;
 
             (value, value, value)
         }
@@ -326,7 +326,6 @@ pub const fn lookup_256_color_by_index(index: usize) -> (usize, usize, usize) {
             let g = cube_component(index, 6);
             let b = cube_component(index, 1);
             (r, g, b)
-
         }
     }
 }

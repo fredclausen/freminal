@@ -462,6 +462,9 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             SelectGraphicRendition::Italic => {
                 self.cursor_state.italic = true;
             }
+            SelectGraphicRendition::ResetBold => {
+                self.cursor_state.bold = false;
+            }
             SelectGraphicRendition::DefaultForeground => {
                 self.cursor_state.color = TerminalColor::Default;
             }
