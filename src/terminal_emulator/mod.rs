@@ -297,7 +297,9 @@ impl CursorState {
             Err(BoldNotBool)?
         };
 
-        let italic = map.remove(cursor_state_keys::ITALIC).ok_or(BoldNotPresent)?;
+        let italic = map
+            .remove(cursor_state_keys::ITALIC)
+            .ok_or(BoldNotPresent)?;
         let SnapshotItem::Bool(italic) = italic else {
             Err(BoldNotBool)?
         };
@@ -313,7 +315,12 @@ impl CursorState {
         let pos = map.remove(cursor_state_keys::POS).ok_or(PosNotPresent)?;
         let pos = CursorPos::from_snapshot(pos).map_err(FailParsePos)?;
 
-        Ok(Self { pos, bold, italic, color })
+        Ok(Self {
+            pos,
+            bold,
+            italic,
+            color,
+        })
     }
 
     fn snapshot(&self) -> Result<SnapshotItem, SnapshotCursorPosError> {
@@ -343,6 +350,7 @@ pub enum TerminalColor {
     Magenta,
     Cyan,
     White,
+    Custom(u8, u8, u8),
 }
 
 impl fmt::Display for TerminalColor {
@@ -357,6 +365,9 @@ impl fmt::Display for TerminalColor {
             Self::Magenta => "magenta",
             Self::Cyan => "cyan",
             Self::White => "white",
+            Self::Custom(r, g, b) => {
+                return write!(f, "rgb({r}, {g}, {b})");
+            }
         };
 
         f.write_str(s)
@@ -384,7 +395,7 @@ impl std::str::FromStr for TerminalColor {
 }
 
 impl TerminalColor {
-    const fn from_sgr(sgr: SelectGraphicRendition) -> Option<Self> {
+    fn from_sgr(sgr: SelectGraphicRendition) -> Option<Self> {
         let ret = match sgr {
             SelectGraphicRendition::ForegroundBlack => Self::Black,
             SelectGraphicRendition::ForegroundRed => Self::Red,
@@ -394,6 +405,13 @@ impl TerminalColor {
             SelectGraphicRendition::ForegroundMagenta => Self::Magenta,
             SelectGraphicRendition::ForegroundCyan => Self::Cyan,
             SelectGraphicRendition::ForegroundWhite => Self::White,
+            SelectGraphicRendition::ForegroundCustom(r, g, b) => {
+                let r = u8::try_from(r).ok()?;
+                let g = u8::try_from(g).ok()?;
+                let b = u8::try_from(b).ok()?;
+
+                Self::Custom(r, g, b)
+            }
             _ => return None,
         };
 
@@ -677,7 +695,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     fn sgr(&mut self, sgr: SelectGraphicRendition) {
         if let Some(color) = TerminalColor::from_sgr(sgr) {
             self.cursor_state.color = color;
-            return
+            return;
         }
 
         match sgr {
@@ -695,11 +713,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             SelectGraphicRendition::DefaultForeground => {
                 self.cursor_state.color = TerminalColor::Default;
             }
-            SelectGraphicRendition::FastBlink | SelectGraphicRendition::SlowBlink => {
-                // Blinking is not supported
-                warn!("Blinking is not supported");
-                return
-            }
+            SelectGraphicRendition::FastBlink | SelectGraphicRendition::SlowBlink => (),
             _ => {
                 warn!("Unhandled sgr: {:?}", sgr);
             }

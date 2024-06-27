@@ -189,7 +189,8 @@ impl FormatTag {
     fn from_snapshot(snapshot: SnapshotItem) -> Result<Self, LoadFormatTagSnapshotError> {
         use LoadFormatTagSnapshotError::{
             BoldMissing, BoldNotBool, ColorMissing, ColorNotString, EndMissing, EndNotInt,
-            EndNotUsize, ParseColor, RootNotMap, StartMissing, StartNotUsize, ItalicNotPresent, ItalicNotBool,
+            EndNotUsize, ItalicNotBool, ItalicNotPresent, ParseColor, RootNotMap, StartMissing,
+            StartNotUsize,
         };
         let mut root = snapshot.into_map().map_err(|_| RootNotMap)?;
 
@@ -207,7 +208,9 @@ impl FormatTag {
         let bold = root.remove(format_tag_keys::BOLD).ok_or(BoldMissing)?;
         let bold = bold.into_bool().map_err(|_| BoldNotBool)?;
 
-        let italic = root.remove(format_tag_keys::ITALIC).ok_or(ItalicNotPresent)?;
+        let italic = root
+            .remove(format_tag_keys::ITALIC)
+            .ok_or(ItalicNotPresent)?;
         let italic = italic.into_bool().map_err(|_| ItalicNotBool)?;
 
         let color = root.remove(format_tag_keys::COLOR).ok_or(ColorMissing)?;

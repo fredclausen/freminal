@@ -16,7 +16,7 @@ use thiserror::Error;
 
 use std::path::{Path, PathBuf};
 
-mod terminal;
+pub mod terminal;
 
 fn set_egui_options(ctx: &egui::Context) {
     ctx.options_mut(|options| {

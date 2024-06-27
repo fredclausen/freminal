@@ -7,6 +7,7 @@ use super::{
     recording::{NotIntOfType, NotMap},
     Mode,
 };
+use crate::gui::terminal::lookup_256_color_by_index;
 use crate::terminal_emulator::recording::SnapshotItem;
 use thiserror::Error;
 
@@ -26,6 +27,8 @@ pub enum SelectGraphicRendition {
     ForegroundMagenta,
     ForegroundCyan,
     ForegroundWhite,
+    ForegroundCustom(usize, usize, usize),
+    BackgroundCustom(usize, usize, usize),
     ForegroundBrightBlack,
     ForegroundBrightRed,
     ForegroundBrightGreen,
@@ -39,7 +42,7 @@ pub enum SelectGraphicRendition {
 }
 
 impl SelectGraphicRendition {
-    const fn from_usize(val: usize) -> Self {
+    fn from_usize(val: usize) -> Self {
         match val {
             0 => Self::Reset,
             1 => Self::Bold,
@@ -54,6 +57,14 @@ impl SelectGraphicRendition {
             35 => Self::ForegroundMagenta,
             36 => Self::ForegroundCyan,
             37 => Self::ForegroundWhite,
+            38 => {
+                error!("We shouldn't end up here! Setting custom foreground color to black");
+                Self::ForegroundCustom(0, 0, 0)
+            }
+            48 => {
+                error!("We shouldn't end up here! Setting custom background color to black");
+                Self::ForegroundCustom(0, 0, 0)
+            }
             39 => Self::DefaultForeground,
             90 => Self::ForegroundBrightBlack,
             91 => Self::ForegroundBrightRed,
@@ -63,6 +74,14 @@ impl SelectGraphicRendition {
             95 => Self::ForegroundBrightMagenta,
             96 => Self::ForegroundBrightCyan,
             97 => Self::ForegroundBrightWhite,
+            _ => Self::Unknown(val),
+        }
+    }
+
+    const fn from_usize_color(val: usize, r: usize, g: usize, b: usize) -> Self {
+        match val {
+            38 => Self::ForegroundCustom(r, g, b),
+            48 => Self::BackgroundCustom(r, g, b),
             _ => Self::Unknown(val),
         }
     }
@@ -654,10 +673,90 @@ impl FreminalAnsiParser {
                                 params[0] = Some(0);
                             }
 
-                            for param in params {
-                                let Some(param) = param else {
-                                    continue;
+                            let mut param_iter = params.into_iter();
+                            loop {
+                                let param = param_iter.next();
+                                let Some(mut param) = param.unwrap_or(None) else {
+                                    break;
                                 };
+
+                                // if control code is 38 or 48, we need to read the next param
+                                // otherwise, store the param as is
+
+                                if param == 38 || param == 48 {
+                                    let custom_color_control_code = param;
+                                    let custom_color_r: usize;
+                                    let custom_color_g: usize;
+                                    let custom_color_b: usize;
+
+                                    param = if let Some(Some(param)) = param_iter.next() { param } else {
+                                        warn!("Invalid SGR sequence: {}", param);
+                                        output.push(TerminalOutput::Invalid);
+                                        continue;
+                                   };
+
+                                    match param {
+                                        2 => {
+                                            custom_color_r = if let Some(Some(param)) = param_iter.next() { param } else {
+                                                warn!("Invalid SGR sequence: {}", param);
+                                                 output.push(TerminalOutput::Invalid);
+                                                 continue;
+                                             };
+                                            custom_color_g = if let Some(Some(param)) = param_iter.next() { param } else {
+                                                warn!("Invalid SGR sequence: {}", param);
+                                                 output.push(TerminalOutput::Invalid);
+                                                 continue;
+                                             };
+                                            custom_color_b = if let Some(Some(param)) = param_iter.next() { param } else {
+                                                warn!("Invalid SGR sequence: {}", param);
+                                                 output.push(TerminalOutput::Invalid);
+                                                 continue;
+                                             };
+
+                                            // lets make sure the iterator is empty now. Otherwise, it's an invalid sequence
+                                            if param_iter.next().is_some() {
+                                                warn!("Invalid SGR sequence: {}", param);
+                                                output.push(TerminalOutput::Invalid);
+                                                continue;
+                                            }
+                                        }
+                                        5 => {
+                                            let Some(Some(lookup)) = param_iter.next() else {
+                                                warn!("Invalid SGR sequence: {}", param);
+                                                  output.push(TerminalOutput::Invalid);
+                                                  continue;
+                                              };
+
+                                            // lets make sure the iterator is empty now. Otherwise, it's an invalid sequence
+                                            if param_iter.next().is_some() {
+                                                warn!("Invalid SGR sequence: {}", param);
+                                                output.push(TerminalOutput::Invalid);
+                                                continue;
+                                            }
+
+                                            // look up the rgb
+
+                                            (custom_color_r, custom_color_g, custom_color_b) =
+                                                lookup_256_color_by_index(lookup);
+                                        }
+                                        _ => {
+                                            warn!("Invalid SGR sequence: {}", param);
+                                            output.push(TerminalOutput::Invalid);
+                                            continue;
+                                        }
+                                    }
+
+                                    output.push(TerminalOutput::Sgr(
+                                        SelectGraphicRendition::from_usize_color(
+                                            custom_color_control_code,
+                                            custom_color_r,
+                                            custom_color_g,
+                                            custom_color_b,
+                                        ),
+                                    ));
+                                    continue;
+                                }
+
                                 output.push(TerminalOutput::Sgr(
                                     SelectGraphicRendition::from_usize(param),
                                 ));
