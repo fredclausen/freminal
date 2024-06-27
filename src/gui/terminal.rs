@@ -269,7 +269,6 @@ impl TerminalFonts {
         } else if !is_bold && is_italic {
             self.italic.clone()
         } else {
-            info!("Using bold italic font");
             self.bold_italic.clone()
         }
     }

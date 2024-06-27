@@ -16,6 +16,8 @@ pub enum SelectGraphicRendition {
     Reset,
     Bold,
     Italic,
+    SlowBlink,
+    FastBlink,
     ForegroundBlack,
     ForegroundRed,
     ForegroundGreen,
@@ -32,6 +34,7 @@ pub enum SelectGraphicRendition {
     ForegroundBrightMagenta,
     ForegroundBrightCyan,
     ForegroundBrightWhite,
+    DefaultForeground,
     Unknown(usize),
 }
 
@@ -41,6 +44,8 @@ impl SelectGraphicRendition {
             0 => Self::Reset,
             1 => Self::Bold,
             3 => Self::Italic,
+            5 => Self::SlowBlink,
+            6 => Self::FastBlink,
             30 => Self::ForegroundBlack,
             31 => Self::ForegroundRed,
             32 => Self::ForegroundGreen,
@@ -49,6 +54,7 @@ impl SelectGraphicRendition {
             35 => Self::ForegroundMagenta,
             36 => Self::ForegroundCyan,
             37 => Self::ForegroundWhite,
+            39 => Self::DefaultForeground,
             90 => Self::ForegroundBrightBlack,
             91 => Self::ForegroundBrightRed,
             92 => Self::ForegroundBrightGreen,

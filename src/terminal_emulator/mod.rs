@@ -677,16 +677,32 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     fn sgr(&mut self, sgr: SelectGraphicRendition) {
         if let Some(color) = TerminalColor::from_sgr(sgr) {
             self.cursor_state.color = color;
-        } else if sgr == SelectGraphicRendition::Reset {
-            self.cursor_state.color = TerminalColor::Default;
-            self.cursor_state.bold = false;
-            self.cursor_state.italic = false;
-        } else if sgr == SelectGraphicRendition::Bold {
-            self.cursor_state.bold = true;
-        } else if sgr == SelectGraphicRendition::Italic {
-            self.cursor_state.italic = true;
-        } else {
-            warn!("Unhandled sgr: {:?}", sgr);
+            return
+        }
+
+        match sgr {
+            SelectGraphicRendition::Reset => {
+                self.cursor_state.color = TerminalColor::Default;
+                self.cursor_state.bold = false;
+                self.cursor_state.italic = false;
+            }
+            SelectGraphicRendition::Bold => {
+                self.cursor_state.bold = true;
+            }
+            SelectGraphicRendition::Italic => {
+                self.cursor_state.italic = true;
+            }
+            SelectGraphicRendition::DefaultForeground => {
+                self.cursor_state.color = TerminalColor::Default;
+            }
+            SelectGraphicRendition::FastBlink | SelectGraphicRendition::SlowBlink => {
+                // Blinking is not supported
+                warn!("Blinking is not supported");
+                return
+            }
+            _ => {
+                warn!("Unhandled sgr: {:?}", sgr);
+            }
         }
     }
 
