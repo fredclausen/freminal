@@ -3,32 +3,23 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use std::{fmt, num::TryFromIntError, path::PathBuf};
+use std::fmt;
 
 use ansi::{FreminalAnsiParser, SelectGraphicRendition, TerminalOutput};
 use buffer::TerminalBufferHolder;
 use format_tracker::FormatTracker;
-use recording::{NotIntOfType, Recorder};
 
 pub use format_tracker::FormatTag;
 pub use io::{FreminalPtyInputOutput, FreminalTermInputOutput};
-pub use recording::{FreminalRecordingHandle, LoadRecordingError, Recording, SnapshotItem};
-pub use replay::{ControlAction, FreminalReplayControl, FreminalReplayIo};
 
 use crate::{error::backtraced_err, terminal_emulator::io::ReadResponse};
-use thiserror::Error;
 
-use self::{
-    io::CreatePtyIoError,
-    recording::{FreminalRecordingItem, StartRecordingResponse},
-};
+use self::io::CreatePtyIoError;
 
 mod ansi;
 mod buffer;
 mod format_tracker;
 mod io;
-mod recording;
-mod replay;
 
 #[derive(Eq, PartialEq)]
 enum Mode {
@@ -179,102 +170,11 @@ fn split_format_data_for_scrollback(
     }
 }
 
-#[derive(Debug, Error)]
-enum SnapshotCursorPosErrorPriv {
-    #[error("x pos cannot be cast to i64")]
-    XNotI64(#[source] TryFromIntError),
-    #[error("y pos cannot be cast to i64")]
-    YNotI64(#[source] TryFromIntError),
-}
-
-#[derive(Debug, Error)]
-#[error(transparent)]
-pub struct SnapshotCursorPosError(#[from] SnapshotCursorPosErrorPriv);
-
-#[derive(Debug, Error)]
-enum LoadCursorPosError {
-    #[error("root element is not a map")]
-    RootNotMap,
-    #[error("x element not present")]
-    MissingX,
-    #[error("x cannot be case to usize")]
-    XNotUsize(#[source] NotIntOfType),
-    #[error("y element not present")]
-    MissingY,
-    #[error("y cannot be case to usize")]
-    YNotUsize(#[source] NotIntOfType),
-}
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CursorPos {
     pub x: usize,
     pub y: usize,
 }
-
-impl CursorPos {
-    fn from_snapshot(snapshot: SnapshotItem) -> Result<Self, LoadCursorPosError> {
-        use LoadCursorPosError::{MissingX, MissingY, RootNotMap, XNotUsize, YNotUsize};
-
-        let mut map = snapshot.into_map().map_err(|_| RootNotMap)?;
-
-        let x = map.remove("x").ok_or(MissingX)?;
-        let x = x.into_num::<usize>().map_err(XNotUsize)?;
-
-        let y = map.remove("y").ok_or(MissingY)?;
-        let y = y.into_num::<usize>().map_err(YNotUsize)?;
-
-        Ok(Self { x, y })
-    }
-
-    fn snapshot(&self) -> Result<SnapshotItem, SnapshotCursorPosErrorPriv> {
-        use SnapshotCursorPosErrorPriv::{XNotI64, YNotI64};
-        let x_i64: i64 = self.x.try_into().map_err(XNotI64)?;
-        let y_i64: i64 = self.y.try_into().map_err(YNotI64)?;
-        let res = SnapshotItem::Map(
-            [
-                ("x".to_string(), x_i64.into()),
-                ("y".to_string(), y_i64.into()),
-            ]
-            .into(),
-        );
-        Ok(res)
-    }
-}
-
-mod cursor_state_keys {
-    pub const POS: &str = "pos";
-    pub const BOLD: &str = "bold";
-    pub const ITALIC: &str = "italic";
-    pub const COLOR: &str = "color";
-}
-
-#[derive(Debug, Error)]
-enum LoadCursorStateErrorPriv {
-    #[error("root element is not a map")]
-    RootNotMap,
-    #[error("bold field is not present")]
-    BoldNotPresent,
-    #[error("bold field is not a bool")]
-    BoldNotBool,
-    #[error("italic field is not present")]
-    ItalicNotPresent,
-    #[error("italic field is not a bool")]
-    ItalicNotBool,
-    #[error("color field is not present")]
-    ColorNotPresent,
-    #[error("color field is not a bool")]
-    ColorNotString,
-    #[error("color failed to parse")]
-    ColorInvalid(()),
-    #[error("pos field not present")]
-    PosNotPresent,
-    #[error("failed to parse position")]
-    FailParsePos(#[source] LoadCursorPosError),
-}
-
-#[derive(Error, Debug)]
-#[error(transparent)]
-pub struct LoadCursorStateError(#[from] LoadCursorStateErrorPriv);
 
 #[derive(Eq, PartialEq, Debug, Clone)]
 struct CursorState {
@@ -282,61 +182,6 @@ struct CursorState {
     bold: bool,
     italic: bool,
     color: TerminalColor,
-}
-
-impl CursorState {
-    fn from_snapshot(snapshot: SnapshotItem) -> Result<Self, LoadCursorStateError> {
-        use LoadCursorStateErrorPriv::{
-            BoldNotBool, BoldNotPresent, ColorInvalid, ColorNotPresent, ColorNotString,
-            FailParsePos, PosNotPresent, RootNotMap,
-        };
-        let mut map = snapshot.into_map().map_err(|_| RootNotMap)?;
-
-        let bold = map.remove(cursor_state_keys::BOLD).ok_or(BoldNotPresent)?;
-        let SnapshotItem::Bool(bold) = bold else {
-            Err(BoldNotBool)?
-        };
-
-        let italic = map
-            .remove(cursor_state_keys::ITALIC)
-            .ok_or(BoldNotPresent)?;
-        let SnapshotItem::Bool(italic) = italic else {
-            Err(BoldNotBool)?
-        };
-
-        let color = map
-            .remove(cursor_state_keys::COLOR)
-            .ok_or(ColorNotPresent)?;
-        let SnapshotItem::String(color) = color else {
-            Err(ColorNotString)?
-        };
-        let color = color.parse().map_err(ColorInvalid)?;
-
-        let pos = map.remove(cursor_state_keys::POS).ok_or(PosNotPresent)?;
-        let pos = CursorPos::from_snapshot(pos).map_err(FailParsePos)?;
-
-        Ok(Self {
-            pos,
-            bold,
-            italic,
-            color,
-        })
-    }
-
-    fn snapshot(&self) -> Result<SnapshotItem, SnapshotCursorPosError> {
-        let res = SnapshotItem::Map(
-            [
-                (cursor_state_keys::POS.to_string(), self.pos.snapshot()?),
-                (cursor_state_keys::BOLD.to_string(), self.bold.into()),
-                (
-                    cursor_state_keys::COLOR.to_string(),
-                    self.color.to_string().into(),
-                ),
-            ]
-            .into(),
-        );
-        Ok(res)
-    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -424,59 +269,12 @@ pub struct TerminalData<T> {
     pub visible: T,
 }
 
-#[derive(Debug, Error)]
-enum StartRecordingErrorPriv {
-    #[error("failed to start recording")]
-    Start(#[from] std::io::Error),
-    #[error("failed to snapshot terminal buffer")]
-    SnapshotBuffer(#[from] buffer::CreateSnapshotError),
-    #[error("failed to snapshot format tracker")]
-    SnapshotFormatTracker(#[from] format_tracker::SnapshotFormatTagError),
-    #[error("failed to snapshot cursor")]
-    SnapshotCursor(#[from] SnapshotCursorPosError),
-}
-
-#[derive(Debug, Error)]
-#[error(transparent)]
-pub struct StartRecordingError(#[from] StartRecordingErrorPriv);
-
-#[derive(Debug, Error)]
-enum LoadSnapshotErrorPriv {
-    #[error("root element is not a map")]
-    RootNotMap,
-    #[error("parser field is not present")]
-    ParserNotPresent,
-    #[error("failed to load parser")]
-    LoadParser(#[from] ansi::LoadSnapshotError),
-    #[error("terminal_buffer field not present")]
-    BufferNotPresent,
-    #[error("failed to load buffer")]
-    LoadBuffer(#[from] buffer::LoadSnapshotError),
-    #[error("format tracker not present")]
-    FormatTrackerNotPresent,
-    #[error("failed to load format tracker")]
-    LoadFormatTracker(#[from] format_tracker::LoadFormatTrackerSnapshotError),
-    #[error("decckm field not present")]
-    DecckmNotPresent,
-    #[error("decckm field not bool")]
-    DecckmNotBool,
-    #[error("cursor_state not present")]
-    CursorStateNotPresent,
-    #[error("failed to load cursor state")]
-    LoadCursorState(#[from] LoadCursorStateError),
-}
-
-#[derive(Debug, Error)]
-#[error(transparent)]
-pub struct LoadSnapshotError(#[from] LoadSnapshotErrorPriv);
-
 pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
     parser: FreminalAnsiParser,
     terminal_buffer: TerminalBufferHolder,
     format_tracker: FormatTracker,
     cursor_state: CursorState,
     decckm_mode: bool,
-    recorder: Recorder,
     io: Io,
 }
 
@@ -484,7 +282,7 @@ pub const TERMINAL_WIDTH: usize = 50;
 pub const TERMINAL_HEIGHT: usize = 16;
 
 impl TerminalEmulator<FreminalPtyInputOutput> {
-    pub fn new(recording_path: PathBuf) -> Result<Self, CreatePtyIoError> {
+    pub fn new() -> Result<Self, CreatePtyIoError> {
         let mut io = FreminalPtyInputOutput::new()?;
 
         if let Err(e) = io.set_win_size(TERMINAL_WIDTH, TERMINAL_HEIGHT) {
@@ -502,54 +300,9 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
                 italic: false,
                 color: TerminalColor::Default,
             },
-            recorder: Recorder::new(recording_path),
             io,
         };
         Ok(ret)
-    }
-}
-
-impl TerminalEmulator<FreminalReplayIo> {
-    pub fn from_snapshot(
-        snapshot: SnapshotItem,
-        io_handle: FreminalReplayIo,
-    ) -> Result<Self, LoadSnapshotError> {
-        use LoadSnapshotErrorPriv::{
-            BufferNotPresent, CursorStateNotPresent, DecckmNotBool, DecckmNotPresent,
-            FormatTrackerNotPresent, LoadBuffer, LoadCursorState, LoadFormatTracker, LoadParser,
-            ParserNotPresent, RootNotMap,
-        };
-
-        let mut root = snapshot.into_map().map_err(|_| RootNotMap)?;
-        let parser =
-            FreminalAnsiParser::from_snapshot(root.remove("parser").ok_or(ParserNotPresent)?)
-                .map_err(LoadParser)?;
-        let terminal_buffer = TerminalBufferHolder::from_snapshot(
-            root.remove("terminal_buffer").ok_or(BufferNotPresent)?,
-        )
-        .map_err(LoadBuffer)?;
-        let format_tracker = FormatTracker::from_snapshot(
-            root.remove("format_tracker")
-                .ok_or(FormatTrackerNotPresent)?,
-        )
-        .map_err(LoadFormatTracker)?;
-        let SnapshotItem::Bool(decckm_mode) = root.remove("decckm_mode").ok_or(DecckmNotPresent)?
-        else {
-            Err(DecckmNotBool)?
-        };
-        let cursor_state =
-            CursorState::from_snapshot(root.remove("cursor_state").ok_or(CursorStateNotPresent)?)
-                .map_err(LoadCursorState)?;
-
-        Ok(Self {
-            parser,
-            terminal_buffer,
-            format_tracker,
-            decckm_mode,
-            cursor_state,
-            recorder: Recorder::new("recordings".into()),
-            io: io_handle,
-        })
     }
 }
 
@@ -570,7 +323,6 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
 
         if response.changed {
             self.io.set_win_size(width_chars, height_chars)?;
-            self.recorder.set_win_size(width_chars, height_chars);
         }
 
         Ok(())
@@ -788,7 +540,6 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
 
             let incoming = &buf[0..read_size];
             debug!("Incoming data: {:?}", std::str::from_utf8(incoming));
-            self.recorder.write(incoming);
             self.handle_incoming_data(incoming);
         }
     }
@@ -804,36 +555,6 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
 
     pub fn cursor_pos(&self) -> CursorPos {
         self.cursor_state.pos.clone()
-    }
-
-    pub fn start_recording(&mut self) -> Result<FreminalRecordingHandle, StartRecordingError> {
-        use StartRecordingErrorPriv::{
-            SnapshotBuffer, SnapshotCursor, SnapshotFormatTracker, Start,
-        };
-
-        let recording_handle = self.recorder.start_recording().map_err(Start)?;
-        match recording_handle {
-            StartRecordingResponse::New(initializer) => {
-                initializer.snapshot_item("parser".to_string(), self.parser.snapshot());
-                initializer.snapshot_item(
-                    "terminal_buffer".to_string(),
-                    self.terminal_buffer.snapshot().map_err(SnapshotBuffer)?,
-                );
-                initializer.snapshot_item(
-                    "format_tracker".to_string(),
-                    self.format_tracker
-                        .snapshot()
-                        .map_err(SnapshotFormatTracker)?,
-                );
-                initializer.snapshot_item("decckm_mode".to_string(), self.decckm_mode.into());
-                initializer.snapshot_item(
-                    "cursor_state".to_string(),
-                    self.cursor_state.snapshot().map_err(SnapshotCursor)?,
-                );
-                Ok(initializer.into_handle())
-            }
-            StartRecordingResponse::Existing(handle) => Ok(handle),
-        }
     }
 }
 
@@ -940,19 +661,5 @@ mod test {
                 },
             ]
         );
-    }
-
-    #[test]
-    fn test_cursor_state_snapshot() {
-        let state = CursorState {
-            pos: CursorPos { x: 10, y: 50 },
-            bold: false,
-            italic: false,
-            color: TerminalColor::Magenta,
-        };
-
-        let snapshot = state.snapshot().expect("failed to create snapshot");
-        let loaded = CursorState::from_snapshot(snapshot).expect("failed to load snapshot");
-        assert_eq!(loaded, state);
     }
 }

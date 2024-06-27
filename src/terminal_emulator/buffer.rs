@@ -3,13 +3,10 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use std::{num::TryFromIntError, ops::Range};
+use std::ops::Range;
 use thiserror::Error;
 
-use super::{
-    recording::{NotIntOfType, SnapshotItem},
-    CursorPos, TerminalData,
-};
+use super::{CursorPos, TerminalData};
 
 /// Calculate the indexes of the start and end of each line in the buffer given an input width.
 /// Ranges do not include newlines. If a newline appears past the width, it does not result in an
@@ -236,48 +233,6 @@ pub struct TerminalBufferSetWinSizeResponse {
     pub new_cursor_pos: CursorPos,
 }
 
-mod terminal_buffer_keys {
-    pub const BUF: &str = "buf";
-    pub const WIDTH: &str = "width";
-    pub const HEIGHT: &str = "height";
-}
-
-#[derive(Debug, Error)]
-enum CreateSnapshotErrorKind {
-    #[error("failed to convert width to i64")]
-    Width(#[source] TryFromIntError),
-    #[error("failed to convert height to i64")]
-    Height(#[source] TryFromIntError),
-}
-
-#[derive(Debug, Error)]
-#[error(transparent)]
-pub struct CreateSnapshotError(#[from] CreateSnapshotErrorKind);
-
-#[derive(Debug, Error)]
-enum LoadSnapshotErrorKind {
-    #[error("root elem is not a map")]
-    NotMap,
-    #[error("buf missing")]
-    BufMissing,
-    #[error("buf is not a vec")]
-    BufNotVec,
-    #[error("buf element is not u8")]
-    BufElemNotU8(#[source] NotIntOfType),
-    #[error("width missing")]
-    WidthMissing,
-    #[error("failed to get width as usize")]
-    WidthNotUsize(#[source] NotIntOfType),
-    #[error("height missing")]
-    HeightMissing,
-    #[error("failed to get height as usize")]
-    HeightNotUsize(#[source] NotIntOfType),
-}
-
-#[derive(Debug, Error)]
-#[error(transparent)]
-pub struct LoadSnapshotError(#[from] LoadSnapshotErrorKind);
-
 #[derive(Eq, PartialEq, Debug)]
 pub struct TerminalBufferHolder {
     buf: Vec<u8>,
@@ -292,52 +247,6 @@ impl TerminalBufferHolder {
             width,
             height,
         }
-    }
-
-    pub fn from_snapshot(snapshot: SnapshotItem) -> Result<Self, LoadSnapshotError> {
-        use LoadSnapshotErrorKind::{
-            BufElemNotU8, BufMissing, BufNotVec, HeightMissing, HeightNotUsize, NotMap,
-            WidthMissing, WidthNotUsize,
-        };
-        let mut root = snapshot.into_map().map_err(|_| NotMap)?;
-
-        let buf = root.remove(terminal_buffer_keys::BUF).ok_or(BufMissing)?;
-        let buf = buf.into_vec().map_err(|_| BufNotVec)?;
-        let buf: Result<Vec<u8>, _> = buf
-            .into_iter()
-            .map(super::recording::SnapshotItem::into_num)
-            .collect();
-        let buf = buf.map_err(BufElemNotU8)?;
-
-        let width = root
-            .remove(terminal_buffer_keys::WIDTH)
-            .ok_or(WidthMissing)?;
-        let width = width.into_num().map_err(WidthNotUsize)?;
-
-        let height = root
-            .remove(terminal_buffer_keys::HEIGHT)
-            .ok_or(HeightMissing)?;
-        let height = height.into_num().map_err(HeightNotUsize)?;
-
-        Ok(Self { buf, width, height })
-    }
-
-    pub fn snapshot(&self) -> Result<SnapshotItem, CreateSnapshotError> {
-        use CreateSnapshotErrorKind::{Height, Width};
-        let width_i64: i64 = self.width.try_into().map_err(Width)?;
-        let height_i64: i64 = self.height.try_into().map_err(Height)?;
-        let ret = SnapshotItem::Map(
-            [
-                (
-                    terminal_buffer_keys::BUF.to_string(),
-                    self.buf.iter().collect(),
-                ),
-                (terminal_buffer_keys::WIDTH.to_string(), width_i64.into()),
-                (terminal_buffer_keys::HEIGHT.to_string(), height_i64.into()),
-            ]
-            .into(),
-        );
-        Ok(ret)
     }
 
     pub fn insert_data(
@@ -899,19 +808,5 @@ mod test {
         assert_eq!(canvas.data().visible, b"0123456789\n\n\nasdf\n");
         assert_eq!(response.deleted_range, 17..22);
         assert_eq!(response.inserted_range, 11..12);
-    }
-
-    #[test]
-    fn test_buffer_snapshot() {
-        let buf = TerminalBufferHolder {
-            buf: vec![1, 5, 9, 11],
-            width: 342,
-            height: 9999,
-        };
-
-        let snapshot = buf.snapshot().expect("failed to snapshot");
-        let loaded =
-            TerminalBufferHolder::from_snapshot(snapshot).expect("failed to load snapshot");
-        assert_eq!(buf, loaded);
     }
 }
