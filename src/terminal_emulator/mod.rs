@@ -176,14 +176,25 @@ pub struct CursorPos {
     pub y: usize,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum FontWeight {
+    Normal,
+    Bold,
+    Faint
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum FontDecorations {
+    Italic,
+    Underline,
+    DoubleUnderline,
+}
+
 #[derive(Eq, PartialEq, Debug, Clone)]
 struct CursorState {
     pos: CursorPos,
-    bold: bool,
-    italic: bool,
-    faint: bool,
-    underline: bool,
-    double_underline: bool,
+    font_weight: FontWeight,
+    font_decorations: Vec<FontDecorations>,
     color: TerminalColor,
 }
 
@@ -299,11 +310,8 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             decckm_mode: false,
             cursor_state: CursorState {
                 pos: CursorPos { x: 0, y: 0 },
-                bold: false,
-                italic: false,
-                faint: false,
-                underline: false,
-                double_underline: false,
+                font_weight: FontWeight::Normal,
+                font_decorations: Vec::new(),
                 color: TerminalColor::Default,
             },
             io,
@@ -459,28 +467,26 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         match sgr {
             SelectGraphicRendition::Reset => {
                 self.cursor_state.color = TerminalColor::Default;
-                self.cursor_state.bold = false;
-                self.cursor_state.italic = false;
-                self.cursor_state.faint = false;
-                self.cursor_state.underline = false;
-                self.cursor_state.double_underline = false;
+                self.cursor_state.font_weight = FontWeight::Normal;
+                self.cursor_state.font_decorations.clear();
             }
             SelectGraphicRendition::Bold => {
-                self.cursor_state.bold = true;
+                self.cursor_state.font_weight = FontWeight::Bold;
             }
             SelectGraphicRendition::Italic => {
-                self.cursor_state.italic = true;
+                // add in FontDecorations::Italic if it's not already there
+                if !self.cursor_state.font_decorations.contains(&FontDecorations::Italic) {
+                    self.cursor_state.font_decorations.push(FontDecorations::Italic);
+                }
             }
-            SelectGraphicRendition::ResetBold => {
-                self.cursor_state.bold = false;
-            }
-            SelectGraphicRendition::NormalIntensity => {
-                self.cursor_state.bold = false;
-                self.cursor_state.faint = false;
+            SelectGraphicRendition::ResetBold | SelectGraphicRendition::NormalIntensity => {
+                self.cursor_state.font_weight = FontWeight::Normal;
             }
             SelectGraphicRendition::NotUnderlined => {
-                self.cursor_state.underline = false;
-                self.cursor_state.double_underline = false;
+                // remove FontDecorations::Underline if it's there
+                self.cursor_state
+                    .font_decorations
+                    .retain(|d| *d != FontDecorations::Underline || *d != FontDecorations::DoubleUnderline);
             }
             SelectGraphicRendition::DefaultForeground => {
                 self.cursor_state.color = TerminalColor::Default;
@@ -589,29 +595,29 @@ mod test {
                 start: 0,
                 end: 5,
                 color: TerminalColor::Blue,
-                bold: true,
-                italic: false,
+                font_weight: FontWeight::Normal,
+                font_decorations: Vec::new(),
             },
             FormatTag {
                 start: 5,
                 end: 7,
                 color: TerminalColor::Red,
-                bold: false,
-                italic: false,
+                font_weight: FontWeight::Normal,
+                font_decorations: Vec::new(),
             },
             FormatTag {
                 start: 7,
                 end: 10,
                 color: TerminalColor::Blue,
-                bold: true,
-                italic: false,
+                font_weight: FontWeight::Normal,
+                font_decorations: Vec::new(),
             },
             FormatTag {
                 start: 10,
                 end: usize::MAX,
                 color: TerminalColor::Red,
-                bold: true,
-                italic: false,
+                font_weight: FontWeight::Normal,
+                font_decorations: Vec::new(),
             },
         ];
 
@@ -629,8 +635,8 @@ mod test {
                 start: 0,
                 end: usize::MAX,
                 color: TerminalColor::Red,
-                bold: true,
-                italic: false,
+                font_weight: FontWeight::Normal,
+                font_decorations: Vec::new(),
             },]
         );
 
@@ -643,22 +649,22 @@ mod test {
                     start: 0,
                     end: 5,
                     color: TerminalColor::Blue,
-                    bold: true,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 5,
                     end: 7,
                     color: TerminalColor::Red,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 7,
                     end: 9,
                     color: TerminalColor::Blue,
-                    bold: true,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
             ]
         );
@@ -669,15 +675,15 @@ mod test {
                     start: 0,
                     end: 1,
                     color: TerminalColor::Blue,
-                    bold: true,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 1,
                     end: usize::MAX,
                     color: TerminalColor::Red,
-                    bold: true,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
             ]
         );

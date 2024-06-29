@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use super::{CursorState, TerminalColor};
+use super::{CursorState, FontWeight, FontDecorations, TerminalColor};
 use std::ops::Range;
 
 const fn ranges_overlap(a: Range<usize>, b: Range<usize>) -> bool {
@@ -60,8 +60,8 @@ fn adjust_existing_format_range(
                 start: range.end,
                 end: existing_elem.end,
                 color: existing_elem.color,
-                bold: existing_elem.bold,
-                italic: existing_elem.italic,
+                font_weight: existing_elem.font_weight.clone(),
+                font_decorations: existing_elem.font_decorations.clone(),
             });
         }
 
@@ -128,8 +128,8 @@ pub struct FormatTag {
     pub start: usize,
     pub end: usize,
     pub color: TerminalColor,
-    pub bold: bool,
-    pub italic: bool,
+    pub font_weight: FontWeight,
+    pub font_decorations: Vec<FontDecorations>,
 }
 
 pub struct FormatTracker {
@@ -143,8 +143,8 @@ impl FormatTracker {
                 start: 0,
                 end: usize::MAX,
                 color: TerminalColor::Default,
-                bold: false,
-                italic: false,
+                font_weight: FontWeight::Normal,
+                font_decorations: Vec::new(),
             }],
         }
     }
@@ -156,8 +156,8 @@ impl FormatTracker {
             start: range.start,
             end: range.end,
             color: cursor.color,
-            bold: cursor.bold,
-            italic: cursor.italic,
+            font_weight: cursor.font_weight.clone(),
+            font_decorations: cursor.font_decorations.clone(),
         });
 
         // FIXME: Insertion sort
@@ -244,11 +244,8 @@ mod test {
         let mut cursor_state = CursorState {
             pos: CursorPos { x: 0, y: 0 },
             color: TerminalColor::Default,
-            bold: false,
-            italic: false,
-            underline: false,
-            double_underline: false,
-            faint: false,
+            font_weight: FontWeight::Normal,
+            font_decorations: Vec::new(),
         };
 
         cursor_state.color = TerminalColor::Yellow;
@@ -261,22 +258,22 @@ mod test {
                     start: 0,
                     end: 3,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 3,
                     end: 10,
                     color: TerminalColor::Yellow,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 10,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
             ]
         );
@@ -291,36 +288,36 @@ mod test {
                     start: 0,
                     end: 3,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 3,
                     end: 5,
                     color: TerminalColor::Yellow,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 5,
                     end: 7,
                     color: TerminalColor::Blue,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 7,
                     end: 10,
                     color: TerminalColor::Yellow,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 10,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
             ]
         );
@@ -335,49 +332,49 @@ mod test {
                     start: 0,
                     end: 3,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 3,
                     end: 5,
                     color: TerminalColor::Yellow,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 5,
                     end: 7,
                     color: TerminalColor::Blue,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 7,
                     end: 9,
                     color: TerminalColor::Green,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 9,
                     end: 10,
                     color: TerminalColor::Yellow,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 10,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
             ]
         );
 
         cursor_state.color = TerminalColor::Red;
-        cursor_state.bold = true;
+        cursor_state.font_weight = FontWeight::Bold;
         format_tracker.push_range(&cursor_state, 6..11);
         let tags = format_tracker.tags();
         assert_eq!(
@@ -387,36 +384,36 @@ mod test {
                     start: 0,
                     end: 3,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 3,
                     end: 5,
                     color: TerminalColor::Yellow,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 5,
                     end: 6,
                     color: TerminalColor::Blue,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 6,
                     end: 11,
                     color: TerminalColor::Red,
-                    bold: true,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 11,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
             ]
         );
@@ -438,11 +435,8 @@ mod test {
         let mut cursor = CursorState {
             pos: CursorPos { x: 0, y: 0 },
             color: TerminalColor::Blue,
-            bold: false,
-            italic: false,
-            underline: false,
-            double_underline: false,
-            faint: false,
+            font_weight: FontWeight::Normal,
+            font_decorations: Vec::new(),
         };
         format_tracker.push_range(&cursor, 0..10);
         cursor.color = TerminalColor::Red;
@@ -456,22 +450,22 @@ mod test {
                     start: 0,
                     end: 8,
                     color: TerminalColor::Blue,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 8,
                     end: 18,
                     color: TerminalColor::Red,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 18,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 }
             ]
         );
@@ -484,22 +478,22 @@ mod test {
                     start: 0,
                     end: 6,
                     color: TerminalColor::Blue,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 6,
                     end: 16,
                     color: TerminalColor::Red,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 16,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 }
             ]
         );
@@ -512,22 +506,22 @@ mod test {
                     start: 0,
                     end: 4,
                     color: TerminalColor::Blue,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 4,
                     end: 14,
                     color: TerminalColor::Red,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 14,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 }
             ]
         );
@@ -540,22 +534,22 @@ mod test {
                     start: 0,
                     end: 2,
                     color: TerminalColor::Blue,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 2,
                     end: 9,
                     color: TerminalColor::Red,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 9,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 }
             ]
         );
@@ -567,11 +561,8 @@ mod test {
         let mut cursor = CursorState {
             pos: CursorPos { x: 0, y: 0 },
             color: TerminalColor::Blue,
-            bold: false,
-            italic: false,
-            underline: false,
-            double_underline: false,
-            faint: false,
+            font_weight: FontWeight::Normal,
+            font_decorations: Vec::new(),
         };
         format_tracker.push_range(&cursor, 0..5);
         cursor.color = TerminalColor::Red;
@@ -584,22 +575,22 @@ mod test {
                     start: 0,
                     end: 5,
                     color: TerminalColor::Blue,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 5,
                     end: 10,
                     color: TerminalColor::Red,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 10,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
             ]
         );
@@ -613,22 +604,22 @@ mod test {
                     start: 0,
                     end: 8,
                     color: TerminalColor::Blue,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 8,
                     end: 13,
                     color: TerminalColor::Red,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 13,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
             ]
         );
@@ -642,22 +633,22 @@ mod test {
                     start: 0,
                     end: 8,
                     color: TerminalColor::Blue,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 8,
                     end: 13,
                     color: TerminalColor::Red,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 13,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
             ]
         );
@@ -672,22 +663,22 @@ mod test {
                     start: 0,
                     end: 8,
                     color: TerminalColor::Blue,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 8,
                     end: 15,
                     color: TerminalColor::Red,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
                 FormatTag {
                     start: 15,
                     end: usize::MAX,
                     color: TerminalColor::Default,
-                    bold: false,
-                    italic: false,
+                    font_weight: FontWeight::Normal,
+                    font_decorations: Vec::new(),
                 },
             ]
         );

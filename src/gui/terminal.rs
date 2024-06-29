@@ -5,7 +5,7 @@
 
 use crate::error::backtraced_err;
 use crate::terminal_emulator::{
-    CursorPos, FormatTag, FreminalTermInputOutput, TerminalColor, TerminalEmulator, TerminalInput,
+    CursorPos, FontDecorations, FontWeight, FormatTag, FreminalTermInputOutput, TerminalColor, TerminalEmulator, TerminalInput
 };
 use eframe::egui::{
     self, text::LayoutJob, Color32, Context, DragValue, Event, FontData, FontDefinitions,
@@ -264,15 +264,15 @@ impl TerminalFonts {
         }
     }
 
-    fn get_family(&self, is_bold: bool, is_italic: bool) -> FontFamily {
-        if !is_bold && !is_italic {
-            self.regular.clone()
-        } else if is_bold && !is_italic {
-            self.bold.clone()
-        } else if !is_bold && is_italic {
-            self.italic.clone()
-        } else {
-            self.bold_italic.clone()
+    fn get_family(&self, font_decs: &[FontDecorations], weight: &FontWeight) -> FontFamily {
+        // FIXME: We need to support a faint weight
+        // FIXME: We probably need to support underline here too
+        match (weight, font_decs.contains(&FontDecorations::Italic)) {
+            (FontWeight::Bold, false) => self.bold.clone(),
+            (FontWeight::Normal, false) => self.regular.clone(),
+            (FontWeight::Normal, true) => self.italic.clone(),
+            (FontWeight::Bold, true) => self.bold_italic.clone(),
+            (FontWeight::Faint, _) => panic!("Faint weight not supported"),
         }
     }
 }
@@ -396,7 +396,7 @@ fn add_terminal_data_to_ui(
             range.end = data.len();
         }
 
-        textformat.font_id.family = terminal_fonts.get_family(tag.bold, tag.italic);
+        textformat.font_id.family = terminal_fonts.get_family(&tag.font_decorations, &tag.font_weight);
         textformat.font_id.size = font_size;
         textformat.color = terminal_color_to_egui(default_color, color);
 
