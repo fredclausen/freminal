@@ -478,6 +478,10 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 self.cursor_state.bold = false;
                 self.cursor_state.faint = false;
             }
+            SelectGraphicRendition::NotUnderlined => {
+                self.cursor_state.underline = false;
+                self.cursor_state.double_underline = false;
+            }
             SelectGraphicRendition::DefaultForeground => {
                 self.cursor_state.color = TerminalColor::Default;
             }
