@@ -181,6 +181,9 @@ struct CursorState {
     pos: CursorPos,
     bold: bool,
     italic: bool,
+    faint: bool,
+    underline: bool,
+    double_underline: bool,
     color: TerminalColor,
 }
 
@@ -298,6 +301,9 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
                 pos: CursorPos { x: 0, y: 0 },
                 bold: false,
                 italic: false,
+                faint: false,
+                underline: false,
+                double_underline: false,
                 color: TerminalColor::Default,
             },
             io,
@@ -455,6 +461,9 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 self.cursor_state.color = TerminalColor::Default;
                 self.cursor_state.bold = false;
                 self.cursor_state.italic = false;
+                self.cursor_state.faint = false;
+                self.cursor_state.underline = false;
+                self.cursor_state.double_underline = false;
             }
             SelectGraphicRendition::Bold => {
                 self.cursor_state.bold = true;
@@ -464,6 +473,10 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             }
             SelectGraphicRendition::ResetBold => {
                 self.cursor_state.bold = false;
+            }
+            SelectGraphicRendition::NormalIntensity => {
+                self.cursor_state.bold = false;
+                self.cursor_state.faint = false;
             }
             SelectGraphicRendition::DefaultForeground => {
                 self.cursor_state.color = TerminalColor::Default;

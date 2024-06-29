@@ -246,6 +246,9 @@ mod test {
             color: TerminalColor::Default,
             bold: false,
             italic: false,
+            underline: false,
+            double_underline: false,
+            faint: false,
         };
 
         cursor_state.color = TerminalColor::Yellow;
@@ -437,6 +440,9 @@ mod test {
             color: TerminalColor::Blue,
             bold: false,
             italic: false,
+            underline: false,
+            double_underline: false,
+            faint: false,
         };
         format_tracker.push_range(&cursor, 0..10);
         cursor.color = TerminalColor::Red;
@@ -563,6 +569,9 @@ mod test {
             color: TerminalColor::Blue,
             bold: false,
             italic: false,
+            underline: false,
+            double_underline: false,
+            faint: false,
         };
         format_tracker.push_range(&cursor, 0..5);
         cursor.color = TerminalColor::Red;
