@@ -98,6 +98,7 @@ pub enum TerminalOutput {
     ClearLineForwards,
     Newline,
     Backspace,
+    Bell,
     InsertLines(usize),
     Delete(usize),
     Sgr(SelectGraphicRendition),
@@ -268,6 +269,12 @@ impl FreminalAnsiParser {
         if b == 0x08 {
             push_data_if_non_empty(data_output, output);
             output.push(TerminalOutput::Backspace);
+            return Err(());
+        }
+
+        if b == 0x07 {
+            push_data_if_non_empty(data_output, output);
+            output.push(TerminalOutput::Bell);
             return Err(());
         }
 

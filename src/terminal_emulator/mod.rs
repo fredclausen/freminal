@@ -553,7 +553,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 TerminalOutput::SetMode(mode) => self.set_mode(&mode),
                 TerminalOutput::InsertSpaces(num_spaces) => self.insert_spaces(num_spaces),
                 TerminalOutput::ResetMode(mode) => self.reset_mode(&mode),
-                TerminalOutput::Invalid => {}
+                TerminalOutput::Bell | TerminalOutput::Invalid => (),
             }
         }
     }
