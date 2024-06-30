@@ -180,7 +180,7 @@ pub struct CursorPos {
 pub enum FontWeight {
     Normal,
     Bold,
-    Faint
+    Faint,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -475,8 +475,14 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             }
             SelectGraphicRendition::Italic => {
                 // add in FontDecorations::Italic if it's not already there
-                if !self.cursor_state.font_decorations.contains(&FontDecorations::Italic) {
-                    self.cursor_state.font_decorations.push(FontDecorations::Italic);
+                if !self
+                    .cursor_state
+                    .font_decorations
+                    .contains(&FontDecorations::Italic)
+                {
+                    self.cursor_state
+                        .font_decorations
+                        .push(FontDecorations::Italic);
                 }
             }
             SelectGraphicRendition::ResetBold | SelectGraphicRendition::NormalIntensity => {
@@ -484,9 +490,9 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             }
             SelectGraphicRendition::NotUnderlined => {
                 // remove FontDecorations::Underline if it's there
-                self.cursor_state
-                    .font_decorations
-                    .retain(|d| *d != FontDecorations::Underline || *d != FontDecorations::DoubleUnderline);
+                self.cursor_state.font_decorations.retain(|d| {
+                    *d != FontDecorations::Underline || *d != FontDecorations::DoubleUnderline
+                });
             }
             SelectGraphicRendition::DefaultForeground => {
                 self.cursor_state.color = TerminalColor::Default;

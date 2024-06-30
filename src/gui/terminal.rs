@@ -5,7 +5,8 @@
 
 use crate::error::backtraced_err;
 use crate::terminal_emulator::{
-    CursorPos, FontDecorations, FontWeight, FormatTag, FreminalTermInputOutput, TerminalColor, TerminalEmulator, TerminalInput
+    CursorPos, FontDecorations, FontWeight, FormatTag, FreminalTermInputOutput, TerminalColor,
+    TerminalEmulator, TerminalInput,
 };
 use eframe::egui::{
     self, text::LayoutJob, Color32, Context, DragValue, Event, FontData, FontDefinitions,
@@ -20,18 +21,38 @@ const BOLD_FONT_NAME: &str = "hack-bold";
 const ITALIC_FONT_NAME: &str = "hack-italic";
 const BOLD_ITALIC_FONT_NAME: &str = "hack-bold-italic";
 
+fn collect_text(text: &String) -> Cow<'static, [TerminalInput]> {
+    text.as_bytes()
+        .iter()
+        .map(|c| TerminalInput::Ascii(*c))
+        .collect::<Vec<_>>()
+        .into()
+}
+
+fn control_key(key: Key) -> Option<Cow<'static, [TerminalInput]>> {
+    if key >= Key::A && key <= Key::Z {
+        let name = key.name();
+        assert!(name.len() == 1);
+        let name_c = name.as_bytes()[0];
+        return Some(vec![TerminalInput::Ctrl(name_c)].into());
+    } else if key == Key::OpenBracket {
+        return Some([TerminalInput::Ctrl(b'[')].as_ref().into());
+    } else if key == Key::CloseBracket {
+        return Some([TerminalInput::Ctrl(b']')].as_ref().into());
+    } else if key == Key::Backslash {
+        return Some([TerminalInput::Ctrl(b'\\')].as_ref().into());
+    }
+
+    None
+}
+
 fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     input: &InputState,
     terminal_emulator: &mut TerminalEmulator<Io>,
 ) {
     for event in &input.raw.events {
         let inputs: Cow<'static, [TerminalInput]> = match event {
-            Event::Text(text) => text
-                .as_bytes()
-                .iter()
-                .map(|c| TerminalInput::Ascii(*c))
-                .collect::<Vec<_>>()
-                .into(),
+            Event::Text(text) => collect_text(text),
             Event::Key {
                 key: Key::Enter,
                 pressed: true,
@@ -47,17 +68,8 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 modifiers: Modifiers { ctrl: true, .. },
                 ..
             } => {
-                if *key >= Key::A && *key <= Key::Z {
-                    let name = key.name();
-                    assert!(name.len() == 1);
-                    let name_c = name.as_bytes()[0];
-                    vec![TerminalInput::Ctrl(name_c)].into()
-                } else if *key == Key::OpenBracket {
-                    [TerminalInput::Ctrl(b'[')].as_ref().into()
-                } else if *key == Key::CloseBracket {
-                    [TerminalInput::Ctrl(b']')].as_ref().into()
-                } else if *key == Key::Backslash {
-                    [TerminalInput::Ctrl(b'\\')].as_ref().into()
+                if let Some(inputs) = control_key(*key) {
+                    inputs
                 } else {
                     info!("Unexpected ctrl key: {}", key.name());
                     continue;
@@ -396,7 +408,8 @@ fn add_terminal_data_to_ui(
             range.end = data.len();
         }
 
-        textformat.font_id.family = terminal_fonts.get_family(&tag.font_decorations, &tag.font_weight);
+        textformat.font_id.family =
+            terminal_fonts.get_family(&tag.font_decorations, &tag.font_weight);
         textformat.font_id.size = font_size;
         textformat.color = terminal_color_to_egui(default_color, color);
 

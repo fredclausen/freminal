@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use super::{CursorState, FontWeight, FontDecorations, TerminalColor};
+use super::{CursorState, FontDecorations, FontWeight, TerminalColor};
 use std::ops::Range;
 
 const fn ranges_overlap(a: Range<usize>, b: Range<usize>) -> bool {
