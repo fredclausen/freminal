@@ -15,7 +15,7 @@ nix = { version = "0.29.0", default-features = false, features = [
     "ioctl",
 ] }
 tempfile = "3.10.1"
-thiserror = "1.0.61"
+thiserror = "1.0.62"
 tinyjson = "2.5.1"
 conv = "0.3.3"
 
