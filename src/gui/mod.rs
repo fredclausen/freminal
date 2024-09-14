@@ -64,7 +64,7 @@ pub fn run(
     eframe::run_native(
         "Freminal",
         native_options,
-        Box::new(move |cc| Box::new(FreminalGui::new(cc, terminal_emulator))),
+        Box::new(move |cc| Ok(Box::new(FreminalGui::new(cc, terminal_emulator)))),
     )?;
     Ok(())
 }

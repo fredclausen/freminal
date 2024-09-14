@@ -35,6 +35,23 @@ pub enum SelectGraphicRendition {
     ForegroundBrightMagenta,
     ForegroundBrightCyan,
     ForegroundBrightWhite,
+    BackgroundBlack,
+    BackgroundRed,
+    BackgroundGreen,
+    BackgroundYellow,
+    BackgroundBlue,
+    BackgroundMagenta,
+    BackgroundCyan,
+    BackgroundWhite,
+    BackgroundBrightBlack,
+    BackgroundBrightRed,
+    BackgroundBrightGreen,
+    BackgroundBrightYellow,
+    BackgroundBrightBlue,
+    BackgroundBrightMagenta,
+    BackgroundBrightCyan,
+    BackgroundBrightWhite,
+    DefaultBackground,
     DefaultForeground,
     Unknown(usize),
 }
@@ -62,11 +79,20 @@ impl SelectGraphicRendition {
                 error!("We shouldn't end up here! Setting custom foreground color to black");
                 Self::ForegroundCustom(0, 0, 0)
             }
+            39 => Self::DefaultForeground,
+            40 => Self::BackgroundBlack,
+            41 => Self::BackgroundRed,
+            42 => Self::BackgroundGreen,
+            43 => Self::BackgroundYellow,
+            44 => Self::BackgroundBlue,
+            45 => Self::BackgroundMagenta,
+            46 => Self::BackgroundCyan,
+            47 => Self::BackgroundWhite,
             48 => {
                 error!("We shouldn't end up here! Setting custom background color to black");
                 Self::ForegroundCustom(0, 0, 0)
             }
-            39 => Self::DefaultForeground,
+            49 => Self::DefaultBackground,
             90 => Self::ForegroundBrightBlack,
             91 => Self::ForegroundBrightRed,
             92 => Self::ForegroundBrightGreen,
@@ -75,6 +101,14 @@ impl SelectGraphicRendition {
             95 => Self::ForegroundBrightMagenta,
             96 => Self::ForegroundBrightCyan,
             97 => Self::ForegroundBrightWhite,
+            100 => Self::BackgroundBrightBlack,
+            101 => Self::BackgroundBrightRed,
+            102 => Self::BackgroundBrightGreen,
+            103 => Self::BackgroundBrightYellow,
+            104 => Self::BackgroundBrightBlue,
+            105 => Self::BackgroundBrightMagenta,
+            106 => Self::BackgroundBrightCyan,
+            107 => Self::BackgroundBrightWhite,
             _ => Self::Unknown(val),
         }
     }
@@ -176,7 +210,7 @@ struct CsiParser {
 }
 
 impl CsiParser {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             state: CsiParserState::Params,
             params: Vec::new(),

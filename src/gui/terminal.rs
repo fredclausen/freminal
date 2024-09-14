@@ -210,22 +210,24 @@ fn setup_fonts(ctx: &egui::Context) {
 
     fonts.font_data.insert(
         REGULAR_FONT_NAME.to_owned(),
-        FontData::from_static(include_bytes!("../../res/Hack-Regular.ttf")),
+        FontData::from_static(include_bytes!("../../res/MesloLGSNerdFontMono-Regular.ttf")),
     );
 
     fonts.font_data.insert(
         BOLD_FONT_NAME.to_owned(),
-        FontData::from_static(include_bytes!("../../res/Hack-Bold.ttf")),
+        FontData::from_static(include_bytes!("../../res/MesloLGSNerdFontMono-Bold.ttf")),
     );
 
     fonts.font_data.insert(
         ITALIC_FONT_NAME.to_owned(),
-        FontData::from_static(include_bytes!("../../res/Hack-Italic.ttf")),
+        FontData::from_static(include_bytes!("../../res/MesloLGSNerdFontMono-Italic.ttf")),
     );
 
     fonts.font_data.insert(
         BOLD_ITALIC_FONT_NAME.to_owned(),
-        FontData::from_static(include_bytes!("../../res/Hack-BoldItalic.ttf")),
+        FontData::from_static(include_bytes!(
+            "../../res/MesloLGSNerdFontMono-BoldItalic.ttf"
+        )),
     );
 
     fonts
@@ -300,6 +302,14 @@ const fn terminal_color_to_egui(default_color: Color32, color: TerminalColor) ->
         TerminalColor::Magenta => Color32::from_rgb(255, 0, 255),
         TerminalColor::Cyan => Color32::from_rgb(0, 255, 255),
         TerminalColor::White => Color32::WHITE,
+        TerminalColor::BrightYellow => Color32::from_rgb(255, 234, 0),
+        TerminalColor::BrightRed => Color32::from_rgb(238, 75, 43),
+        TerminalColor::BrightGreen => Color32::from_rgb(170, 255, 0),
+        TerminalColor::BrightBlue => Color32::from_rgb(0, 150, 255),
+        TerminalColor::BrightMagenta => Color32::from_rgb(255, 0, 205),
+        TerminalColor::BrightCyan => Color32::from_rgb(65, 253, 254),
+        TerminalColor::BrightWhite => Color32::from_rgb(253, 254, 255),
+        TerminalColor::BrightBlack => Color32::from_rgb(34, 32, 36),
         TerminalColor::Custom(r, g, b) => Color32::from_rgb(r, g, b),
     }
 }
@@ -574,7 +584,7 @@ impl FreminalTerminalWidget {
     pub fn show_options(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.label("Font size:");
-            ui.add(DragValue::new(&mut self.font_size).clamp_range(1.0..=100.0));
+            ui.add(DragValue::new(&mut self.font_size).range(1.0..=100.0));
         });
         ui.checkbox(&mut self.debug_renderer.enable, "Debug render");
     }

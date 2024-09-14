@@ -196,6 +196,7 @@ struct CursorState {
     font_weight: FontWeight,
     font_decorations: Vec<FontDecorations>,
     color: TerminalColor,
+    background_color: TerminalColor,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -209,6 +210,14 @@ pub enum TerminalColor {
     Magenta,
     Cyan,
     White,
+    BrightYellow,
+    BrightBlack,
+    BrightRed,
+    BrightGreen,
+    BrightBlue,
+    BrightMagenta,
+    BrightCyan,
+    BrightWhite,
     Custom(u8, u8, u8),
 }
 
@@ -224,6 +233,14 @@ impl fmt::Display for TerminalColor {
             Self::Magenta => "magenta",
             Self::Cyan => "cyan",
             Self::White => "white",
+            Self::BrightYellow => "bright yellow",
+            Self::BrightBlack => "bright black",
+            Self::BrightRed => "bright red",
+            Self::BrightGreen => "bright green",
+            Self::BrightBlue => "bright blue",
+            Self::BrightMagenta => "bright magenta",
+            Self::BrightCyan => "bright cyan",
+            Self::BrightWhite => "bright white",
             Self::Custom(r, g, b) => {
                 return write!(f, "rgb({r}, {g}, {b})");
             }
@@ -247,6 +264,14 @@ impl std::str::FromStr for TerminalColor {
             "magenta" => Self::Magenta,
             "cyan" => Self::Cyan,
             "white" => Self::White,
+            "bright yellow" => Self::BrightYellow,
+            "bright black" => Self::BrightBlack,
+            "bright red" => Self::BrightRed,
+            "bright green" => Self::BrightGreen,
+            "bright blue" => Self::BrightBlue,
+            "bright magenta" => Self::BrightMagenta,
+            "bright cyan" => Self::BrightCyan,
+            "bright white" => Self::BrightWhite,
             _ => return Err(()),
         };
         Ok(ret)
@@ -264,6 +289,14 @@ impl TerminalColor {
             SelectGraphicRendition::ForegroundMagenta => Self::Magenta,
             SelectGraphicRendition::ForegroundCyan => Self::Cyan,
             SelectGraphicRendition::ForegroundWhite => Self::White,
+            SelectGraphicRendition::ForegroundBrightBlack => Self::BrightBlack,
+            SelectGraphicRendition::ForegroundBrightRed => Self::BrightRed,
+            SelectGraphicRendition::ForegroundBrightGreen => Self::BrightGreen,
+            SelectGraphicRendition::ForegroundBrightYellow => Self::BrightYellow,
+            SelectGraphicRendition::ForegroundBrightBlue => Self::BrightBlue,
+            SelectGraphicRendition::ForegroundBrightMagenta => Self::BrightMagenta,
+            SelectGraphicRendition::ForegroundBrightCyan => Self::BrightCyan,
+            SelectGraphicRendition::ForegroundBrightWhite => Self::BrightWhite,
             SelectGraphicRendition::ForegroundCustom(r, g, b) => {
                 let r = u8::try_from(r).ok()?;
                 let g = u8::try_from(g).ok()?;
@@ -313,6 +346,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 color: TerminalColor::Default,
+                background_color: TerminalColor::Black,
             },
             io,
         };
@@ -459,14 +493,15 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     }
 
     fn sgr(&mut self, sgr: SelectGraphicRendition) {
-        if let Some(color) = TerminalColor::from_sgr(sgr) {
-            self.cursor_state.color = color;
-            return;
-        }
+        // if let Some(color) = TerminalColor::from_sgr(sgr) {
+        //     self.cursor_state.color = color;
+        //     return;
+        // }
 
         match sgr {
             SelectGraphicRendition::Reset => {
                 self.cursor_state.color = TerminalColor::Default;
+                self.cursor_state.background_color = TerminalColor::Black;
                 self.cursor_state.font_weight = FontWeight::Normal;
                 self.cursor_state.font_decorations.clear();
             }
@@ -494,8 +529,107 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                     *d != FontDecorations::Underline || *d != FontDecorations::DoubleUnderline
                 });
             }
+            SelectGraphicRendition::ForegroundBlack => {
+                self.cursor_state.color = TerminalColor::Black;
+            }
+            SelectGraphicRendition::ForegroundRed => {
+                self.cursor_state.color = TerminalColor::Red;
+            }
+            SelectGraphicRendition::ForegroundGreen => {
+                self.cursor_state.color = TerminalColor::Green;
+            }
+            SelectGraphicRendition::ForegroundYellow => {
+                self.cursor_state.color = TerminalColor::Yellow;
+            }
+            SelectGraphicRendition::ForegroundBlue => {
+                self.cursor_state.color = TerminalColor::Blue;
+            }
+            SelectGraphicRendition::ForegroundMagenta => {
+                self.cursor_state.color = TerminalColor::Magenta;
+            }
+            SelectGraphicRendition::ForegroundCyan => {
+                self.cursor_state.color = TerminalColor::Cyan;
+            }
+            SelectGraphicRendition::ForegroundWhite => {
+                self.cursor_state.color = TerminalColor::White;
+            }
             SelectGraphicRendition::DefaultForeground => {
                 self.cursor_state.color = TerminalColor::Default;
+            }
+            SelectGraphicRendition::ForegroundBrightYellow => {
+                self.cursor_state.color = TerminalColor::BrightYellow;
+            }
+            SelectGraphicRendition::ForegroundBrightBlack => {
+                self.cursor_state.color = TerminalColor::BrightBlack;
+            }
+            SelectGraphicRendition::ForegroundBrightRed => {
+                self.cursor_state.color = TerminalColor::BrightRed;
+            }
+            SelectGraphicRendition::ForegroundBrightGreen => {
+                self.cursor_state.color = TerminalColor::BrightGreen;
+            }
+            SelectGraphicRendition::ForegroundBrightBlue => {
+                self.cursor_state.color = TerminalColor::BrightBlue;
+            }
+            SelectGraphicRendition::ForegroundBrightMagenta => {
+                self.cursor_state.color = TerminalColor::BrightMagenta;
+            }
+            SelectGraphicRendition::ForegroundBrightCyan => {
+                self.cursor_state.color = TerminalColor::BrightCyan;
+            }
+            SelectGraphicRendition::ForegroundBrightWhite => {
+                self.cursor_state.color = TerminalColor::BrightWhite;
+            }
+            SelectGraphicRendition::DefaultBackground => {
+                self.cursor_state.background_color = TerminalColor::Black;
+            }
+            SelectGraphicRendition::BackgroundBlack => {
+                self.cursor_state.background_color = TerminalColor::Black;
+            }
+            SelectGraphicRendition::BackgroundRed => {
+                self.cursor_state.background_color = TerminalColor::Red;
+            }
+            SelectGraphicRendition::BackgroundGreen => {
+                self.cursor_state.background_color = TerminalColor::Green;
+            }
+            SelectGraphicRendition::BackgroundYellow => {
+                self.cursor_state.background_color = TerminalColor::Yellow;
+            }
+            SelectGraphicRendition::BackgroundBlue => {
+                self.cursor_state.background_color = TerminalColor::Blue;
+            }
+            SelectGraphicRendition::BackgroundMagenta => {
+                self.cursor_state.background_color = TerminalColor::Magenta;
+            }
+            SelectGraphicRendition::BackgroundCyan => {
+                self.cursor_state.background_color = TerminalColor::Cyan;
+            }
+            SelectGraphicRendition::BackgroundWhite => {
+                self.cursor_state.background_color = TerminalColor::White;
+            }
+            SelectGraphicRendition::BackgroundBrightBlack => {
+                self.cursor_state.background_color = TerminalColor::BrightBlack;
+            }
+            SelectGraphicRendition::BackgroundBrightRed => {
+                self.cursor_state.background_color = TerminalColor::BrightRed;
+            }
+            SelectGraphicRendition::BackgroundBrightYellow => {
+                self.cursor_state.background_color = TerminalColor::BrightYellow;
+            }
+            SelectGraphicRendition::BackgroundBrightBlue => {
+                self.cursor_state.background_color = TerminalColor::BrightBlue;
+            }
+            SelectGraphicRendition::BackgroundBrightMagenta => {
+                self.cursor_state.background_color = TerminalColor::BrightMagenta;
+            }
+            SelectGraphicRendition::BackgroundBrightCyan => {
+                self.cursor_state.background_color = TerminalColor::BrightCyan;
+            }
+            SelectGraphicRendition::BackgroundCustom(r, g, b) => {
+                let r = u8::try_from(r).unwrap();
+                let g = u8::try_from(g).unwrap();
+                let b = u8::try_from(b).unwrap();
+                self.cursor_state.background_color = TerminalColor::Custom(r, g, b);
             }
             SelectGraphicRendition::FastBlink | SelectGraphicRendition::SlowBlink => (),
             _ => {
@@ -601,6 +735,7 @@ mod test {
                 start: 0,
                 end: 5,
                 color: TerminalColor::Blue,
+                background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
             },
@@ -608,6 +743,7 @@ mod test {
                 start: 5,
                 end: 7,
                 color: TerminalColor::Red,
+                background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
             },
@@ -615,6 +751,7 @@ mod test {
                 start: 7,
                 end: 10,
                 color: TerminalColor::Blue,
+                background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
             },
@@ -622,6 +759,7 @@ mod test {
                 start: 10,
                 end: usize::MAX,
                 color: TerminalColor::Red,
+                background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
             },
@@ -641,13 +779,14 @@ mod test {
                 start: 0,
                 end: usize::MAX,
                 color: TerminalColor::Red,
+                background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
             },]
         );
 
         // Case 3: Split a segment
-        let res = split_format_data_for_scrollback(tags.clone(), 9);
+        let res = split_format_data_for_scrollback(tags, 9);
         assert_eq!(
             res.scrollback,
             &[
@@ -655,6 +794,7 @@ mod test {
                     start: 0,
                     end: 5,
                     color: TerminalColor::Blue,
+                    background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
                 },
@@ -662,6 +802,7 @@ mod test {
                     start: 5,
                     end: 7,
                     color: TerminalColor::Red,
+                    background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
                 },
@@ -669,6 +810,7 @@ mod test {
                     start: 7,
                     end: 9,
                     color: TerminalColor::Blue,
+                    background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
                 },
@@ -681,6 +823,7 @@ mod test {
                     start: 0,
                     end: 1,
                     color: TerminalColor::Blue,
+                    background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
                 },
@@ -688,6 +831,7 @@ mod test {
                     start: 1,
                     end: usize::MAX,
                     color: TerminalColor::Red,
+                    background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
                 },

@@ -79,8 +79,8 @@ fn spawn_shell(terminfo_dir: &Path) -> Result<OwnedFd, SpawnShellError> {
             } => Ok(master),
             ForkptyResult::Child => {
                 // FIXME: grab the shell from $SHELL
-                let shell_name = c"bash";
-                let args: &[&[u8]] = &[b"bash\0", b"--noprofile\0", b"--norc\0"];
+                let shell_name = c"zsh";
+                let args: &[&[u8]] = &[b"zsh\0"];
 
                 let args: Vec<&'static CStr> = args
                     .iter()
