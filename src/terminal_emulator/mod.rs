@@ -556,6 +556,12 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             SelectGraphicRendition::DefaultForeground => {
                 self.cursor_state.color = TerminalColor::Default;
             }
+            SelectGraphicRendition::ForegroundCustom(r, g, b) => {
+                let r = u8::try_from(r).unwrap();
+                let g = u8::try_from(g).unwrap();
+                let b = u8::try_from(b).unwrap();
+                self.cursor_state.color = TerminalColor::Custom(r, g, b);
+            }
             SelectGraphicRendition::ForegroundBrightYellow => {
                 self.cursor_state.color = TerminalColor::BrightYellow;
             }
@@ -625,6 +631,12 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             SelectGraphicRendition::BackgroundBrightCyan => {
                 self.cursor_state.background_color = TerminalColor::BrightCyan;
             }
+            SelectGraphicRendition::BackgroundBrightWhite => {
+                self.cursor_state.background_color = TerminalColor::BrightWhite;
+            }
+            SelectGraphicRendition::BackgroundBrightGreen => {
+                self.cursor_state.background_color = TerminalColor::BrightGreen;
+            }
             SelectGraphicRendition::BackgroundCustom(r, g, b) => {
                 let r = u8::try_from(r).unwrap();
                 let g = u8::try_from(g).unwrap();
@@ -632,7 +644,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 self.cursor_state.background_color = TerminalColor::Custom(r, g, b);
             }
             SelectGraphicRendition::FastBlink | SelectGraphicRendition::SlowBlink => (),
-            _ => {
+            SelectGraphicRendition::Unknown(_) => {
                 warn!("Unhandled sgr: {:?}", sgr);
             }
         }
@@ -662,9 +674,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             Mode::Decckm => {
                 self.decckm_mode = false;
             }
-            Mode::Unknown(_) => {
-                warn!("unhandled set mode: {mode:?}");
-            }
+            Mode::Unknown(_) => {}
         }
     }
 
