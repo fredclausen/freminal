@@ -13,6 +13,10 @@ use terminal::FreminalTerminalWidget;
 pub mod terminal;
 
 fn set_egui_options(ctx: &egui::Context) {
+    ctx.style_mut(|style| {
+        style.visuals.window_fill = egui::Color32::BLACK;
+        style.visuals.panel_fill = egui::Color32::BLACK;
+    });
     ctx.options_mut(|options| {
         options.zoom_with_keyboard = false;
     });
@@ -61,6 +65,7 @@ pub fn run(
     terminal_emulator: TerminalEmulator<FreminalPtyInputOutput>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let native_options = eframe::NativeOptions::default();
+
     eframe::run_native(
         "Freminal",
         native_options,

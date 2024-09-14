@@ -205,6 +205,13 @@ fn paint_cursor(label_rect: Rect, character_size: (f32, f32), cursor_pos: &Curso
     );
 }
 
+fn setup_bg_fill(ctx: &egui::Context) {
+    ctx.style_mut(|style| {
+        style.visuals.window_fill = egui::Color32::BLACK;
+        style.visuals.panel_fill = egui::Color32::BLACK;
+    });
+}
+
 fn setup_fonts(ctx: &egui::Context) {
     let mut fonts = FontDefinitions::default();
 
@@ -392,11 +399,13 @@ fn add_terminal_data_to_ui(
         create_terminal_output_layout_job(ui.style(), ui.available_width(), data)?;
 
     let default_color = textformat.color;
+    let default_background = textformat.background;
     let terminal_fonts = TerminalFonts::new();
 
     for tag in format_data {
         let mut range = tag.start..tag.end;
         let color = tag.color;
+        let background_color = tag.background_color;
 
         if range.end == usize::MAX {
             range.end = data.len();
@@ -422,6 +431,7 @@ fn add_terminal_data_to_ui(
             terminal_fonts.get_family(&tag.font_decorations, &tag.font_weight);
         textformat.font_id.size = font_size;
         textformat.color = terminal_color_to_egui(default_color, color);
+        textformat.background = terminal_color_to_egui(default_background, background_color);
 
         job.sections.push(egui::text::LayoutSection {
             leading_space: 0.0f32,
@@ -521,6 +531,7 @@ pub struct FreminalTerminalWidget {
 impl FreminalTerminalWidget {
     pub fn new(ctx: &Context) -> Self {
         setup_fonts(ctx);
+        setup_bg_fill(ctx);
 
         Self {
             font_size: 12.0,
