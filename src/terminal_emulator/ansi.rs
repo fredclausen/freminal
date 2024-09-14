@@ -14,6 +14,7 @@ pub enum SelectGraphicRendition {
     Italic,
     SlowBlink,
     FastBlink,
+    ReverseVideo,
     ResetBold,
     NormalIntensity,
     NotUnderlined,
@@ -64,6 +65,7 @@ impl SelectGraphicRendition {
             3 => Self::Italic,
             5 => Self::SlowBlink,
             6 => Self::FastBlink,
+            7 => Self::ReverseVideo,
             21 => Self::ResetBold,
             22 => Self::NormalIntensity,
             24 => Self::NotUnderlined,
@@ -142,6 +144,38 @@ pub enum TerminalOutput {
     // ich (8.3.64 of ecma-48)
     InsertSpaces(usize),
     Invalid,
+}
+
+// impl format display for TerminalOutput
+
+impl std::fmt::Display for TerminalOutput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TerminalOutput::SetCursorPos { x, y } => {
+                write!(f, "SetCursorPos: x: {:?}, y: {:?}", x, y)
+            }
+            TerminalOutput::SetCursorPosRel { x, y } => {
+                write!(f, "SetCursorPosRel: x: {:?}, y: {:?}", x, y)
+            }
+            TerminalOutput::ClearForwards => write!(f, "ClearForwards"),
+            TerminalOutput::ClearAll => write!(f, "ClearAll"),
+            TerminalOutput::CarriageReturn => write!(f, "CarriageReturn"),
+            TerminalOutput::ClearLineForwards => write!(f, "ClearLineForwards"),
+            TerminalOutput::Newline => write!(f, "Newline"),
+            TerminalOutput::Backspace => write!(f, "Backspace"),
+            TerminalOutput::Bell => write!(f, "Bell"),
+            TerminalOutput::InsertLines(n) => write!(f, "InsertLines({})", n),
+            TerminalOutput::Delete(n) => write!(f, "Delete({})", n),
+            TerminalOutput::Sgr(sgr) => write!(f, "Sgr({:?})", sgr),
+            TerminalOutput::Data(data) => {
+                write!(f, "Data({})", String::from_utf8_lossy(data))
+            }
+            TerminalOutput::SetMode(mode) => write!(f, "SetMode({:?})", mode),
+            TerminalOutput::ResetMode(mode) => write!(f, "ResetMode({:?})", mode),
+            TerminalOutput::InsertSpaces(n) => write!(f, "InsertSpaces({})", n),
+            TerminalOutput::Invalid => write!(f, "Invalid"),
+        }
+    }
 }
 
 #[derive(Eq, PartialEq, Debug)]
@@ -759,6 +793,11 @@ impl FreminalAnsiParser {
 
         if !data_output.is_empty() {
             output.push(TerminalOutput::Data(data_output));
+        }
+
+        info!("New Output:\n");
+        for i in output.iter() {
+            info!("{}", i);
         }
 
         output

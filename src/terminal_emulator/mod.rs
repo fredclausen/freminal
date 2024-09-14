@@ -529,6 +529,12 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                     *d != FontDecorations::Underline || *d != FontDecorations::DoubleUnderline
                 });
             }
+            SelectGraphicRendition::ReverseVideo => {
+                let foreground = self.cursor_state.color;
+                let background = self.cursor_state.background_color;
+                self.cursor_state.color = background;
+                self.cursor_state.background_color = foreground;
+            }
             SelectGraphicRendition::ForegroundBlack => {
                 self.cursor_state.color = TerminalColor::Black;
             }
