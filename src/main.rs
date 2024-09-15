@@ -20,45 +20,57 @@ mod error;
 mod gui;
 mod terminal_emulator;
 
-// struct Args {}
+struct Args {
+    recording: Option<String>,
+}
 
-// impl Args {
-//     fn parse<It: Iterator<Item = String>>(mut it: It) -> Self {
-//         let program_name = it.next();
+impl Args {
+    fn parse<It: Iterator<Item = String>>(mut it: It) -> Self {
+        let program_name = it.next();
+        let mut recording_path = None;
 
-//         for arg in it {
-//             match arg.as_str() {
-//                 _ => {
-//                     println!("Invalid argument {arg}");
-//                     Self::help(program_name.as_deref())
-//                 }
-//             }
-//         }
+        while let Some(arg) = it.next() {
+            match arg.as_str() {
+                "--recording-path" => {
+                    recording_path = match it.next() {
+                        Some(p) => Some(p.into()),
+                        None => {
+                            println!("Missing argument for --recording-path");
+                            Self::help(program_name.as_deref());
+                        }
+                    };
+                }
+                _ => {
+                    println!("Invalid argument {arg}");
+                    Self::help(program_name.as_deref())
+                }
+            }
+        }
 
-//         Self {}
-//     }
+        Self {
+            recording: recording_path,
+        }
+    }
 
-//     fn help(program_name: Option<&str>) -> ! {
-//         let program_name = program_name.unwrap_or("freminal");
-//         println!(
-//             "\
-//                  Usage:\n\
-//                  {program_name} [ARGS]\n\
-//                  \n\
-//                  Args:\n\
-//                  --recording-path: Optional, where to output recordings to
-//                  --replay: Replay a recording
-//                  "
-//         );
-//         std::process::exit(1);
-//     }
-// }
+    fn help(program_name: Option<&str>) -> ! {
+        let program_name = program_name.unwrap_or("freminal");
+        println!(
+            "\
+                 Usage:\n\
+                 {program_name} [ARGS]\n\
+                 \n\
+                 Args:\n\
+                 --recording-path: Optional, where to output recordings to
+                 "
+        );
+        std::process::exit(1);
+    }
+}
 
 fn main() {
     log::init();
-    // TODO: we have no args. Either pull this out fully or add some args
-    //let _args = Args::parse(std::env::args());
-    let res = match TerminalEmulator::new() {
+    let args = Args::parse(std::env::args());
+    let res = match TerminalEmulator::new(args.recording) {
         Ok(v) => gui::run(v),
         Err(e) => {
             error!(

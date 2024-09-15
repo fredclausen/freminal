@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use std::fmt;
+use std::{fmt, fs::File, io::Write};
 
 use ansi::{FreminalAnsiParser, SelectGraphicRendition, TerminalOutput};
 use buffer::TerminalBufferHolder;
@@ -301,38 +301,38 @@ impl std::str::FromStr for TerminalColor {
     }
 }
 
-impl TerminalColor {
-    fn from_sgr(sgr: SelectGraphicRendition) -> Option<Self> {
-        let ret = match sgr {
-            SelectGraphicRendition::ForegroundBlack => Self::Black,
-            SelectGraphicRendition::ForegroundRed => Self::Red,
-            SelectGraphicRendition::ForegroundGreen => Self::Green,
-            SelectGraphicRendition::ForegroundYellow => Self::Yellow,
-            SelectGraphicRendition::ForegroundBlue => Self::Blue,
-            SelectGraphicRendition::ForegroundMagenta => Self::Magenta,
-            SelectGraphicRendition::ForegroundCyan => Self::Cyan,
-            SelectGraphicRendition::ForegroundWhite => Self::White,
-            SelectGraphicRendition::ForegroundBrightBlack => Self::BrightBlack,
-            SelectGraphicRendition::ForegroundBrightRed => Self::BrightRed,
-            SelectGraphicRendition::ForegroundBrightGreen => Self::BrightGreen,
-            SelectGraphicRendition::ForegroundBrightYellow => Self::BrightYellow,
-            SelectGraphicRendition::ForegroundBrightBlue => Self::BrightBlue,
-            SelectGraphicRendition::ForegroundBrightMagenta => Self::BrightMagenta,
-            SelectGraphicRendition::ForegroundBrightCyan => Self::BrightCyan,
-            SelectGraphicRendition::ForegroundBrightWhite => Self::BrightWhite,
-            SelectGraphicRendition::ForegroundCustom(r, g, b) => {
-                let r = u8::try_from(r).ok()?;
-                let g = u8::try_from(g).ok()?;
-                let b = u8::try_from(b).ok()?;
+// impl TerminalColor {
+//     fn from_sgr(sgr: SelectGraphicRendition) -> Option<Self> {
+//         let ret = match sgr {
+//             SelectGraphicRendition::ForegroundBlack => Self::Black,
+//             SelectGraphicRendition::ForegroundRed => Self::Red,
+//             SelectGraphicRendition::ForegroundGreen => Self::Green,
+//             SelectGraphicRendition::ForegroundYellow => Self::Yellow,
+//             SelectGraphicRendition::ForegroundBlue => Self::Blue,
+//             SelectGraphicRendition::ForegroundMagenta => Self::Magenta,
+//             SelectGraphicRendition::ForegroundCyan => Self::Cyan,
+//             SelectGraphicRendition::ForegroundWhite => Self::White,
+//             SelectGraphicRendition::ForegroundBrightBlack => Self::BrightBlack,
+//             SelectGraphicRendition::ForegroundBrightRed => Self::BrightRed,
+//             SelectGraphicRendition::ForegroundBrightGreen => Self::BrightGreen,
+//             SelectGraphicRendition::ForegroundBrightYellow => Self::BrightYellow,
+//             SelectGraphicRendition::ForegroundBrightBlue => Self::BrightBlue,
+//             SelectGraphicRendition::ForegroundBrightMagenta => Self::BrightMagenta,
+//             SelectGraphicRendition::ForegroundBrightCyan => Self::BrightCyan,
+//             SelectGraphicRendition::ForegroundBrightWhite => Self::BrightWhite,
+//             SelectGraphicRendition::ForegroundCustom(r, g, b) => {
+//                 let r = u8::try_from(r).ok()?;
+//                 let g = u8::try_from(g).ok()?;
+//                 let b = u8::try_from(b).ok()?;
 
-                Self::Custom(r, g, b)
-            }
-            _ => return None,
-        };
+//                 Self::Custom(r, g, b)
+//             }
+//             _ => return None,
+//         };
 
-        Some(ret)
-    }
-}
+//         Some(ret)
+//     }
+// }
 
 pub struct TerminalData<T> {
     pub scrollback: T,
@@ -346,17 +346,30 @@ pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
     cursor_state: CursorState,
     modes: Modes,
     io: Io,
+    recording: Option<File>,
 }
 
 pub const TERMINAL_WIDTH: usize = 50;
 pub const TERMINAL_HEIGHT: usize = 16;
 
 impl TerminalEmulator<FreminalPtyInputOutput> {
-    pub fn new() -> Result<Self, CreatePtyIoError> {
+    pub fn new(recording_path: Option<String>) -> Result<Self, CreatePtyIoError> {
         let mut io = FreminalPtyInputOutput::new()?;
+        let mut recording = None;
 
         if let Err(e) = io.set_win_size(TERMINAL_WIDTH, TERMINAL_HEIGHT) {
             error!("Failed to set initial window size: {}", backtraced_err(&*e));
+        }
+
+        // if recording path is some, open a file for writing
+        if let Some(path) = &recording_path {
+            recording = match std::fs::File::create(path) {
+                Ok(file) => Some(file),
+                Err(e) => {
+                    error!("Failed to create recording file: {}", backtraced_err(&e));
+                    None
+                }
+            }
         }
 
         let ret = Self {
@@ -375,6 +388,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
                 background_color: TerminalColor::Black,
             },
             io,
+            recording,
         };
         Ok(ret)
     }
@@ -746,7 +760,18 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         loop {
             let read_size = match self.io.read(&mut buf) {
                 Ok(ReadResponse::Empty) => break,
-                Ok(ReadResponse::Success(v)) => v,
+                Ok(ReadResponse::Success(v)) => {
+                    if let Some(file) = &mut self.recording {
+                        // loop over the buffer and convert to a string representation of the number, separated by commas
+                        let output_converted = buf[..v]
+                            .iter()
+                            .map(|b| b.to_string())
+                            .collect::<Vec<String>>()
+                            .join(",");
+                        let _ = file.write_all(output_converted.as_bytes());
+                    }
+                    v
+                }
                 Err(e) => {
                     error!("Failed to read from child process: {e}");
                     break;
