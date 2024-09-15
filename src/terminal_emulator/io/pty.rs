@@ -30,8 +30,6 @@ enum CreatePtyIoErrorKind {
     SpawnShell(#[from] SpawnShellError),
     #[error("failed to set fd as non-blocking")]
     SetNonblock(#[from] SetNonblockError),
-    #[error("failed to open recording file")]
-    OpenRecordingFile(#[source] std::io::Error),
 }
 
 #[derive(Debug, Error)]

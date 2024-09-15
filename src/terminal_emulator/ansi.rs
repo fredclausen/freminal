@@ -780,7 +780,6 @@ impl FreminalAnsiParser {
     pub fn push(&mut self, incoming: &[u8]) -> Vec<TerminalOutput> {
         let mut output = Vec::new();
         let mut data_output = Vec::new();
-        info!("Incoming: {:?}", incoming);
         for b in incoming {
             match &mut self.inner {
                 AnsiParserInner::Empty => {
@@ -805,11 +804,11 @@ impl FreminalAnsiParser {
             output.push(TerminalOutput::Data(data_output));
         }
 
-        info!("New Output:");
-        for i in output.iter() {
-            info!("{}", i);
-        }
-        info!("End Output");
+        // info!("New Output:");
+        // for i in output.iter() {
+        //     info!("{}", i);
+        // }
+        // info!("End Output");
 
         output
     }

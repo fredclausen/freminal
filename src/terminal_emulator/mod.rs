@@ -20,6 +20,7 @@ mod ansi;
 mod buffer;
 mod format_tracker;
 mod io;
+mod replay;
 
 #[derive(Eq, PartialEq)]
 enum Mode {
@@ -779,7 +780,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             };
 
             let incoming = &buf[0..read_size];
-            debug!("Incoming data: {:?}", std::str::from_utf8(incoming));
+            //debug!("Incoming data: {:?}", std::str::from_utf8(incoming));
             self.handle_incoming_data(incoming);
         }
     }

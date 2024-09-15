@@ -428,7 +428,7 @@ mod test {
                     end: 11,
                     color: TerminalColor::Red,
                     background_color: TerminalColor::Black,
-                    font_weight: FontWeight::Normal,
+                    font_weight: FontWeight::Bold,
                     font_decorations: Vec::new(),
                 },
                 FormatTag {

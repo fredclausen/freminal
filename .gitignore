@@ -263,3 +263,4 @@ sh_config.yaml
 data/
 sh-frontend/target
 sequence.txt
+*.bin

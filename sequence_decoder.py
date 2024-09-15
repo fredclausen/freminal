@@ -11,12 +11,23 @@
 
 # grab the file name from the args. If no filename is specified use "sequence.bin"
 
+# possible args are --recording-path <path> and --convert-escape
+
 import sys
 
 filename = "sequence.bin"
-# args
-if len(sys.argv) > 1:
-    filename = sys.argv[1]
+convert_escape = False
+split_commands = False
+
+# loop over the args
+
+for arg in sys.argv[1:]:
+    if arg.startswith("--recording-path"):
+        filename = arg.split("=")[1]
+    elif arg == "--convert-escape":
+        convert_escape = True
+    elif arg == "--split-commands":
+        split_commands = True
 
 # check that the file exists
 try:
@@ -40,7 +51,18 @@ decoded_characters = []
 for number in sequence:
     decoded_characters.append(chr(number))
 
+
 # join the decoded characters into a string
 decoded_string = "".join(decoded_characters)
 
-print(repr(decoded_string))  # Output the decoded string
+if convert_escape:
+    # find all of the \x1b sequences and replace with ESC
+    decoded_string = decoded_string.replace("\x1b", "ESC")
+
+if split_commands:
+    # split the string into commands based on the ESC character
+    commands = decoded_string.split("ESC")
+    for command in commands:
+        print("ESC " + repr(command))  # Output each command
+else:
+    print(repr(decoded_string))  # Output the decoded string
