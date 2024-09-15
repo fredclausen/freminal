@@ -26,13 +26,36 @@ enum Mode {
     // Cursor keys mode
     // https://vt100.net/docs/vt100-ug/chapter3.html
     Decckm,
+    Decawm,
     Unknown(Vec<u8>),
+}
+
+/// Cursor Key Mode (DECCKM)
+#[derive(Eq, PartialEq, Debug, Default)]
+enum Decckm {
+    #[default]
+    ANSI,
+    Application,
+}
+
+/// Autowrap Mode (DECAWM)
+#[derive(Eq, PartialEq, Debug, Default)]
+enum Decawm {
+    #[default]
+    NoAutoWrap,
+    AutoWrap,
+}
+
+struct Modes {
+    cursor_key_mode: Decckm,
+    autowrap_mode: Decawm,
 }
 
 impl fmt::Debug for Mode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Decckm => f.write_str("Decckm"),
+            Self::Decawm => f.write_str("Decawm"),
             Self::Unknown(params) => {
                 let params_s = std::str::from_utf8(params)
                     .expect("parameter parsing should not allow non-utf8 characters here");
@@ -321,7 +344,7 @@ pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
     terminal_buffer: TerminalBufferHolder,
     format_tracker: FormatTracker,
     cursor_state: CursorState,
-    decckm_mode: bool,
+    modes: Modes,
     io: Io,
 }
 
@@ -340,7 +363,10 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             parser: FreminalAnsiParser::new(),
             terminal_buffer: TerminalBufferHolder::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
             format_tracker: FormatTracker::new(),
-            decckm_mode: false,
+            modes: Modes {
+                cursor_key_mode: Decckm::default(),
+                autowrap_mode: Decawm::default(),
+            },
             cursor_state: CursorState {
                 pos: CursorPos { x: 0, y: 0 },
                 font_weight: FontWeight::Normal,
@@ -377,7 +403,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     }
 
     pub fn write(&mut self, to_write: &TerminalInput) -> Result<(), Box<dyn std::error::Error>> {
-        match to_write.to_payload(self.decckm_mode) {
+        match to_write.to_payload(self.modes.cursor_key_mode == Decckm::Application) {
             TerminalInputPayload::Single(c) => {
                 let mut written = 0;
                 while written == 0 {
@@ -391,6 +417,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 }
             }
         };
+
         Ok(())
     }
 
@@ -659,7 +686,10 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     fn set_mode(&mut self, mode: &Mode) {
         match mode {
             Mode::Decckm => {
-                self.decckm_mode = true;
+                self.modes.cursor_key_mode = Decckm::Application;
+            }
+            Mode::Decawm => {
+                self.modes.autowrap_mode = Decawm::AutoWrap;
             }
             Mode::Unknown(_) => {
                 warn!("unhandled set mode: {mode:?}");
@@ -678,7 +708,10 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     fn reset_mode(&mut self, mode: &Mode) {
         match mode {
             Mode::Decckm => {
-                self.decckm_mode = false;
+                self.modes.cursor_key_mode = Decckm::ANSI;
+            }
+            Mode::Decawm => {
+                self.modes.autowrap_mode = Decawm::NoAutoWrap;
             }
             Mode::Unknown(_) => {}
         }

@@ -232,6 +232,10 @@ fn mode_from_params(params: &[u8]) -> Mode {
     match params {
         // https://vt100.net/docs/vt510-rm/DECCKM.html
         b"?1" => Mode::Decckm,
+        b"?7" => {
+            warn!("Found DECAWM. Ignoring.");
+            Mode::Decawm
+        }
         _ => Mode::Unknown(params.to_vec()),
     }
 }
@@ -357,12 +361,17 @@ impl FreminalAnsiParser {
     ) {
         push_data_if_non_empty(data_output, output);
 
-        if b == b'[' {
-            self.inner = AnsiParserInner::Csi(CsiParser::new());
-        } else {
-            let b_utf8 = std::char::from_u32(u32::from(b));
-            warn!("Unhandled escape sequence {b_utf8:?} {b:x}");
-            self.inner = AnsiParserInner::Empty;
+        match b {
+            b'[' => {
+                self.inner = AnsiParserInner::Csi(CsiParser::new());
+            }
+            // b']' => {
+            //     self.inner = AnsiParserInner::OSC;
+            // }
+            _ => {
+                warn!("Unhandled escape sequence {b:x}");
+                self.inner = AnsiParserInner::Empty;
+            }
         }
     }
 
@@ -771,6 +780,7 @@ impl FreminalAnsiParser {
     pub fn push(&mut self, incoming: &[u8]) -> Vec<TerminalOutput> {
         let mut output = Vec::new();
         let mut data_output = Vec::new();
+        info!("Incoming: {:?}", incoming);
         for b in incoming {
             match &mut self.inner {
                 AnsiParserInner::Empty => {
@@ -795,10 +805,11 @@ impl FreminalAnsiParser {
             output.push(TerminalOutput::Data(data_output));
         }
 
-        info!("New Output:\n");
+        info!("New Output:");
         for i in output.iter() {
             info!("{}", i);
         }
+        info!("End Output");
 
         output
     }
