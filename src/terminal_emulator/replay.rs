@@ -451,8 +451,8 @@ fn format_tracker_with_data() {
     let data = terminal_io.data();
     let format_tags = terminal_io.format_data();
 
-    print!("Scrollback:\n");
-    for tag in format_tags.scrollback.iter() {
+    println!("Scrollback:");
+    for tag in &format_tags.scrollback {
         let start_pos = tag.start;
         let mut end_pos = tag.end;
 
@@ -468,8 +468,8 @@ fn format_tracker_with_data() {
         print!("{output}");
     }
 
-    print!("Visible:\n");
-    for tag in format_tags.visible.iter() {
+    println!("Visible:");
+    for tag in &format_tags.visible {
         let start_pos = tag.start;
         let mut end_pos = tag.end;
 

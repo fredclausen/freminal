@@ -30,20 +30,16 @@ impl Args {
         let mut recording_path = None;
 
         while let Some(arg) = it.next() {
-            match arg.as_str() {
-                "--recording-path" => {
-                    recording_path = match it.next() {
-                        Some(p) => Some(p.into()),
-                        None => {
-                            println!("Missing argument for --recording-path");
-                            Self::help(program_name.as_deref());
-                        }
-                    };
-                }
-                _ => {
-                    println!("Invalid argument {arg}");
-                    Self::help(program_name.as_deref())
-                }
+            if arg.as_str() == "--recording-path" {
+                recording_path = if let Some(p) = it.next() {
+                    Some(p)
+                } else {
+                    println!("Missing argument for --recording-path");
+                    Self::help(program_name.as_deref());
+                };
+            } else {
+                println!("Invalid argument {arg}");
+                Self::help(program_name.as_deref())
             }
         }
 
