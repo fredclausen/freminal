@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+use core::str;
 use std::{fmt, fs::File, io::Write};
 
 use ansi::{FreminalAnsiParser, SelectGraphicRendition, TerminalOutput};
@@ -20,7 +21,7 @@ mod ansi;
 mod buffer;
 mod format_tracker;
 mod io;
-mod replay;
+pub mod replay;
 
 #[derive(Eq, PartialEq)]
 enum Mode {
@@ -761,18 +762,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         loop {
             let read_size = match self.io.read(&mut buf) {
                 Ok(ReadResponse::Empty) => break,
-                Ok(ReadResponse::Success(v)) => {
-                    if let Some(file) = &mut self.recording {
-                        // loop over the buffer and convert to a string representation of the number, separated by commas
-                        let output_converted = buf[..v]
-                            .iter()
-                            .map(|b| b.to_string())
-                            .collect::<Vec<String>>()
-                            .join(",");
-                        let _ = file.write_all(output_converted.as_bytes());
-                    }
-                    v
-                }
+                Ok(ReadResponse::Success(v)) => v,
                 Err(e) => {
                     error!("Failed to read from child process: {e}");
                     break;
@@ -780,6 +770,15 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             };
 
             let incoming = &buf[0..read_size];
+
+            if let Some(file) = &mut self.recording {
+                let mut output = String::new();
+                // loop over the buffer and convert to a string representation of the number, separated by commas
+                for byte in incoming {
+                    output.push_str(&format!("{byte},"));
+                }
+                let _ = file.write_all(output.as_bytes());
+            }
             //debug!("Incoming data: {:?}", std::str::from_utf8(incoming));
             self.handle_incoming_data(incoming);
         }
