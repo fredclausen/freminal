@@ -372,6 +372,7 @@ impl ReplayIo {
                 TerminalOutput::InsertSpaces(num_spaces) => self.insert_spaces(num_spaces),
                 TerminalOutput::ResetMode(mode) => self.reset_mode(&mode),
                 TerminalOutput::Bell | TerminalOutput::Invalid => (),
+                TerminalOutput::OscResponse(_) => (),
             }
         }
     }

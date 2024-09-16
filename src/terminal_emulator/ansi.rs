@@ -27,6 +27,7 @@ pub enum TerminalOutput {
     ResetMode(Mode),
     // ich (8.3.64 of ecma-48)
     InsertSpaces(usize),
+    OscResponse(u8),
     Invalid,
 }
 
@@ -57,6 +58,7 @@ impl std::fmt::Display for TerminalOutput {
             Self::SetMode(mode) => write!(f, "SetMode({mode:?})"),
             Self::ResetMode(mode) => write!(f, "ResetMode({mode:?})"),
             Self::InsertSpaces(n) => write!(f, "InsertSpaces({n})"),
+            Self::OscResponse(n) => write!(f, "OscResponse({n})"),
             Self::Invalid => write!(f, "Invalid"),
         }
     }
@@ -181,9 +183,6 @@ impl FreminalAnsiParser {
                     self.ansiparser_inner_escape(*b, &mut data_output, &mut output);
                 }
                 AnsiParserInner::Csi(parser) => {
-                    // if parser.ansiparser_inner_csi(*b, &mut output) == Err(()) {
-                    //     continue;
-                    // }
                     match parser.ansiparser_inner_csi(*b, &mut output) {
                         Ok(value) => match value {
                             Some(return_value) => self.inner = return_value,

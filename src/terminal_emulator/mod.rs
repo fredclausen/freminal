@@ -13,6 +13,7 @@ mod io;
 pub mod ansi_components {
     pub mod csi;
     pub mod mode;
+    pub mod osc;
     pub mod sgr;
 }
 pub mod replay;
@@ -41,7 +42,7 @@ enum TerminalInputPayload {
     Many(&'static [u8]),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum TerminalInput {
     // Normal keypress
     Ascii(u8),
@@ -264,39 +265,6 @@ impl std::str::FromStr for TerminalColor {
         Ok(ret)
     }
 }
-
-// impl TerminalColor {
-//     fn from_sgr(sgr: SelectGraphicRendition) -> Option<Self> {
-//         let ret = match sgr {
-//             SelectGraphicRendition::ForegroundBlack => Self::Black,
-//             SelectGraphicRendition::ForegroundRed => Self::Red,
-//             SelectGraphicRendition::ForegroundGreen => Self::Green,
-//             SelectGraphicRendition::ForegroundYellow => Self::Yellow,
-//             SelectGraphicRendition::ForegroundBlue => Self::Blue,
-//             SelectGraphicRendition::ForegroundMagenta => Self::Magenta,
-//             SelectGraphicRendition::ForegroundCyan => Self::Cyan,
-//             SelectGraphicRendition::ForegroundWhite => Self::White,
-//             SelectGraphicRendition::ForegroundBrightBlack => Self::BrightBlack,
-//             SelectGraphicRendition::ForegroundBrightRed => Self::BrightRed,
-//             SelectGraphicRendition::ForegroundBrightGreen => Self::BrightGreen,
-//             SelectGraphicRendition::ForegroundBrightYellow => Self::BrightYellow,
-//             SelectGraphicRendition::ForegroundBrightBlue => Self::BrightBlue,
-//             SelectGraphicRendition::ForegroundBrightMagenta => Self::BrightMagenta,
-//             SelectGraphicRendition::ForegroundBrightCyan => Self::BrightCyan,
-//             SelectGraphicRendition::ForegroundBrightWhite => Self::BrightWhite,
-//             SelectGraphicRendition::ForegroundCustom(r, g, b) => {
-//                 let r = u8::try_from(r).ok()?;
-//                 let g = u8::try_from(g).ok()?;
-//                 let b = u8::try_from(b).ok()?;
-
-//                 Self::Custom(r, g, b)
-//             }
-//             _ => return None,
-//         };
-
-//         Some(ret)
-//     }
-// }
 
 pub struct TerminalData<T> {
     pub scrollback: T,
@@ -695,6 +663,11 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         }
     }
 
+    // fn osc_response(&mut self, osc: &OperatingSystemCommand) {
+    //     match osc {
+    //     }
+    // }
+
     fn handle_incoming_data(&mut self, incoming: &[u8]) {
         let parsed = self.parser.push(incoming);
         for segment in parsed {
@@ -714,6 +687,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 TerminalOutput::SetMode(mode) => self.set_mode(&mode),
                 TerminalOutput::InsertSpaces(num_spaces) => self.insert_spaces(num_spaces),
                 TerminalOutput::ResetMode(mode) => self.reset_mode(&mode),
+                TerminalOutput::OscResponse(osc) => (),
                 TerminalOutput::Bell | TerminalOutput::Invalid => (),
             }
         }
