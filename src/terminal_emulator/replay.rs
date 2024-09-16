@@ -1,6 +1,7 @@
+use super::ansi_components::sgr::SelectGraphicRendition;
 #[allow(dead_code)]
 use super::{
-    ansi::{FreminalAnsiParser, SelectGraphicRendition, TerminalOutput},
+    ansi::{FreminalAnsiParser, TerminalOutput},
     buffer::TerminalBufferHolder,
     format_tracker::FormatTracker,
     split_format_data_for_scrollback, CursorPos, CursorState, Decawm, Decckm, FontDecorations,

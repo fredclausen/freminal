@@ -6,66 +6,28 @@
 use core::str;
 use std::{fmt, fs::File, io::Write};
 
-use ansi::{FreminalAnsiParser, SelectGraphicRendition, TerminalOutput};
-use buffer::TerminalBufferHolder;
-use format_tracker::FormatTracker;
-
-pub use format_tracker::FormatTag;
-pub use io::{FreminalPtyInputOutput, FreminalTermInputOutput};
-
-use crate::{error::backtraced_err, terminal_emulator::io::ReadResponse};
-
-use self::io::CreatePtyIoError;
-
 mod ansi;
 mod buffer;
 mod format_tracker;
 mod io;
+pub mod ansi_components {
+    pub mod csi;
+    pub mod mode;
+    pub mod sgr;
+}
 pub mod replay;
 
-#[derive(Eq, PartialEq)]
-enum Mode {
-    // Cursor keys mode
-    // https://vt100.net/docs/vt100-ug/chapter3.html
-    Decckm,
-    Decawm,
-    Unknown(Vec<u8>),
-}
-
-/// Cursor Key Mode (DECCKM)
-#[derive(Eq, PartialEq, Debug, Default)]
-enum Decckm {
-    #[default]
-    ANSI,
-    Application,
-}
-
-/// Autowrap Mode (DECAWM)
-#[derive(Eq, PartialEq, Debug, Default)]
-enum Decawm {
-    #[default]
-    NoAutoWrap,
-    AutoWrap,
-}
-
-struct Modes {
-    cursor_key_mode: Decckm,
-    autowrap_mode: Decawm,
-}
-
-impl fmt::Debug for Mode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Decckm => f.write_str("Decckm"),
-            Self::Decawm => f.write_str("Decawm"),
-            Self::Unknown(params) => {
-                let params_s = std::str::from_utf8(params)
-                    .expect("parameter parsing should not allow non-utf8 characters here");
-                f.write_fmt(format_args!("Unknown({params_s})"))
-            }
-        }
-    }
-}
+use self::io::CreatePtyIoError;
+use crate::{error::backtraced_err, terminal_emulator::io::ReadResponse};
+use ansi::{FreminalAnsiParser, TerminalOutput};
+use ansi_components::{
+    mode::{Decawm, Decckm, Mode, Modes},
+    sgr::SelectGraphicRendition,
+};
+use buffer::TerminalBufferHolder;
+pub use format_tracker::FormatTag;
+use format_tracker::FormatTracker;
+pub use io::{FreminalPtyInputOutput, FreminalTermInputOutput};
 
 const fn char_to_ctrl_code(c: u8) -> u8 {
     // https://catern.com/posts/terminal_quirks.html
