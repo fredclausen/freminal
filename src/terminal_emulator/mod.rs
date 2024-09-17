@@ -23,6 +23,7 @@ use crate::{error::backtraced_err, terminal_emulator::io::ReadResponse};
 use ansi::{FreminalAnsiParser, TerminalOutput};
 use ansi_components::{
     mode::{Decawm, Decckm, Mode, Modes},
+    osc::OscType,
     sgr::SelectGraphicRendition,
 };
 use buffer::TerminalBufferHolder;
@@ -663,10 +664,12 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         }
     }
 
-    // fn osc_response(&mut self, osc: &OperatingSystemCommand) {
-    //     match osc {
-    //     }
-    // }
+    fn osc_response(&mut self, osc: &OscType) {
+        match osc {
+            OscType::RequestColorSetResponse(value) => {}
+            OscType::UnknownType(_) => warn!("Unknown osc type: {osc:?}"),
+        }
+    }
 
     fn handle_incoming_data(&mut self, incoming: &[u8]) {
         let parsed = self.parser.push(incoming);
@@ -687,7 +690,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 TerminalOutput::SetMode(mode) => self.set_mode(&mode),
                 TerminalOutput::InsertSpaces(num_spaces) => self.insert_spaces(num_spaces),
                 TerminalOutput::ResetMode(mode) => self.reset_mode(&mode),
-                TerminalOutput::OscResponse(osc) => (),
+                TerminalOutput::OscResponse(osc) => self.osc_response(&osc),
                 TerminalOutput::Bell | TerminalOutput::Invalid => (),
             }
         }

@@ -4,7 +4,11 @@
 // https://opensource.org/licenses/MIT.
 
 use super::{
-    ansi_components::{csi::CsiParser, sgr::SelectGraphicRendition},
+    ansi_components::{
+        csi::CsiParser,
+        osc::{OscParser, OscType},
+        sgr::SelectGraphicRendition,
+    },
     Mode,
 };
 
@@ -27,7 +31,7 @@ pub enum TerminalOutput {
     ResetMode(Mode),
     // ich (8.3.64 of ecma-48)
     InsertSpaces(usize),
-    OscResponse(u8),
+    OscResponse(OscType),
     Invalid,
 }
 
@@ -100,6 +104,7 @@ pub enum AnsiParserInner {
     Empty,
     Escape,
     Csi(CsiParser),
+    Osc(OscParser),
 }
 
 pub struct FreminalAnsiParser {
@@ -161,6 +166,8 @@ impl FreminalAnsiParser {
 
         if b == b'[' {
             self.inner = AnsiParserInner::Csi(CsiParser::new());
+        } else if b == b']' {
+            self.inner = AnsiParserInner::Osc(OscParser::new());
         } else {
             warn!("Unhandled escape sequence {b:x}");
             self.inner = AnsiParserInner::Empty;
@@ -184,6 +191,15 @@ impl FreminalAnsiParser {
                 }
                 AnsiParserInner::Csi(parser) => {
                     match parser.ansiparser_inner_csi(*b, &mut output) {
+                        Ok(value) => match value {
+                            Some(return_value) => self.inner = return_value,
+                            None => continue,
+                        },
+                        Err(_) => continue,
+                    }
+                }
+                AnsiParserInner::Osc(parser) => {
+                    match parser.ansiparser_inner_osc(*b, &mut output) {
                         Ok(value) => match value {
                             Some(return_value) => self.inner = return_value,
                             None => continue,

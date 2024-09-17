@@ -38,7 +38,6 @@ impl CsiParser {
             panic!("CsiParser should not be pushed to once finished");
         }
 
-        info!("Current state: {:?}", self.state);
         match &mut self.state {
             CsiParserState::Params => {
                 if is_csi_param(b) {
@@ -72,12 +71,6 @@ impl CsiParser {
                 unreachable!();
             }
         }
-
-        info!(
-            "New state with {}: {:?}",
-            String::from_utf8_lossy(&vec![b]),
-            self.state
-        );
     }
 
     pub fn ansiparser_inner_csi(
