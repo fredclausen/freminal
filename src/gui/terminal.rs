@@ -298,7 +298,7 @@ impl TerminalFonts {
     }
 }
 
-const fn terminal_color_to_egui(default_color: Color32, color: TerminalColor) -> Color32 {
+pub const fn terminal_color_to_egui(default_color: Color32, color: TerminalColor) -> Color32 {
     match color {
         TerminalColor::Default => default_color,
         TerminalColor::Black => Color32::BLACK,

@@ -19,16 +19,22 @@ pub mod ansi_components {
 pub mod replay;
 
 use self::io::CreatePtyIoError;
-use crate::{error::backtraced_err, terminal_emulator::io::ReadResponse};
+use crate::{
+    error::backtraced_err,
+    gui::terminal::{self, terminal_color_to_egui},
+    terminal_emulator::io::ReadResponse,
+};
 use ansi::{FreminalAnsiParser, TerminalOutput};
 use ansi_components::{
     mode::{Decawm, Decckm, Mode, Modes},
-    osc::OscType,
+    osc::{OscInternalType, OscType},
     sgr::SelectGraphicRendition,
 };
 use buffer::TerminalBufferHolder;
+use eframe::egui::Color32;
 pub use format_tracker::FormatTag;
 use format_tracker::FormatTracker;
+use hex_string::u8_to_hex_string;
 pub use io::{FreminalPtyInputOutput, FreminalTermInputOutput};
 
 const fn char_to_ctrl_code(c: u8) -> u8 {
@@ -64,7 +70,7 @@ pub enum TerminalInput {
 }
 
 impl TerminalInput {
-    const fn to_payload(&self, decckm_mode: bool) -> TerminalInputPayload {
+    fn to_payload(&self, decckm_mode: bool) -> TerminalInputPayload {
         match self {
             Self::Ascii(c) => TerminalInputPayload::Single(*c),
             Self::Ctrl(c) => TerminalInputPayload::Single(char_to_ctrl_code(*c)),
@@ -208,6 +214,18 @@ pub enum TerminalColor {
     BrightCyan,
     BrightWhite,
     Custom(u8, u8, u8),
+}
+
+impl TerminalColor {
+    const fn to_hex_u8_array(self, default: Color32) -> [u8; 3] {
+        let as_color = terminal_color_to_egui(default, self);
+
+        let r = as_color.r();
+        let g = as_color.g();
+        let b = as_color.b();
+
+        [r, g, b]
+    }
 }
 
 impl fmt::Display for TerminalColor {
@@ -664,10 +682,80 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         }
     }
 
-    fn osc_response(&mut self, osc: &OscType) {
+    fn osc_response(&mut self, osc: OscType) {
         match osc {
-            OscType::RequestColorSetResponse(value) => {}
-            OscType::UnknownType(_) => warn!("Unknown osc type: {osc:?}"),
+            OscType::RequestColorQueryBackground(color) => {
+                match color {
+                    OscInternalType::SetColor(_) => {
+                        warn!("RequestColorQueryBackground: Set is not supported");
+                        return;
+                    }
+                    OscInternalType::Query => {
+                        // lets get the color as a hex string
+
+                        let (r, g, b, a) = Color32::BLACK.to_tuple();
+
+                        let formatted_string = format!(
+                            "\x1b]11;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\",
+                            r = r,
+                            g = g,
+                            b = b,
+                            a = a
+                        );
+                        let output = formatted_string.as_bytes();
+
+                        for byte in output {
+                            self.write(&TerminalInput::Ascii(*byte))
+                                .expect("Failed to write osc color response");
+                        }
+                    }
+                    OscInternalType::Unknown(_) => {
+                        warn!("OSC Unknown is not supported");
+                    }
+                    _ => {
+                        warn!("OSC Type {color:?} Skipped");
+                    }
+                }
+            }
+            OscType::RequestColorQueryForeground(color) => {
+                match color {
+                    OscInternalType::SetColor(_) => {
+                        warn!("RequestColorQueryForeground: Set is not supported");
+                        return;
+                    }
+                    OscInternalType::Query => {
+                        // lets get the color as a hex string
+                        let (r, g, b, a) = Color32::WHITE.to_tuple();
+
+                        let formatted_string = format!(
+                            "\x1b]10;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\",
+                            r = r,
+                            g = g,
+                            b = b,
+                            a = a
+                        );
+
+                        let output = formatted_string.as_bytes();
+
+                        for byte in output {
+                            self.write(&TerminalInput::Ascii(*byte))
+                                .expect("Failed to write osc color response");
+                        }
+                    }
+                    OscInternalType::Unknown(_) => {
+                        warn!("OSC Unknown is not supported");
+                    }
+                    _ => {
+                        warn!("OSC Type {color:?} Skipped");
+                    }
+                }
+            }
+            OscType::SetTitleBar(title) => {
+                warn!("TitleBar is not supported: {title}");
+            }
+            OscType::Ftcs(value) => {
+                warn!("Ftcs is not supported: {value}");
+            }
         }
     }
 
@@ -690,8 +778,10 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 TerminalOutput::SetMode(mode) => self.set_mode(&mode),
                 TerminalOutput::InsertSpaces(num_spaces) => self.insert_spaces(num_spaces),
                 TerminalOutput::ResetMode(mode) => self.reset_mode(&mode),
-                TerminalOutput::OscResponse(osc) => self.osc_response(&osc),
-                TerminalOutput::Bell | TerminalOutput::Invalid => (),
+                TerminalOutput::OscResponse(osc) => self.osc_response(osc),
+                TerminalOutput::Bell | TerminalOutput::Invalid | TerminalOutput::Skip => {
+                    info!("Unhandled terminal output: {segment:?}");
+                }
             }
         }
     }

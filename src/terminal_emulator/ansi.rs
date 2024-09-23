@@ -33,6 +33,7 @@ pub enum TerminalOutput {
     InsertSpaces(usize),
     OscResponse(OscType),
     Invalid,
+    Skip,
 }
 
 // impl format display for TerminalOutput
@@ -64,6 +65,7 @@ impl std::fmt::Display for TerminalOutput {
             Self::InsertSpaces(n) => write!(f, "InsertSpaces({n})"),
             Self::OscResponse(n) => write!(f, "OscResponse({n})"),
             Self::Invalid => write!(f, "Invalid"),
+            Self::Skip => write!(f, "Skip"),
         }
     }
 }
@@ -89,8 +91,17 @@ pub fn parse_param_as<T: std::str::FromStr>(param_bytes: &[u8]) -> Result<Option
     if param_str.is_empty() {
         return Ok(None);
     }
-    let param = param_str.parse().map_err(|_| ())?;
-    Ok(Some(param))
+    match param_str.parse().map_err(|_| ()) {
+        Ok(value) => Ok(Some(value)),
+        Err(_) => {
+            warn!(
+                "Failed to parse parameter ({:?}) as {:?}",
+                param_bytes,
+                std::any::type_name::<T>()
+            );
+            Err(())
+        }
+    }
 }
 
 fn push_data_if_non_empty(data: &mut Vec<u8>, output: &mut Vec<TerminalOutput>) {
