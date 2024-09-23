@@ -293,13 +293,16 @@ impl TerminalFonts {
             (FontWeight::Normal, false) => self.regular.clone(),
             (FontWeight::Normal, true) => self.italic.clone(),
             (FontWeight::Bold, true) => self.bold_italic.clone(),
-            (FontWeight::Faint, _) => panic!("Faint weight not supported"),
         }
     }
 }
 
-pub const fn terminal_color_to_egui(default_color: Color32, color: TerminalColor) -> Color32 {
-    match color {
+pub fn terminal_color_to_egui(
+    default_color: Color32,
+    color: TerminalColor,
+    make_faint: bool,
+) -> Color32 {
+    let color_before_faimt = match color {
         TerminalColor::Default => default_color,
         TerminalColor::Black => Color32::BLACK,
         TerminalColor::Red => Color32::RED,
@@ -318,6 +321,12 @@ pub const fn terminal_color_to_egui(default_color: Color32, color: TerminalColor
         TerminalColor::BrightWhite => Color32::from_rgb(253, 254, 255),
         TerminalColor::BrightBlack => Color32::from_rgb(34, 32, 36),
         TerminalColor::Custom(r, g, b) => Color32::from_rgb(r, g, b),
+    };
+
+    if make_faint {
+        color_before_faimt.gamma_multiply(0.5)
+    } else {
+        color_before_faimt
     }
 }
 
@@ -430,8 +439,10 @@ fn add_terminal_data_to_ui(
         textformat.font_id.family =
             terminal_fonts.get_family(&tag.font_decorations, &tag.font_weight);
         textformat.font_id.size = font_size;
-        textformat.color = terminal_color_to_egui(default_color, color);
-        textformat.background = terminal_color_to_egui(default_background, background_color);
+        let make_faint = tag.font_decorations.contains(&FontDecorations::Faint);
+        textformat.color = terminal_color_to_egui(default_color, color, make_faint);
+        // FIXME: ????? should background be faint? I feel like no, but....
+        textformat.background = terminal_color_to_egui(default_background, background_color, false);
 
         job.sections.push(egui::text::LayoutSection {
             leading_space: 0.0f32,

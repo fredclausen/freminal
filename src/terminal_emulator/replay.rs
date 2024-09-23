@@ -182,8 +182,30 @@ impl ReplayIo {
                         .push(FontDecorations::Italic);
                 }
             }
-            SelectGraphicRendition::ResetBold | SelectGraphicRendition::NormalIntensity => {
+            SelectGraphicRendition::Faint => {
+                if !self
+                    .cursor_state
+                    .font_decorations
+                    .contains(&FontDecorations::Faint)
+                {
+                    self.cursor_state
+                        .font_decorations
+                        .push(FontDecorations::Faint);
+                }
+            }
+            SelectGraphicRendition::ResetBold => {
                 self.cursor_state.font_weight = FontWeight::Normal;
+            }
+            SelectGraphicRendition::NormalIntensity => {
+                if self
+                    .cursor_state
+                    .font_decorations
+                    .contains(&FontDecorations::Faint)
+                {
+                    self.cursor_state
+                        .font_decorations
+                        .retain(|d| *d != FontDecorations::Faint);
+                }
             }
             SelectGraphicRendition::NotUnderlined => {
                 // remove FontDecorations::Underline if it's there
@@ -373,6 +395,7 @@ impl ReplayIo {
                 TerminalOutput::ResetMode(mode) => self.reset_mode(&mode),
                 TerminalOutput::Bell | TerminalOutput::Invalid | TerminalOutput::Skip => (),
                 TerminalOutput::OscResponse(_) => (),
+                TerminalOutput::CursorReport => (),
             }
         }
     }

@@ -79,7 +79,9 @@ impl CsiParser {
         output: &mut Vec<TerminalOutput>,
     ) -> Result<Option<AnsiParserInner>, ()> {
         self.push(b);
-        let return_value = match self.state {
+
+
+        match self.state {
             CsiParserState::Finished(b'A') => self.ansi_parser_inner_csi_finished_move_up(output),
             CsiParserState::Finished(b'B') => self.ansi_parser_inner_csi_finished_move_down(output),
             CsiParserState::Finished(b'C') => {
@@ -114,6 +116,10 @@ impl CsiParser {
                 Ok(Some(AnsiParserInner::Empty))
             }
             CsiParserState::Finished(b'@') => self.ansi_parser_inner_csi_finished_ich(output),
+            CsiParserState::Finished(b'n') => {
+                output.push(TerminalOutput::CursorReport);
+                Ok(Some(AnsiParserInner::Empty))
+            }
             CsiParserState::Finished(esc) => {
                 warn!(
                     "Unhandled csi code: {:?} {esc:x} {}/{}",
@@ -131,10 +137,8 @@ impl CsiParser {
 
                 Ok(Some(AnsiParserInner::Empty))
             }
-            _ => return Ok(None),
-        };
-
-        return_value
+            _ => Ok(None),
+        }
     }
 
     fn ansi_parser_inner_csi_finished_move_up(

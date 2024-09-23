@@ -4,6 +4,7 @@ pub enum SelectGraphicRendition {
     Reset,
     Bold,
     Italic,
+    Faint,
     SlowBlink,
     FastBlink,
     ReverseVideo,
@@ -54,6 +55,7 @@ impl SelectGraphicRendition {
         match val {
             0 => Self::Reset,
             1 => Self::Bold,
+            2 => Self::Faint,
             3 => Self::Italic,
             5 => Self::SlowBlink,
             6 => Self::FastBlink,

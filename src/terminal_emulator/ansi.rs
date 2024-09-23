@@ -32,6 +32,7 @@ pub enum TerminalOutput {
     // ich (8.3.64 of ecma-48)
     InsertSpaces(usize),
     OscResponse(OscType),
+    CursorReport,
     Invalid,
     Skip,
 }
@@ -66,6 +67,7 @@ impl std::fmt::Display for TerminalOutput {
             Self::OscResponse(n) => write!(f, "OscResponse({n})"),
             Self::Invalid => write!(f, "Invalid"),
             Self::Skip => write!(f, "Skip"),
+            Self::CursorReport => write!(f, "CursorReport"),
         }
     }
 }
@@ -91,16 +93,13 @@ pub fn parse_param_as<T: std::str::FromStr>(param_bytes: &[u8]) -> Result<Option
     if param_str.is_empty() {
         return Ok(None);
     }
-    match param_str.parse().map_err(|_| ()) {
-        Ok(value) => Ok(Some(value)),
-        Err(_) => {
-            warn!(
-                "Failed to parse parameter ({:?}) as {:?}",
-                param_bytes,
-                std::any::type_name::<T>()
-            );
-            Err(())
-        }
+    if let Ok(value) = param_str.parse().map_err(|_| ()) { Ok(Some(value)) } else {
+        warn!(
+            "Failed to parse parameter ({:?}) as {:?}",
+            param_bytes,
+            std::any::type_name::<T>()
+        );
+        Err(())
     }
 }
 
@@ -188,9 +187,15 @@ impl FreminalAnsiParser {
     pub fn push(&mut self, incoming: &[u8]) -> Vec<TerminalOutput> {
         let mut output = Vec::new();
         let mut data_output = Vec::new();
+        let mut output_string_sequence = String::new();
+
         for b in incoming {
             match &mut self.inner {
                 AnsiParserInner::Empty => {
+                    if output_string_sequence.len() > 0 {
+                        output_string_sequence.clear();
+                    }
+
                     if self.ansi_parser_inner_empty(*b, &mut data_output, &mut output) == Err(()) {
                         continue;
                     }
@@ -201,21 +206,39 @@ impl FreminalAnsiParser {
                     self.ansiparser_inner_escape(*b, &mut data_output, &mut output);
                 }
                 AnsiParserInner::Csi(parser) => {
+                    output_string_sequence.push(*b as char);
                     match parser.ansiparser_inner_csi(*b, &mut output) {
                         Ok(value) => match value {
-                            Some(return_value) => self.inner = return_value,
+                            Some(return_value) => {
+                                self.inner = return_value;
+
+                                // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
+
+                                if let Some(TerminalOutput::Invalid) = output.last() {
+                                    error!("CSI Sequence that threw an error: {}", output_string_sequence);
+                                }
+                            },
                             None => continue,
                         },
-                        Err(_) => continue,
+                        Err(()) => continue,
                     }
                 }
                 AnsiParserInner::Osc(parser) => {
+                    output_string_sequence.push(*b as char);
                     match parser.ansiparser_inner_osc(*b, &mut output) {
                         Ok(value) => match value {
-                            Some(return_value) => self.inner = return_value,
+                            Some(return_value) => {
+                                self.inner = return_value;
+
+                                // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
+
+                                if let Some(TerminalOutput::Invalid) = output.last() {
+                                    error!("OSC Sequence that threw an error: {}", output_string_sequence);
+                                }
+                            },
                             None => continue,
                         },
-                        Err(_) => continue,
+                        Err(()) => continue,
                     }
                 }
             }

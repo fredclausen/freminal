@@ -17,10 +17,10 @@ pub enum OscInternalType {
 impl std::fmt::Display for OscInternalType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            OscInternalType::Query => write!(f, "Query"),
-            OscInternalType::SetColor(value) => write!(f, "SetColor({:?})", value),
-            OscInternalType::String(value) => write!(f, "{}", value),
-            OscInternalType::Unknown(value) => write!(f, "Unknown({:?})", value),
+            Self::Query => write!(f, "Query"),
+            Self::SetColor(value) => write!(f, "SetColor({value:?})"),
+            Self::String(value) => write!(f, "{value}"),
+            Self::Unknown(value) => write!(f, "Unknown({value:?})"),
         }
     }
 }
@@ -35,15 +35,15 @@ impl From<Vec<Option<OscToken>>> for OscInternalType {
             Some(value) => match value {
                 Some(OscToken::String(value)) => {
                     if value == &"?".to_string() {
-                        return OscInternalType::Query;
+                        Self::Query
                     } else {
-                        return OscInternalType::String(value.clone());
+                        Self::String(value.clone())
                     }
                 }
-                Some(value) => OscInternalType::Unknown(Some(value.clone())),
-                None => OscInternalType::Unknown(None),
+                Some(value) => Self::Unknown(Some(value.clone())),
+                None => Self::Unknown(None),
             },
-            None => OscInternalType::Unknown(None),
+            None => Self::Unknown(None),
         }
     }
 }
@@ -61,11 +61,11 @@ enum OscTarget {
 impl From<OscToken> for OscTarget {
     fn from(value: OscToken) -> Self {
         match value {
-            OscToken::U8(0) => OscTarget::TitleBar,
-            OscToken::U8(11) => OscTarget::Background,
-            OscToken::U8(10) => OscTarget::Foreground,
-            OscToken::U8(133) => OscTarget::Ftcs,
-            _ => OscTarget::Unknown,
+            OscToken::U8(0) => Self::TitleBar,
+            OscToken::U8(11) => Self::Background,
+            OscToken::U8(10) => Self::Foreground,
+            OscToken::U8(133) => Self::Ftcs,
+            _ => Self::Unknown,
         }
     }
 }
@@ -81,14 +81,14 @@ pub enum OscType {
 impl std::fmt::Display for OscType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            OscType::RequestColorQueryBackground(value) => {
-                write!(f, "RequestColorQueryBackground({:?})", value)
+            Self::RequestColorQueryBackground(value) => {
+                write!(f, "RequestColorQueryBackground({value:?})")
             }
-            OscType::RequestColorQueryForeground(value) => {
-                write!(f, "RequestColorQueryForeground({:?})", value)
+            Self::RequestColorQueryForeground(value) => {
+                write!(f, "RequestColorQueryForeground({value:?})")
             }
-            OscType::SetTitleBar(value) => write!(f, "SetTitleBar({:?})", value),
-            OscType::Ftcs(value) => write!(f, "Ftcs ({:?})", value),
+            Self::SetTitleBar(value) => write!(f, "SetTitleBar({value:?})"),
+            Self::Ftcs(value) => write!(f, "Ftcs ({value:?})"),
         }
     }
 }
@@ -113,7 +113,7 @@ pub struct OscParser {
 // 1b]11;?1b\
 
 impl OscParser {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             state: OscParserState::Params,
             params: Vec::new(),
@@ -164,48 +164,47 @@ impl OscParser {
     ) -> Result<Option<AnsiParserInner>, ()> {
         self.push(b);
 
-        let return_value = match self.state {
+        
+
+        match self.state {
             OscParserState::Finished => {
-                match split_params_into_semicolon_delimited_usize(&self.params) {
-                    Ok(params) => {
-                        let type_number = extract_param(0, &params).unwrap();
+                if let Ok(params) = split_params_into_semicolon_delimited_usize(&self.params) {
+                    let type_number = extract_param(0, &params).unwrap();
 
-                        let osc_target = OscTarget::from(type_number.clone());
-                        let osc_internal_type = OscInternalType::from(params);
+                    let osc_target = OscTarget::from(type_number.clone());
+                    let osc_internal_type = OscInternalType::from(params);
 
-                        match osc_target {
-                            OscTarget::Background => {
-                                output.push(TerminalOutput::OscResponse(
-                                    OscType::RequestColorQueryBackground(osc_internal_type),
-                                ));
-                            }
-                            OscTarget::Foreground => {
-                                output.push(TerminalOutput::OscResponse(
-                                    OscType::RequestColorQueryForeground(osc_internal_type),
-                                ));
-                            }
-                            OscTarget::Unknown => {
-                                warn!("Unknown OSC target: {:?}", type_number);
-                                output.push(TerminalOutput::Invalid);
-                            }
-                            OscTarget::TitleBar => {
-                                warn!("TitleBar is not supported");
-                                output.push(TerminalOutput::OscResponse(OscType::SetTitleBar(
-                                    osc_internal_type.to_string(),
-                                )));
-                            }
-                            OscTarget::Ftcs => {
-                                warn!("Ftcs is not supported");
-                                output.push(TerminalOutput::OscResponse(OscType::Ftcs(
-                                    osc_internal_type.to_string(),
-                                )));
-                            }
+                    match osc_target {
+                        OscTarget::Background => {
+                            output.push(TerminalOutput::OscResponse(
+                                OscType::RequestColorQueryBackground(osc_internal_type),
+                            ));
+                        }
+                        OscTarget::Foreground => {
+                            output.push(TerminalOutput::OscResponse(
+                                OscType::RequestColorQueryForeground(osc_internal_type),
+                            ));
+                        }
+                        OscTarget::Unknown => {
+                            warn!("Unknown OSC target: {:?}", type_number);
+                            output.push(TerminalOutput::Invalid);
+                        }
+                        OscTarget::TitleBar => {
+                            warn!("TitleBar is not supported");
+                            output.push(TerminalOutput::OscResponse(OscType::SetTitleBar(
+                                osc_internal_type.to_string(),
+                            )));
+                        }
+                        OscTarget::Ftcs => {
+                            warn!("Ftcs is not supported");
+                            output.push(TerminalOutput::OscResponse(OscType::Ftcs(
+                                osc_internal_type.to_string(),
+                            )));
                         }
                     }
-                    Err(_) => {
-                        warn!("Invalid OSC params: {:?}", self.params);
-                        output.push(TerminalOutput::Invalid);
-                    }
+                } else {
+                    warn!("Invalid OSC params: {:?}", self.params);
+                    output.push(TerminalOutput::Invalid);
                 };
 
                 Ok(Some(AnsiParserInner::Empty))
@@ -214,15 +213,13 @@ impl OscParser {
                 output.push(TerminalOutput::Invalid);
                 Ok(Some(AnsiParserInner::Empty))
             }
-            _ => return Ok(None),
-        };
-
-        return_value
+            _ => Ok(None),
+        }
     }
 }
 
 // the terminator of the OSC sequence is a ST (0x5C) or BEL (0x07)
-fn is_osc_terminator(b: &[u8]) -> bool {
+const fn is_osc_terminator(b: &[u8]) -> bool {
     // the array has to be at least 4 bytes long, and the last two characters need to be 0x1b and 0x5c
 
     if b.len() < 2 {
@@ -232,7 +229,7 @@ fn is_osc_terminator(b: &[u8]) -> bool {
     b[b.len() - 2] == 0x1b && b[b.len() - 1] == 0x5c || b[b.len() - 1] == 0x07
 }
 
-fn is_final_character_osc_terminator(b: u8) -> bool {
+const fn is_final_character_osc_terminator(b: u8) -> bool {
     b == 0x5c || b == 0x07 || b == 0x1b
 }
 
@@ -242,7 +239,7 @@ fn is_valid_osc_param(b: u8) -> bool {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum OscToken {
+pub enum OscToken {
     U8(u8),
     String(String),
 }
@@ -252,9 +249,9 @@ impl FromStr for OscToken {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Ok(value) = s.parse::<u8>() {
-            Ok(OscToken::U8(value))
+            Ok(Self::U8(value))
         } else {
-            Ok(OscToken::String(s.to_string()))
+            Ok(Self::String(s.to_string()))
         }
     }
 }
@@ -276,16 +273,13 @@ pub fn parse_param_as<T: std::str::FromStr>(param_bytes: &[u8]) -> Result<Option
     if param_str.is_empty() {
         return Ok(None);
     }
-    match param_str.parse().map_err(|_| ()) {
-        Ok(value) => Ok(Some(value)),
-        Err(_) => {
-            warn!(
-                "Failed to parse parameter ({:?}) as {:?}",
-                param_bytes,
-                std::any::type_name::<T>()
-            );
-            Err(())
-        }
+    if let Ok(value) = param_str.parse().map_err(|_| ()) { Ok(Some(value)) } else {
+        warn!(
+            "Failed to parse parameter ({:?}) as {:?}",
+            param_bytes,
+            std::any::type_name::<T>()
+        );
+        Err(())
     }
 }
 

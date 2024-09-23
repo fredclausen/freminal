@@ -21,7 +21,7 @@ pub mod replay;
 use self::io::CreatePtyIoError;
 use crate::{
     error::backtraced_err,
-    gui::terminal::{self, terminal_color_to_egui},
+    gui::terminal::{terminal_color_to_egui},
     terminal_emulator::io::ReadResponse,
 };
 use ansi::{FreminalAnsiParser, TerminalOutput};
@@ -34,7 +34,6 @@ use buffer::TerminalBufferHolder;
 use eframe::egui::Color32;
 pub use format_tracker::FormatTag;
 use format_tracker::FormatTracker;
-use hex_string::u8_to_hex_string;
 pub use io::{FreminalPtyInputOutput, FreminalTermInputOutput};
 
 const fn char_to_ctrl_code(c: u8) -> u8 {
@@ -70,7 +69,7 @@ pub enum TerminalInput {
 }
 
 impl TerminalInput {
-    fn to_payload(&self, decckm_mode: bool) -> TerminalInputPayload {
+    const fn to_payload(&self, decckm_mode: bool) -> TerminalInputPayload {
         match self {
             Self::Ascii(c) => TerminalInputPayload::Single(*c),
             Self::Ctrl(c) => TerminalInputPayload::Single(char_to_ctrl_code(*c)),
@@ -175,7 +174,6 @@ pub struct CursorPos {
 pub enum FontWeight {
     Normal,
     Bold,
-    Faint,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -183,6 +181,7 @@ pub enum FontDecorations {
     Italic,
     Underline,
     DoubleUnderline,
+    Faint,
 }
 
 #[derive(Eq, PartialEq, Debug, Clone)]
@@ -217,8 +216,8 @@ pub enum TerminalColor {
 }
 
 impl TerminalColor {
-    const fn to_hex_u8_array(self, default: Color32) -> [u8; 3] {
-        let as_color = terminal_color_to_egui(default, self);
+    fn to_hex_u8_array(self, default: Color32) -> [u8; 3] {
+        let as_color = terminal_color_to_egui(default, self, false);
 
         let r = as_color.r();
         let g = as_color.g();
@@ -512,8 +511,30 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                         .push(FontDecorations::Italic);
                 }
             }
-            SelectGraphicRendition::ResetBold | SelectGraphicRendition::NormalIntensity => {
+            SelectGraphicRendition::Faint => {
+                if !self
+                    .cursor_state
+                    .font_decorations
+                    .contains(&FontDecorations::Faint)
+                {
+                    self.cursor_state
+                        .font_decorations
+                        .push(FontDecorations::Faint);
+                }
+            }
+            SelectGraphicRendition::ResetBold => {
                 self.cursor_state.font_weight = FontWeight::Normal;
+            }
+            SelectGraphicRendition::NormalIntensity => {
+                if self
+                    .cursor_state
+                    .font_decorations
+                    .contains(&FontDecorations::Faint)
+                {
+                    self.cursor_state
+                        .font_decorations
+                        .retain(|d| *d != FontDecorations::Faint);
+                }
             }
             SelectGraphicRendition::NotUnderlined => {
                 // remove FontDecorations::Underline if it's there
@@ -688,7 +709,6 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 match color {
                     OscInternalType::SetColor(_) => {
                         warn!("RequestColorQueryBackground: Set is not supported");
-                        return;
                     }
                     OscInternalType::Query => {
                         // lets get the color as a hex string
@@ -696,11 +716,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                         let (r, g, b, a) = Color32::BLACK.to_tuple();
 
                         let formatted_string = format!(
-                            "\x1b]11;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\",
-                            r = r,
-                            g = g,
-                            b = b,
-                            a = a
+                            "\x1b]11;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\"
                         );
                         let output = formatted_string.as_bytes();
 
@@ -721,18 +737,13 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 match color {
                     OscInternalType::SetColor(_) => {
                         warn!("RequestColorQueryForeground: Set is not supported");
-                        return;
                     }
                     OscInternalType::Query => {
                         // lets get the color as a hex string
                         let (r, g, b, a) = Color32::WHITE.to_tuple();
 
                         let formatted_string = format!(
-                            "\x1b]10;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\",
-                            r = r,
-                            g = g,
-                            b = b,
-                            a = a
+                            "\x1b]10;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\"
                         );
 
                         let output = formatted_string.as_bytes();
@@ -759,6 +770,18 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         }
     }
 
+    fn report_cursor_position(&mut self) {
+        let x = self.cursor_state.pos.x + 1;
+        let y = self.cursor_state.pos.y + 1;
+        let formatted_string = format!("\x1b[{y};{x}R");
+        let output = formatted_string.as_bytes();
+
+        for byte in output {
+            self.write(&TerminalInput::Ascii(*byte))
+                .expect("Failed to write cursor position report");
+        }
+    }
+
     fn handle_incoming_data(&mut self, incoming: &[u8]) {
         let parsed = self.parser.push(incoming);
         for segment in parsed {
@@ -779,6 +802,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 TerminalOutput::InsertSpaces(num_spaces) => self.insert_spaces(num_spaces),
                 TerminalOutput::ResetMode(mode) => self.reset_mode(&mode),
                 TerminalOutput::OscResponse(osc) => self.osc_response(osc),
+                TerminalOutput::CursorReport => self.report_cursor_position(),
                 TerminalOutput::Bell | TerminalOutput::Invalid | TerminalOutput::Skip => {
                     info!("Unhandled terminal output: {segment:?}");
                 }
