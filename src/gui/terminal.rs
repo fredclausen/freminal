@@ -580,6 +580,11 @@ impl FreminalTerminalWidget {
             ui.set_width((width_chars + 0.5) * character_size.0);
             ui.set_height((height_chars + 0.5) * character_size.1);
 
+            if let Some(title) = terminal_emulator.get_window_title() {
+                ui.ctx()
+                    .send_viewport_cmd(egui::ViewportCommand::Title(title));
+            }
+
             ui.input(|input_state| {
                 write_input_to_terminal(input_state, terminal_emulator);
             });

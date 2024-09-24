@@ -20,13 +20,12 @@ pub mod replay;
 
 use self::io::CreatePtyIoError;
 use crate::{
-    error::backtraced_err,
-    gui::terminal::{terminal_color_to_egui},
+    error::backtraced_err, gui::terminal::terminal_color_to_egui,
     terminal_emulator::io::ReadResponse,
 };
 use ansi::{FreminalAnsiParser, TerminalOutput};
 use ansi_components::{
-    mode::{Decawm, Decckm, Mode, Modes},
+    mode::{BracketedPasteMode, Decawm, Decckm, Mode, Modes},
     osc::{OscInternalType, OscType},
     sgr::SelectGraphicRendition,
 };
@@ -296,7 +295,9 @@ pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
     cursor_state: CursorState,
     modes: Modes,
     io: Io,
+    window_title: Option<String>,
     recording: Option<File>,
+    saved_color_state: Option<(TerminalColor, TerminalColor)>,
 }
 
 pub const TERMINAL_WIDTH: usize = 50;
@@ -329,6 +330,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             modes: Modes {
                 cursor_key_mode: Decckm::default(),
                 autowrap_mode: Decawm::default(),
+                bracketed_paste_mode: Default::default(),
             },
             cursor_state: CursorState {
                 pos: CursorPos { x: 0, y: 0 },
@@ -338,7 +340,9 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
                 background_color: TerminalColor::Black,
             },
             io,
+            window_title: None,
             recording,
+            saved_color_state: None,
         };
         Ok(ret)
     }
@@ -347,6 +351,14 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
 impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     pub const fn get_win_size(&self) -> (usize, usize) {
         self.terminal_buffer.get_win_size()
+    }
+
+    pub fn get_window_title(&self) -> Option<String> {
+        self.window_title.clone()
+    }
+
+    pub fn clear_window_title(&mut self) {
+        self.window_title = None;
     }
 
     pub fn set_win_size(
@@ -495,6 +507,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 self.cursor_state.background_color = TerminalColor::Black;
                 self.cursor_state.font_weight = FontWeight::Normal;
                 self.cursor_state.font_decorations.clear();
+                self.saved_color_state = None;
             }
             SelectGraphicRendition::Bold => {
                 self.cursor_state.font_weight = FontWeight::Bold;
@@ -545,8 +558,18 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             SelectGraphicRendition::ReverseVideo => {
                 let foreground = self.cursor_state.color;
                 let background = self.cursor_state.background_color;
+                self.saved_color_state = Some((foreground, background));
+
                 self.cursor_state.color = background;
                 self.cursor_state.background_color = foreground;
+            }
+            SelectGraphicRendition::ResetReverseVideo => {
+                if let Some((foreground, background)) = self.saved_color_state {
+                    self.cursor_state.color = foreground;
+                    self.cursor_state.background_color = background;
+
+                    self.saved_color_state = None;
+                }
             }
             SelectGraphicRendition::ForegroundBlack => {
                 self.cursor_state.color = TerminalColor::Black;
@@ -677,6 +700,9 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             Mode::Decawm => {
                 self.modes.autowrap_mode = Decawm::AutoWrap;
             }
+            Mode::BracketedPasteMode => {
+                self.modes.bracketed_paste_mode = BracketedPasteMode::Enabled;
+            }
             Mode::Unknown(_) => {
                 warn!("unhandled set mode: {mode:?}");
             }
@@ -699,6 +725,9 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             Mode::Decawm => {
                 self.modes.autowrap_mode = Decawm::NoAutoWrap;
             }
+            Mode::BracketedPasteMode => {
+                self.modes.bracketed_paste_mode = BracketedPasteMode::Disabled;
+            }
             Mode::Unknown(_) => {}
         }
     }
@@ -715,9 +744,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
 
                         let (r, g, b, a) = Color32::BLACK.to_tuple();
 
-                        let formatted_string = format!(
-                            "\x1b]11;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\"
-                        );
+                        let formatted_string =
+                            format!("\x1b]11;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\");
                         let output = formatted_string.as_bytes();
 
                         for byte in output {
@@ -742,9 +770,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                         // lets get the color as a hex string
                         let (r, g, b, a) = Color32::WHITE.to_tuple();
 
-                        let formatted_string = format!(
-                            "\x1b]10;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\"
-                        );
+                        let formatted_string =
+                            format!("\x1b]10;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\");
 
                         let output = formatted_string.as_bytes();
 
@@ -762,7 +789,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 }
             }
             OscType::SetTitleBar(title) => {
-                warn!("TitleBar is not supported: {title}");
+                self.window_title = Some(title);
             }
             OscType::Ftcs(value) => {
                 warn!("Ftcs is not supported: {value}");

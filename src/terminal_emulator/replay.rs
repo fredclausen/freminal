@@ -1,4 +1,4 @@
-use super::ansi_components::sgr::SelectGraphicRendition;
+use super::ansi_components::{mode::BracketedPasteMode, sgr::SelectGraphicRendition};
 #[allow(dead_code)]
 use super::{
     ansi::{FreminalAnsiParser, TerminalOutput},
@@ -17,6 +17,7 @@ pub struct ReplayIo {
     format_tracker: FormatTracker,
     cursor_state: CursorState,
     modes: Modes,
+    saved_color_state: Option<(TerminalColor, TerminalColor)>,
 }
 
 impl ReplayIo {
@@ -35,7 +36,9 @@ impl ReplayIo {
             modes: Modes {
                 cursor_key_mode: Decckm::default(),
                 autowrap_mode: Decawm::default(),
+                bracketed_paste_mode: Default::default(),
             },
+            saved_color_state: None,
         }
     }
 
@@ -166,6 +169,7 @@ impl ReplayIo {
                 self.cursor_state.background_color = TerminalColor::Black;
                 self.cursor_state.font_weight = FontWeight::Normal;
                 self.cursor_state.font_decorations.clear();
+                self.saved_color_state = None;
             }
             SelectGraphicRendition::Bold => {
                 self.cursor_state.font_weight = FontWeight::Bold;
@@ -216,8 +220,18 @@ impl ReplayIo {
             SelectGraphicRendition::ReverseVideo => {
                 let foreground = self.cursor_state.color;
                 let background = self.cursor_state.background_color;
+                self.saved_color_state = Some((foreground, background));
+
                 self.cursor_state.color = background;
                 self.cursor_state.background_color = foreground;
+            }
+            SelectGraphicRendition::ResetReverseVideo => {
+                if let Some((foreground, background)) = self.saved_color_state {
+                    self.cursor_state.color = foreground;
+                    self.cursor_state.background_color = background;
+
+                    self.saved_color_state = None;
+                }
             }
             SelectGraphicRendition::ForegroundBlack => {
                 self.cursor_state.color = TerminalColor::Black;
@@ -348,6 +362,9 @@ impl ReplayIo {
             Mode::Decawm => {
                 self.modes.autowrap_mode = Decawm::AutoWrap;
             }
+            Mode::BracketedPasteMode => {
+                self.modes.bracketed_paste_mode = BracketedPasteMode::Enabled;
+            }
             Mode::Unknown(_) => {
                 warn!("unhandled set mode: {mode:?}");
             }
@@ -369,6 +386,9 @@ impl ReplayIo {
             }
             Mode::Decawm => {
                 self.modes.autowrap_mode = Decawm::NoAutoWrap;
+            }
+            Mode::BracketedPasteMode => {
+                self.modes.bracketed_paste_mode = BracketedPasteMode::Disabled;
             }
             Mode::Unknown(_) => {}
         }

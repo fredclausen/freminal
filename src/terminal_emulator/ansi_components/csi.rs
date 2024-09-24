@@ -80,7 +80,6 @@ impl CsiParser {
     ) -> Result<Option<AnsiParserInner>, ()> {
         self.push(b);
 
-
         match self.state {
             CsiParserState::Finished(b'A') => self.ansi_parser_inner_csi_finished_move_up(output),
             CsiParserState::Finished(b'B') => self.ansi_parser_inner_csi_finished_move_down(output),

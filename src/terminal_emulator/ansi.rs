@@ -93,7 +93,9 @@ pub fn parse_param_as<T: std::str::FromStr>(param_bytes: &[u8]) -> Result<Option
     if param_str.is_empty() {
         return Ok(None);
     }
-    if let Ok(value) = param_str.parse().map_err(|_| ()) { Ok(Some(value)) } else {
+    if let Ok(value) = param_str.parse().map_err(|_| ()) {
+        Ok(Some(value))
+    } else {
         warn!(
             "Failed to parse parameter ({:?}) as {:?}",
             param_bytes,
@@ -215,9 +217,12 @@ impl FreminalAnsiParser {
                                 // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
 
                                 if let Some(TerminalOutput::Invalid) = output.last() {
-                                    error!("CSI Sequence that threw an error: {}", output_string_sequence);
+                                    error!(
+                                        "CSI Sequence that threw an error: {}",
+                                        output_string_sequence
+                                    );
                                 }
-                            },
+                            }
                             None => continue,
                         },
                         Err(()) => continue,
@@ -233,9 +238,12 @@ impl FreminalAnsiParser {
                                 // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
 
                                 if let Some(TerminalOutput::Invalid) = output.last() {
-                                    error!("OSC Sequence that threw an error: {}", output_string_sequence);
+                                    error!(
+                                        "OSC Sequence that threw an error: {}",
+                                        output_string_sequence
+                                    );
                                 }
-                            },
+                            }
                             None => continue,
                         },
                         Err(()) => continue,

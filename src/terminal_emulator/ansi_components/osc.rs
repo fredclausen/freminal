@@ -164,8 +164,6 @@ impl OscParser {
     ) -> Result<Option<AnsiParserInner>, ()> {
         self.push(b);
 
-        
-
         match self.state {
             OscParserState::Finished => {
                 if let Ok(params) = split_params_into_semicolon_delimited_usize(&self.params) {
@@ -190,7 +188,6 @@ impl OscParser {
                             output.push(TerminalOutput::Invalid);
                         }
                         OscTarget::TitleBar => {
-                            warn!("TitleBar is not supported");
                             output.push(TerminalOutput::OscResponse(OscType::SetTitleBar(
                                 osc_internal_type.to_string(),
                             )));
@@ -273,7 +270,9 @@ pub fn parse_param_as<T: std::str::FromStr>(param_bytes: &[u8]) -> Result<Option
     if param_str.is_empty() {
         return Ok(None);
     }
-    if let Ok(value) = param_str.parse().map_err(|_| ()) { Ok(Some(value)) } else {
+    if let Ok(value) = param_str.parse().map_err(|_| ()) {
+        Ok(Some(value))
+    } else {
         warn!(
             "Failed to parse parameter ({:?}) as {:?}",
             param_bytes,
