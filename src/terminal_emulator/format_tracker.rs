@@ -7,15 +7,7 @@ use super::{CursorState, FontDecorations, FontWeight, TerminalColor};
 use std::ops::Range;
 
 const fn ranges_overlap(a: Range<usize>, b: Range<usize>) -> bool {
-    if a.end <= b.start {
-        return false;
-    }
-
-    if a.start >= b.end {
-        return false;
-    }
-
-    true
+    !(a.end <= b.start || a.start >= b.end)
 }
 /// if a and b overlap like
 /// a:  [         ]

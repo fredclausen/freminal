@@ -16,7 +16,7 @@ pub mod ansi_components {
     pub mod osc;
     pub mod sgr;
 }
-pub mod replay;
+pub mod playback;
 
 use self::io::CreatePtyIoError;
 use crate::{error::backtraced_err, terminal_emulator::io::ReadResponse};
@@ -750,9 +750,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
 mod test {
     use super::*;
 
-    #[test]
-    fn test_format_tracker_scrollback_split() {
-        let tags = vec![
+    fn get_tags() -> Vec<FormatTag> {
+        vec![
             FormatTag {
                 start: 0,
                 end: 5,
@@ -785,13 +784,12 @@ mod test {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
             },
-        ];
+        ]
+    }
 
-        // Case 1: no split
-        let res = split_format_data_for_scrollback(tags.clone(), 0);
-        assert_eq!(res.scrollback, &[]);
-        assert_eq!(res.visible, &tags[..]);
-
+    #[test]
+    fn test_format_tracker_scrollback_split_on_boundary() {
+        let tags = get_tags();
         // Case 2: Split on a boundary
         let res = split_format_data_for_scrollback(tags.clone(), 10);
         assert_eq!(res.scrollback, &tags[0..3]);
@@ -806,6 +804,11 @@ mod test {
                 font_decorations: Vec::new(),
             },]
         );
+    }
+
+    #[test]
+    fn test_format_tracker_scrollback_split_segment() {
+        let tags = get_tags();
 
         // Case 3: Split a segment
         let res = split_format_data_for_scrollback(tags, 9);
@@ -838,6 +841,7 @@ mod test {
                 },
             ]
         );
+
         assert_eq!(
             res.visible,
             &[
@@ -859,5 +863,14 @@ mod test {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn test_format_tracker_scrollback_no_split() {
+        let tags = get_tags();
+        // Case 1: no split
+        let res = split_format_data_for_scrollback(tags.clone(), 0);
+        assert_eq!(res.scrollback, &[]);
+        assert_eq!(res.visible, &tags[..]);
     }
 }
