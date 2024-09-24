@@ -14,7 +14,9 @@ pub enum Mode {
 #[derive(Eq, PartialEq, Debug, Default)]
 pub enum Decckm {
     #[default]
+    /// Cursor keys send ANSI control codes
     ANSI,
+    /// Cursor keys send application control codes
     Application,
 }
 
@@ -22,14 +24,19 @@ pub enum Decckm {
 #[derive(Eq, PartialEq, Debug, Default)]
 pub enum Decawm {
     #[default]
+    /// Cursor does not wrap to the next line
     NoAutoWrap,
+    /// Cursor wraps to the next line
     AutoWrap,
 }
 
+/// Bracketed Paste Mode (DEC 2004)
 #[derive(Debug, Default)]
 pub enum BracketedPasteMode {
     #[default]
+    /// Bracketed paste mode is disabled
     Disabled,
+    /// Bracketed paste mode is enabled and the terminal will send ESC [200~ and ESC [201~ around pasted text
     Enabled,
 }
 
@@ -58,10 +65,7 @@ pub fn mode_from_params(params: &[u8]) -> Mode {
     match params {
         // https://vt100.net/docs/vt510-rm/DECCKM.html
         b"?1" => Mode::Decckm,
-        b"?7" => {
-            warn!("Found DECAWM. Ignoring.");
-            Mode::Decawm
-        }
+        b"?7" => Mode::Decawm,
         b"?2004" => Mode::BracketedPasteMode,
         _ => Mode::Unknown(params.to_vec()),
     }

@@ -1,5 +1,9 @@
+// WIP for replaying terminal data
+
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 use super::ansi_components::{mode::BracketedPasteMode, sgr::SelectGraphicRendition};
-#[allow(dead_code)]
 use super::{
     ansi::{FreminalAnsiParser, TerminalOutput},
     buffer::TerminalBufferHolder,

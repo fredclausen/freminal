@@ -698,6 +698,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 self.modes.cursor_key_mode = Decckm::Application;
             }
             Mode::Decawm => {
+                warn!("Decawm Set is not supported");
                 self.modes.autowrap_mode = Decawm::AutoWrap;
             }
             Mode::BracketedPasteMode => {
@@ -723,6 +724,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 self.modes.cursor_key_mode = Decckm::ANSI;
             }
             Mode::Decawm => {
+                warn!("Decawm Reset is not supported");
                 self.modes.autowrap_mode = Decawm::NoAutoWrap;
             }
             Mode::BracketedPasteMode => {

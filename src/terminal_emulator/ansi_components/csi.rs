@@ -396,13 +396,6 @@ impl CsiParser {
                             output.push(TerminalOutput::Invalid);
                             continue;
                         };
-
-                        // lets make sure the iterator is empty now. Otherwise, it's an invalid sequence
-                        if param_iter.next().is_some() {
-                            warn!("Invalid SGR sequence: {}", param);
-                            output.push(TerminalOutput::Invalid);
-                            continue;
-                        }
                     }
                     5 => {
                         let Some(Some(lookup)) = param_iter.next() else {
