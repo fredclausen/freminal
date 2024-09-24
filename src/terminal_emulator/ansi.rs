@@ -269,6 +269,14 @@ mod test {
 
     use super::*;
 
+    struct ColorCode(u8);
+
+    impl std::fmt::Display for ColorCode {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_fmt(format_args!("\x1b[{}m", self.0))
+        }
+    }
+
     #[test]
     fn test_set_cursor_position() {
         let mut output_buffer = FreminalAnsiParser::new();
@@ -421,14 +429,6 @@ mod test {
     #[test]
     fn test_color_parsing() {
         let mut output_buffer = FreminalAnsiParser::new();
-
-        struct ColorCode(u8);
-
-        impl std::fmt::Display for ColorCode {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.write_fmt(format_args!("\x1b[{}m", self.0))
-            }
-        }
 
         let mut test_input = String::new();
         for i in 30..=37 {

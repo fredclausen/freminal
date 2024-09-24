@@ -481,59 +481,43 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         }
     }
 
-    fn sgr(&mut self, sgr: SelectGraphicRendition) {
-        // if let Some(color) = TerminalColor::from_sgr(sgr) {
-        //     self.cursor_state.color = color;
-        //     return;
-        // }
+    fn reset(&mut self) {
+        self.cursor_state.color = TerminalColor::Default;
+        self.cursor_state.background_color = TerminalColor::Black;
+        self.cursor_state.font_weight = FontWeight::Normal;
+        self.cursor_state.font_decorations.clear();
+        self.saved_color_state = None;
+    }
 
+    fn font_decordations_add_if_not_contains(&mut self, decoration: FontDecorations) {
+        if !self.cursor_state.font_decorations.contains(&decoration) {
+            self.cursor_state.font_decorations.push(decoration);
+        }
+    }
+
+    fn font_decorations_remove_if_contains(&mut self, decoration: &FontDecorations) {
+        self.cursor_state
+            .font_decorations
+            .retain(|d| *d != *decoration);
+    }
+
+    fn sgr(&mut self, sgr: SelectGraphicRendition) {
         match sgr {
-            SelectGraphicRendition::Reset => {
-                self.cursor_state.color = TerminalColor::Default;
-                self.cursor_state.background_color = TerminalColor::Black;
-                self.cursor_state.font_weight = FontWeight::Normal;
-                self.cursor_state.font_decorations.clear();
-                self.saved_color_state = None;
-            }
+            SelectGraphicRendition::Reset => self.reset(),
             SelectGraphicRendition::Bold => {
                 self.cursor_state.font_weight = FontWeight::Bold;
             }
             SelectGraphicRendition::Italic => {
-                // add in FontDecorations::Italic if it's not already there
-                if !self
-                    .cursor_state
-                    .font_decorations
-                    .contains(&FontDecorations::Italic)
-                {
-                    self.cursor_state
-                        .font_decorations
-                        .push(FontDecorations::Italic);
-                }
+                self.font_decordations_add_if_not_contains(FontDecorations::Italic)
             }
             SelectGraphicRendition::Faint => {
-                if !self
-                    .cursor_state
-                    .font_decorations
-                    .contains(&FontDecorations::Faint)
-                {
-                    self.cursor_state
-                        .font_decorations
-                        .push(FontDecorations::Faint);
-                }
+                self.font_decordations_add_if_not_contains(FontDecorations::Faint)
             }
             SelectGraphicRendition::ResetBold => {
                 self.cursor_state.font_weight = FontWeight::Normal;
             }
             SelectGraphicRendition::NormalIntensity => {
-                if self
-                    .cursor_state
-                    .font_decorations
-                    .contains(&FontDecorations::Faint)
-                {
-                    self.cursor_state
-                        .font_decorations
-                        .retain(|d| *d != FontDecorations::Faint);
-                }
+                self.font_decorations_remove_if_contains(&FontDecorations::Faint)
             }
             SelectGraphicRendition::NotUnderlined => {
                 // remove FontDecorations::Underline if it's there

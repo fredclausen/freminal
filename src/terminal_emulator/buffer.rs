@@ -516,6 +516,25 @@ impl TerminalBufferHolder {
 mod test {
     use super::*;
 
+    fn simulate_resize(
+        canvas: &mut TerminalBufferHolder,
+        width: usize,
+        height: usize,
+        cursor_pos: &CursorPos,
+    ) -> TerminalBufferInsertResponse {
+        let mut response = canvas.set_win_size(width, height, cursor_pos);
+        response.new_cursor_pos.x = 0;
+        let mut response = canvas.insert_data(&response.new_cursor_pos, &vec![b' '; width]);
+        response.new_cursor_pos.x = 0;
+
+        canvas.insert_data(&response.new_cursor_pos, b"$ ")
+    }
+
+    fn crlf(pos: &mut CursorPos) {
+        pos.y += 1;
+        pos.x = 0;
+    }
+
     #[test]
     fn test_calc_line_ranges() {
         let line_starts = calc_line_ranges(b"asdf\n0123456789\n012345678901", 10);
@@ -645,11 +664,6 @@ mod test {
         let mut canvas = TerminalBufferHolder::new(10, 3);
         let initial_cursor_pos = CursorPos { x: 0, y: 0 };
 
-        fn crlf(pos: &mut CursorPos) {
-            pos.y += 1;
-            pos.x = 0;
-        }
-
         // Simulate real terminal usage where newlines are injected with cursor moves
         let mut response = canvas.insert_data(&initial_cursor_pos, b"asdf");
         crlf(&mut response.new_cursor_pos);
@@ -760,20 +774,6 @@ mod test {
         let mut canvas = TerminalBufferHolder::new(10, 6);
 
         let cursor_pos = CursorPos { x: 0, y: 0 };
-
-        fn simulate_resize(
-            canvas: &mut TerminalBufferHolder,
-            width: usize,
-            height: usize,
-            cursor_pos: &CursorPos,
-        ) -> TerminalBufferInsertResponse {
-            let mut response = canvas.set_win_size(width, height, cursor_pos);
-            response.new_cursor_pos.x = 0;
-            let mut response = canvas.insert_data(&response.new_cursor_pos, &vec![b' '; width]);
-            response.new_cursor_pos.x = 0;
-
-            canvas.insert_data(&response.new_cursor_pos, b"$ ")
-        }
         let response = simulate_resize(&mut canvas, 10, 5, &cursor_pos);
         let response = simulate_resize(&mut canvas, 10, 4, &response.new_cursor_pos);
         let response = simulate_resize(&mut canvas, 10, 3, &response.new_cursor_pos);
