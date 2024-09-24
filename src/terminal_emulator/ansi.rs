@@ -192,7 +192,7 @@ impl FreminalAnsiParser {
         for b in incoming {
             match &mut self.inner {
                 AnsiParserInner::Empty => {
-                    if output_string_sequence.len() > 0 {
+                    if !output_string_sequence.is_empty() {
                         output_string_sequence.clear();
                     }
 
@@ -214,7 +214,7 @@ impl FreminalAnsiParser {
 
                                 // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
 
-                                if let Some(TerminalOutput::Invalid) = output.last() {
+                                if output.last() == Some(&TerminalOutput::Invalid) {
                                     error!(
                                         "CSI Sequence that threw an error: {}",
                                         output_string_sequence
@@ -235,7 +235,7 @@ impl FreminalAnsiParser {
 
                                 // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
 
-                                if let Some(TerminalOutput::Invalid) = output.last() {
+                                if output.last() == Some(&TerminalOutput::Invalid) {
                                     error!(
                                         "OSC Sequence that threw an error: {}",
                                         output_string_sequence

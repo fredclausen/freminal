@@ -31,12 +31,13 @@ impl Args {
 
         while let Some(arg) = it.next() {
             if arg.as_str() == "--recording-path" {
-                recording_path = if let Some(p) = it.next() {
-                    Some(p)
-                } else {
-                    println!("Missing argument for --recording-path");
-                    Self::help(program_name.as_deref());
-                };
+                recording_path = it.next().map_or_else(
+                    || {
+                        println!("Missing argument for --recording-path");
+                        Self::help(program_name.as_deref());
+                    },
+                    Some,
+                );
             } else {
                 println!("Invalid argument {arg}");
                 Self::help(program_name.as_deref())

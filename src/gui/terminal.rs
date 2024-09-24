@@ -564,7 +564,7 @@ impl FreminalTerminalWidget {
     }
 
     pub fn show<Io: FreminalTermInputOutput>(
-        &mut self,
+        &self,
         ui: &mut Ui,
         terminal_emulator: &mut TerminalEmulator<Io>,
     ) {

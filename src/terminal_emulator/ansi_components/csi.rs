@@ -141,7 +141,7 @@ impl CsiParser {
     }
 
     fn ansi_parser_inner_csi_finished_move_up(
-        &mut self,
+        &self,
         output: &mut Vec<TerminalOutput>,
     ) -> Result<Option<AnsiParserInner>, ()> {
         let Ok(param) = parse_param_as::<i32>(&self.params) else {
@@ -159,7 +159,7 @@ impl CsiParser {
     }
 
     fn ansi_parser_inner_csi_finished_move_down(
-        &mut self,
+        &self,
         output: &mut Vec<TerminalOutput>,
     ) -> Result<Option<AnsiParserInner>, ()> {
         let Ok(param) = parse_param_as::<i32>(&self.params) else {
@@ -177,7 +177,7 @@ impl CsiParser {
     }
 
     fn ansi_parser_inner_csi_finished_move_right(
-        &mut self,
+        &self,
         output: &mut Vec<TerminalOutput>,
     ) -> Result<Option<AnsiParserInner>, ()> {
         let Ok(param) = parse_param_as::<i32>(&self.params) else {
@@ -195,7 +195,7 @@ impl CsiParser {
     }
 
     fn ansi_parser_inner_csi_finished_move_left(
-        &mut self,
+        &self,
         output: &mut Vec<TerminalOutput>,
     ) -> Result<Option<AnsiParserInner>, ()> {
         let Ok(param) = parse_param_as::<i32>(&self.params) else {
@@ -213,7 +213,7 @@ impl CsiParser {
     }
 
     fn ansi_parser_inner_csi_finished_set_position_h(
-        &mut self,
+        &self,
         output: &mut Vec<TerminalOutput>,
     ) -> Result<Option<AnsiParserInner>, ()> {
         let params = split_params_into_semicolon_delimited_usize(&self.params);
@@ -233,7 +233,7 @@ impl CsiParser {
     }
 
     fn ansi_parser_inner_csi_finished_set_position_g(
-        &mut self,
+        &self,
         output: &mut Vec<TerminalOutput>,
     ) -> Result<Option<AnsiParserInner>, ()> {
         let Ok(param) = parse_param_as::<usize>(&self.params) else {
@@ -253,7 +253,7 @@ impl CsiParser {
     }
 
     fn ansi_parser_inner_csi_finished_set_position_j(
-        &mut self,
+        &self,
         output: &mut Vec<TerminalOutput>,
     ) -> Result<Option<AnsiParserInner>, ()> {
         let Ok(param) = parse_param_as::<usize>(&self.params) else {
@@ -274,7 +274,7 @@ impl CsiParser {
     }
 
     fn ansi_parser_inner_csi_finished_set_position_k(
-        &mut self,
+        &self,
         output: &mut Vec<TerminalOutput>,
     ) -> Result<Option<AnsiParserInner>, ()> {
         let Ok(param) = parse_param_as::<usize>(&self.params) else {
@@ -297,7 +297,7 @@ impl CsiParser {
     }
 
     fn ansi_parser_inner_csi_finished_set_position_l(
-        &mut self,
+        &self,
         output: &mut Vec<TerminalOutput>,
     ) -> Result<Option<AnsiParserInner>, ()> {
         let Ok(param) = parse_param_as::<usize>(&self.params) else {
@@ -313,7 +313,7 @@ impl CsiParser {
     }
 
     fn ansi_parser_inner_csi_finished_set_position_p(
-        &mut self,
+        &self,
         output: &mut Vec<TerminalOutput>,
     ) -> Result<Option<AnsiParserInner>, ()> {
         let Ok(param) = parse_param_as::<usize>(&self.params) else {
@@ -329,7 +329,7 @@ impl CsiParser {
     }
 
     fn ansi_parser_inner_csi_finished_sgr(
-        &mut self,
+        &self,
         output: &mut Vec<TerminalOutput>,
     ) -> Result<Option<AnsiParserInner>, ()> {
         let params = split_params_into_semicolon_delimited_usize(&self.params);
@@ -443,7 +443,7 @@ impl CsiParser {
     }
 
     fn ansi_parser_inner_csi_finished_ich(
-        &mut self,
+        &self,
         output: &mut Vec<TerminalOutput>,
     ) -> Result<Option<AnsiParserInner>, ()> {
         let Ok(param) = parse_param_as::<usize>(&self.params) else {
