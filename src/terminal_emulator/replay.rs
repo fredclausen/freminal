@@ -40,7 +40,7 @@ impl ReplayIo {
             modes: Modes {
                 cursor_key_mode: Decckm::default(),
                 autowrap_mode: Decawm::default(),
-                bracketed_paste_mode: Default::default(),
+                bracketed_paste_mode: BracketedPasteMode::default(),
             },
             saved_color_state: None,
         }
@@ -50,17 +50,11 @@ impl ReplayIo {
         self.terminal_buffer.get_win_size()
     }
 
-    pub fn set_win_size(
-        &mut self,
-        width_chars: usize,
-        height_chars: usize,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn set_win_size(&mut self, width_chars: usize, height_chars: usize) {
         let response =
             self.terminal_buffer
                 .set_win_size(width_chars, height_chars, &self.cursor_state.pos);
         self.cursor_state.pos = response.new_cursor_pos;
-
-        Ok(())
     }
 
     fn handle_data(&mut self, data: &[u8]) {
@@ -294,10 +288,7 @@ impl ReplayIo {
             SelectGraphicRendition::ForegroundBrightWhite => {
                 self.cursor_state.color = TerminalColor::BrightWhite;
             }
-            SelectGraphicRendition::DefaultBackground => {
-                self.cursor_state.background_color = TerminalColor::Black;
-            }
-            SelectGraphicRendition::BackgroundBlack => {
+            SelectGraphicRendition::DefaultBackground | SelectGraphicRendition::BackgroundBlack => {
                 self.cursor_state.background_color = TerminalColor::Black;
             }
             SelectGraphicRendition::BackgroundRed => {
@@ -417,9 +408,10 @@ impl ReplayIo {
                 TerminalOutput::SetMode(mode) => self.set_mode(&mode),
                 TerminalOutput::InsertSpaces(num_spaces) => self.insert_spaces(num_spaces),
                 TerminalOutput::ResetMode(mode) => self.reset_mode(&mode),
-                TerminalOutput::Bell | TerminalOutput::Invalid => (),
-                TerminalOutput::OscResponse(_) => (),
-                TerminalOutput::CursorReport => (),
+                TerminalOutput::Bell
+                | TerminalOutput::Invalid
+                | TerminalOutput::OscResponse(_)
+                | TerminalOutput::CursorReport => (),
             }
         }
     }
@@ -533,5 +525,5 @@ fn format_tracker_with_data() {
 
         print!("{output}");
     }
-    assert!(0 == 1);
+    // assert!(0 == 1);
 }

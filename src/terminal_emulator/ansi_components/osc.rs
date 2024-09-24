@@ -245,11 +245,10 @@ impl FromStr for OscToken {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(value) = s.parse::<u8>() {
-            Ok(Self::U8(value))
-        } else {
-            Ok(Self::String(s.to_string()))
-        }
+        s.parse::<u8>().map_or_else(
+            |_| Ok(Self::String(s.to_string())),
+            |value| Ok(Self::U8(value)),
+        )
     }
 }
 
@@ -270,24 +269,20 @@ pub fn parse_param_as<T: std::str::FromStr>(param_bytes: &[u8]) -> Result<Option
     if param_str.is_empty() {
         return Ok(None);
     }
-    if let Ok(value) = param_str.parse().map_err(|_| ()) {
-        Ok(Some(value))
-    } else {
-        warn!(
-            "Failed to parse parameter ({:?}) as {:?}",
-            param_bytes,
-            std::any::type_name::<T>()
-        );
-        Err(())
-    }
+    param_str.parse().map_err(|_| ()).map_or_else(
+        |()| {
+            warn!(
+                "Failed to parse parameter ({:?}) as {:?}",
+                param_bytes,
+                std::any::type_name::<T>()
+            );
+            Err(())
+        },
+        |value| Ok(Some(value)),
+    )
 }
 
 pub fn extract_param(idx: usize, params: &[Option<OscToken>]) -> Option<OscToken> {
     // get the parameter at the index
-
-    if let Some(value) = params.get(idx) {
-        value.clone()
-    } else {
-        None
-    }
+    params.get(idx).and_then(std::clone::Clone::clone)
 }

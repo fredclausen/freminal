@@ -289,7 +289,7 @@ pub const TERMINAL_WIDTH: usize = 50;
 pub const TERMINAL_HEIGHT: usize = 16;
 
 impl TerminalEmulator<FreminalPtyInputOutput> {
-    pub fn new(recording_path: Option<String>) -> Result<Self, CreatePtyIoError> {
+    pub fn new(recording_path: &Option<String>) -> Result<Self, CreatePtyIoError> {
         let mut io = FreminalPtyInputOutput::new()?;
         let mut recording = None;
 
@@ -315,7 +315,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             modes: Modes {
                 cursor_key_mode: Decckm::default(),
                 autowrap_mode: Decawm::default(),
-                bracketed_paste_mode: Default::default(),
+                bracketed_paste_mode: BracketedPasteMode::default(),
             },
             cursor_state: CursorState {
                 pos: CursorPos { x: 0, y: 0 },
@@ -614,10 +614,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             SelectGraphicRendition::ForegroundBrightWhite => {
                 self.cursor_state.color = TerminalColor::BrightWhite;
             }
-            SelectGraphicRendition::DefaultBackground => {
-                self.cursor_state.background_color = TerminalColor::Black;
-            }
-            SelectGraphicRendition::BackgroundBlack => {
+            SelectGraphicRendition::DefaultBackground | SelectGraphicRendition::BackgroundBlack => {
                 self.cursor_state.background_color = TerminalColor::Black;
             }
             SelectGraphicRendition::BackgroundRed => {
@@ -744,7 +741,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                     OscInternalType::Unknown(_) => {
                         warn!("OSC Unknown is not supported");
                     }
-                    _ => {
+                    OscInternalType::String(_) => {
                         warn!("OSC Type {color:?} Skipped");
                     }
                 }
@@ -771,7 +768,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                     OscInternalType::Unknown(_) => {
                         warn!("OSC Unknown is not supported");
                     }
-                    _ => {
+                    OscInternalType::String(_) => {
                         warn!("OSC Type {color:?} Skipped");
                     }
                 }

@@ -67,7 +67,7 @@ impl Args {
 fn main() {
     log::init();
     let args = Args::parse(std::env::args());
-    let res = match TerminalEmulator::new(args.recording) {
+    let res = match TerminalEmulator::new(&args.recording) {
         Ok(v) => gui::run(v),
         Err(e) => {
             error!(
