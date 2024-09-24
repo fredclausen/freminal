@@ -1,13 +1,13 @@
 use std::str::FromStr;
 
-use eframe::egui::Color32;
+//use eframe::egui::Color32;
 
 use crate::terminal_emulator::ansi::{AnsiParserInner, TerminalOutput};
 
 #[derive(Eq, PartialEq, Debug)]
 pub enum OscInternalType {
     Query,
-    SetColor(Color32),
+    //SetColor(Color32),
     String(String),
     Unknown(Option<OscToken>),
 }
@@ -18,7 +18,7 @@ impl std::fmt::Display for OscInternalType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Query => write!(f, "Query"),
-            Self::SetColor(value) => write!(f, "SetColor({value:?})"),
+            //Self::SetColor(value) => write!(f, "SetColor({value:?})"),
             Self::String(value) => write!(f, "{value}"),
             Self::Unknown(value) => write!(f, "Unknown({value:?})"),
         }
@@ -96,7 +96,7 @@ impl std::fmt::Display for OscType {
 #[derive(Eq, PartialEq, Debug)]
 pub enum OscParserState {
     Params,
-    Intermediates,
+    //Intermediates,
     Finished,
     Invalid,
     InvalidFinished,
@@ -143,9 +143,9 @@ impl OscParser {
                     }
                 }
             }
-            OscParserState::Intermediates => {
-                panic!("OscParser should not be in intermediates state");
-            }
+            // OscParserState::Intermediates => {
+            //     panic!("OscParser should not be in intermediates state");
+            // }
             OscParserState::Finished | OscParserState::InvalidFinished => {
                 unreachable!()
             }

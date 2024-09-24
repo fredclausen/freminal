@@ -19,10 +19,7 @@ pub mod ansi_components {
 pub mod replay;
 
 use self::io::CreatePtyIoError;
-use crate::{
-    error::backtraced_err, gui::terminal::terminal_color_to_egui,
-    terminal_emulator::io::ReadResponse,
-};
+use crate::{error::backtraced_err, terminal_emulator::io::ReadResponse};
 use ansi::{FreminalAnsiParser, TerminalOutput};
 use ansi_components::{
     mode::{BracketedPasteMode, Decawm, Decckm, Mode, Modes},
@@ -214,18 +211,6 @@ pub enum TerminalColor {
     Custom(u8, u8, u8),
 }
 
-impl TerminalColor {
-    fn to_hex_u8_array(self, default: Color32) -> [u8; 3] {
-        let as_color = terminal_color_to_egui(default, self, false);
-
-        let r = as_color.r();
-        let g = as_color.g();
-        let b = as_color.b();
-
-        [r, g, b]
-    }
-}
-
 impl fmt::Display for TerminalColor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
@@ -357,6 +342,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         self.window_title.clone()
     }
 
+    #[allow(dead_code)]
     pub fn clear_window_title(&mut self) {
         self.window_title = None;
     }
@@ -738,9 +724,9 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         match osc {
             OscType::RequestColorQueryBackground(color) => {
                 match color {
-                    OscInternalType::SetColor(_) => {
-                        warn!("RequestColorQueryBackground: Set is not supported");
-                    }
+                    // OscInternalType::SetColor(_) => {
+                    //     warn!("RequestColorQueryBackground: Set is not supported");
+                    // }
                     OscInternalType::Query => {
                         // lets get the color as a hex string
 
@@ -765,9 +751,9 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             }
             OscType::RequestColorQueryForeground(color) => {
                 match color {
-                    OscInternalType::SetColor(_) => {
-                        warn!("RequestColorQueryForeground: Set is not supported");
-                    }
+                    // OscInternalType::SetColor(_) => {
+                    //     warn!("RequestColorQueryForeground: Set is not supported");
+                    // }
                     OscInternalType::Query => {
                         // lets get the color as a hex string
                         let (r, g, b, a) = Color32::WHITE.to_tuple();
@@ -832,7 +818,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 TerminalOutput::ResetMode(mode) => self.reset_mode(&mode),
                 TerminalOutput::OscResponse(osc) => self.osc_response(osc),
                 TerminalOutput::CursorReport => self.report_cursor_position(),
-                TerminalOutput::Bell | TerminalOutput::Invalid | TerminalOutput::Skip => {
+                TerminalOutput::Bell | TerminalOutput::Invalid => {
                     info!("Unhandled terminal output: {segment:?}");
                 }
             }

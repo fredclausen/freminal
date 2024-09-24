@@ -34,7 +34,6 @@ pub enum TerminalOutput {
     OscResponse(OscType),
     CursorReport,
     Invalid,
-    Skip,
 }
 
 // impl format display for TerminalOutput
@@ -66,7 +65,6 @@ impl std::fmt::Display for TerminalOutput {
             Self::InsertSpaces(n) => write!(f, "InsertSpaces({n})"),
             Self::OscResponse(n) => write!(f, "OscResponse({n})"),
             Self::Invalid => write!(f, "Invalid"),
-            Self::Skip => write!(f, "Skip"),
             Self::CursorReport => write!(f, "CursorReport"),
         }
     }
