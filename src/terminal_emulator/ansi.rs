@@ -91,16 +91,18 @@ pub fn parse_param_as<T: std::str::FromStr>(param_bytes: &[u8]) -> Result<Option
     if param_str.is_empty() {
         return Ok(None);
     }
-    if let Ok(value) = param_str.parse().map_err(|_| ()) {
-        Ok(Some(value))
-    } else {
-        warn!(
-            "Failed to parse parameter ({:?}) as {:?}",
-            param_bytes,
-            std::any::type_name::<T>()
-        );
-        Err(())
-    }
+
+    param_str.parse().map_err(|_| ()).map_or_else(
+        |()| {
+            warn!(
+                "Failed to parse parameter ({:?}) as {:?}",
+                param_bytes,
+                std::any::type_name::<T>()
+            );
+            Err(())
+        },
+        |value| Ok(Some(value)),
+    )
 }
 
 fn push_data_if_non_empty(data: &mut Vec<u8>, output: &mut Vec<TerminalOutput>) {

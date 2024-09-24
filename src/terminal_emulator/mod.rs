@@ -22,7 +22,7 @@ use self::io::CreatePtyIoError;
 use crate::{error::backtraced_err, terminal_emulator::io::ReadResponse};
 use ansi::{FreminalAnsiParser, TerminalOutput};
 use ansi_components::{
-    mode::{BracketedPasteMode, Decawm, Decckm, Mode, Modes},
+    mode::{BracketedPaste, Decawm, Decckm, Mode, Modes},
     osc::{OscInternalType, OscType},
     sgr::SelectGraphicRendition,
 };
@@ -315,7 +315,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             modes: Modes {
                 cursor_key_mode: Decckm::default(),
                 autowrap_mode: Decawm::default(),
-                bracketed_paste_mode: BracketedPasteMode::default(),
+                bracketed_paste_mode: BracketedPaste::default(),
             },
             cursor_state: CursorState {
                 pos: CursorPos { x: 0, y: 0 },
@@ -684,8 +684,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 warn!("Decawm Set is not supported");
                 self.modes.autowrap_mode = Decawm::AutoWrap;
             }
-            Mode::BracketedPasteMode => {
-                self.modes.bracketed_paste_mode = BracketedPasteMode::Enabled;
+            Mode::BracketedPaste => {
+                self.modes.bracketed_paste_mode = BracketedPaste::Enabled;
             }
             Mode::Unknown(_) => {
                 warn!("unhandled set mode: {mode:?}");
@@ -704,14 +704,14 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     fn reset_mode(&mut self, mode: &Mode) {
         match mode {
             Mode::Decckm => {
-                self.modes.cursor_key_mode = Decckm::ANSI;
+                self.modes.cursor_key_mode = Decckm::Ansi;
             }
             Mode::Decawm => {
                 warn!("Decawm Reset is not supported");
                 self.modes.autowrap_mode = Decawm::NoAutoWrap;
             }
-            Mode::BracketedPasteMode => {
-                self.modes.bracketed_paste_mode = BracketedPasteMode::Disabled;
+            Mode::BracketedPaste => {
+                self.modes.bracketed_paste_mode = BracketedPaste::Disabled;
             }
             Mode::Unknown(_) => {}
         }

@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use super::ansi_components::{mode::BracketedPasteMode, sgr::SelectGraphicRendition};
+use super::ansi_components::{mode::BracketedPaste, sgr::SelectGraphicRendition};
 use super::{
     ansi::{FreminalAnsiParser, TerminalOutput},
     buffer::TerminalBufferHolder,
@@ -40,7 +40,7 @@ impl ReplayIo {
             modes: Modes {
                 cursor_key_mode: Decckm::default(),
                 autowrap_mode: Decawm::default(),
-                bracketed_paste_mode: BracketedPasteMode::default(),
+                bracketed_paste_mode: BracketedPaste::default(),
             },
             saved_color_state: None,
         }
@@ -357,8 +357,8 @@ impl ReplayIo {
             Mode::Decawm => {
                 self.modes.autowrap_mode = Decawm::AutoWrap;
             }
-            Mode::BracketedPasteMode => {
-                self.modes.bracketed_paste_mode = BracketedPasteMode::Enabled;
+            Mode::BracketedPaste => {
+                self.modes.bracketed_paste_mode = BracketedPaste::Enabled;
             }
             Mode::Unknown(_) => {
                 warn!("unhandled set mode: {mode:?}");
@@ -377,13 +377,13 @@ impl ReplayIo {
     fn reset_mode(&mut self, mode: &Mode) {
         match mode {
             Mode::Decckm => {
-                self.modes.cursor_key_mode = Decckm::ANSI;
+                self.modes.cursor_key_mode = Decckm::Ansi;
             }
             Mode::Decawm => {
                 self.modes.autowrap_mode = Decawm::NoAutoWrap;
             }
-            Mode::BracketedPasteMode => {
-                self.modes.bracketed_paste_mode = BracketedPasteMode::Disabled;
+            Mode::BracketedPaste => {
+                self.modes.bracketed_paste_mode = BracketedPaste::Disabled;
             }
             Mode::Unknown(_) => {}
         }

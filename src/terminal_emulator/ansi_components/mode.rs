@@ -6,7 +6,7 @@ pub enum Mode {
     // https://vt100.net/docs/vt100-ug/chapter3.html
     Decckm,
     Decawm,
-    BracketedPasteMode,
+    BracketedPaste,
     Unknown(Vec<u8>),
 }
 
@@ -15,7 +15,7 @@ pub enum Mode {
 pub enum Decckm {
     #[default]
     /// Cursor keys send ANSI control codes
-    ANSI,
+    Ansi,
     /// Cursor keys send application control codes
     Application,
 }
@@ -32,7 +32,7 @@ pub enum Decawm {
 
 /// Bracketed Paste Mode (DEC 2004)
 #[derive(Debug, Default)]
-pub enum BracketedPasteMode {
+pub enum BracketedPaste {
     #[default]
     /// Bracketed paste mode is disabled
     Disabled,
@@ -43,7 +43,7 @@ pub enum BracketedPasteMode {
 pub struct Modes {
     pub cursor_key_mode: Decckm,
     pub autowrap_mode: Decawm,
-    pub bracketed_paste_mode: BracketedPasteMode,
+    pub bracketed_paste_mode: BracketedPaste,
 }
 
 impl fmt::Debug for Mode {
@@ -51,7 +51,7 @@ impl fmt::Debug for Mode {
         match self {
             Self::Decckm => f.write_str("Decckm"),
             Self::Decawm => f.write_str("Decawm"),
-            Self::BracketedPasteMode => f.write_str("BracketedPasteMode"),
+            Self::BracketedPaste => f.write_str("BracketedPasteMode"),
             Self::Unknown(params) => {
                 let params_s = std::str::from_utf8(params)
                     .expect("parameter parsing should not allow non-utf8 characters here");
@@ -66,7 +66,7 @@ pub fn mode_from_params(params: &[u8]) -> Mode {
         // https://vt100.net/docs/vt510-rm/DECCKM.html
         b"?1" => Mode::Decckm,
         b"?7" => Mode::Decawm,
-        b"?2004" => Mode::BracketedPasteMode,
+        b"?2004" => Mode::BracketedPaste,
         _ => Mode::Unknown(params.to_vec()),
     }
 }
