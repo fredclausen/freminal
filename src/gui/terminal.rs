@@ -297,7 +297,7 @@ impl TerminalFonts {
     }
 }
 
-pub fn terminal_color_to_egui(
+pub fn internal_color_to_egui(
     default_color: Color32,
     color: TerminalColor,
     make_faint: bool,
@@ -440,9 +440,9 @@ fn add_terminal_data_to_ui(
             terminal_fonts.get_family(&tag.font_decorations, &tag.font_weight);
         textformat.font_id.size = font_size;
         let make_faint = tag.font_decorations.contains(&FontDecorations::Faint);
-        textformat.color = terminal_color_to_egui(default_color, color, make_faint);
+        textformat.color = internal_color_to_egui(default_color, color, make_faint);
         // FIXME: ????? should background be faint? I feel like no, but....
-        textformat.background = terminal_color_to_egui(default_background, background_color, false);
+        textformat.background = internal_color_to_egui(default_background, background_color, false);
 
         job.sections.push(egui::text::LayoutSection {
             leading_space: 0.0f32,

@@ -1,15 +1,15 @@
 use crate::{
     gui::terminal::lookup_256_color_by_index,
     terminal_emulator::ansi::{
-        extract_param, parse_param_as, split_params_into_semicolon_delimited_usize,
-        AnsiParserInner, TerminalOutput,
+        extract_param, parse_param_as, split_params_into_semicolon_delimited_usize, ParserInner,
+        TerminalOutput,
     },
 };
 
-use super::{mode::mode_from_params, sgr::SelectGraphicRendition};
+use super::{mode::terminal_mode_from_params, sgr::SelectGraphicRendition};
 
 #[derive(Eq, PartialEq, Debug)]
-pub enum CsiParserState {
+pub enum AnsiCsiParserState {
     Params,
     Intermediates,
     Finished(u8),
@@ -18,56 +18,56 @@ pub enum CsiParserState {
 }
 
 #[derive(Eq, PartialEq, Debug)]
-pub struct CsiParser {
-    pub(crate) state: CsiParserState,
+pub struct AnsiCsiParser {
+    pub(crate) state: AnsiCsiParserState,
     pub(crate) params: Vec<u8>,
     pub(crate) intermediates: Vec<u8>,
 }
 
-impl CsiParser {
+impl AnsiCsiParser {
     pub const fn new() -> Self {
         Self {
-            state: CsiParserState::Params,
+            state: AnsiCsiParserState::Params,
             params: Vec::new(),
             intermediates: Vec::new(),
         }
     }
 
     pub fn push(&mut self, b: u8) {
-        if let CsiParserState::Finished(_) | CsiParserState::InvalidFinished = &self.state {
+        if let AnsiCsiParserState::Finished(_) | AnsiCsiParserState::InvalidFinished = &self.state {
             panic!("CsiParser should not be pushed to once finished");
         }
 
         match &mut self.state {
-            CsiParserState::Params => {
+            AnsiCsiParserState::Params => {
                 if is_csi_param(b) {
                     self.params.push(b);
                 } else if is_csi_intermediate(b) {
                     self.intermediates.push(b);
-                    self.state = CsiParserState::Intermediates;
+                    self.state = AnsiCsiParserState::Intermediates;
                 } else if is_csi_terminator(b) {
-                    self.state = CsiParserState::Finished(b);
+                    self.state = AnsiCsiParserState::Finished(b);
                 } else {
-                    self.state = CsiParserState::Invalid;
+                    self.state = AnsiCsiParserState::Invalid;
                 }
             }
-            CsiParserState::Intermediates => {
+            AnsiCsiParserState::Intermediates => {
                 if is_csi_param(b) {
-                    self.state = CsiParserState::Invalid;
+                    self.state = AnsiCsiParserState::Invalid;
                 } else if is_csi_intermediate(b) {
                     self.intermediates.push(b);
                 } else if is_csi_terminator(b) {
-                    self.state = CsiParserState::Finished(b);
+                    self.state = AnsiCsiParserState::Finished(b);
                 } else {
-                    self.state = CsiParserState::Invalid;
+                    self.state = AnsiCsiParserState::Invalid;
                 }
             }
-            CsiParserState::Invalid => {
+            AnsiCsiParserState::Invalid => {
                 if is_csi_terminator(b) {
-                    self.state = CsiParserState::InvalidFinished;
+                    self.state = AnsiCsiParserState::InvalidFinished;
                 }
             }
-            CsiParserState::Finished(_) | CsiParserState::InvalidFinished => {
+            AnsiCsiParserState::Finished(_) | AnsiCsiParserState::InvalidFinished => {
                 unreachable!();
             }
         }
@@ -77,49 +77,59 @@ impl CsiParser {
         &mut self,
         b: u8,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<AnsiParserInner>, ()> {
+    ) -> Result<Option<ParserInner>, ()> {
         self.push(b);
 
         match self.state {
-            CsiParserState::Finished(b'A') => self.ansi_parser_inner_csi_finished_move_up(output),
-            CsiParserState::Finished(b'B') => self.ansi_parser_inner_csi_finished_move_down(output),
-            CsiParserState::Finished(b'C') => {
+            AnsiCsiParserState::Finished(b'A') => {
+                self.ansi_parser_inner_csi_finished_move_up(output)
+            }
+            AnsiCsiParserState::Finished(b'B') => {
+                self.ansi_parser_inner_csi_finished_move_down(output)
+            }
+            AnsiCsiParserState::Finished(b'C') => {
                 self.ansi_parser_inner_csi_finished_move_right(output)
             }
-            CsiParserState::Finished(b'D') => self.ansi_parser_inner_csi_finished_move_left(output),
-            CsiParserState::Finished(b'H') => {
+            AnsiCsiParserState::Finished(b'D') => {
+                self.ansi_parser_inner_csi_finished_move_left(output)
+            }
+            AnsiCsiParserState::Finished(b'H') => {
                 self.ansi_parser_inner_csi_finished_set_position_h(output)
             }
-            CsiParserState::Finished(b'G') => {
+            AnsiCsiParserState::Finished(b'G') => {
                 self.ansi_parser_inner_csi_finished_set_position_g(output)
             }
-            CsiParserState::Finished(b'J') => {
+            AnsiCsiParserState::Finished(b'J') => {
                 self.ansi_parser_inner_csi_finished_set_position_j(output)
             }
-            CsiParserState::Finished(b'K') => {
+            AnsiCsiParserState::Finished(b'K') => {
                 self.ansi_parser_inner_csi_finished_set_position_k(output)
             }
-            CsiParserState::Finished(b'L') => {
+            AnsiCsiParserState::Finished(b'L') => {
                 self.ansi_parser_inner_csi_finished_set_position_l(output)
             }
-            CsiParserState::Finished(b'P') => {
+            AnsiCsiParserState::Finished(b'P') => {
                 self.ansi_parser_inner_csi_finished_set_position_p(output)
             }
-            CsiParserState::Finished(b'm') => self.ansi_parser_inner_csi_finished_sgr(output),
-            CsiParserState::Finished(b'h') => {
-                output.push(TerminalOutput::SetMode(mode_from_params(&self.params)));
-                Ok(Some(AnsiParserInner::Empty))
+            AnsiCsiParserState::Finished(b'm') => self.ansi_parser_inner_csi_finished_sgr(output),
+            AnsiCsiParserState::Finished(b'h') => {
+                output.push(TerminalOutput::SetMode(terminal_mode_from_params(
+                    &self.params,
+                )));
+                Ok(Some(ParserInner::Empty))
             }
-            CsiParserState::Finished(b'l') => {
-                output.push(TerminalOutput::ResetMode(mode_from_params(&self.params)));
-                Ok(Some(AnsiParserInner::Empty))
+            AnsiCsiParserState::Finished(b'l') => {
+                output.push(TerminalOutput::ResetMode(terminal_mode_from_params(
+                    &self.params,
+                )));
+                Ok(Some(ParserInner::Empty))
             }
-            CsiParserState::Finished(b'@') => self.ansi_parser_inner_csi_finished_ich(output),
-            CsiParserState::Finished(b'n') => {
+            AnsiCsiParserState::Finished(b'@') => self.ansi_parser_inner_csi_finished_ich(output),
+            AnsiCsiParserState::Finished(b'n') => {
                 output.push(TerminalOutput::CursorReport);
-                Ok(Some(AnsiParserInner::Empty))
+                Ok(Some(ParserInner::Empty))
             }
-            CsiParserState::Finished(esc) => {
+            AnsiCsiParserState::Finished(esc) => {
                 warn!(
                     "Unhandled csi code: {:?} {esc:x} {}/{}",
                     std::char::from_u32(u32::from(esc)),
@@ -128,13 +138,13 @@ impl CsiParser {
                 );
                 output.push(TerminalOutput::Invalid);
 
-                Ok(Some(AnsiParserInner::Empty))
+                Ok(Some(ParserInner::Empty))
             }
-            CsiParserState::Invalid => {
+            AnsiCsiParserState::Invalid => {
                 warn!("Invalid CSI sequence");
                 output.push(TerminalOutput::Invalid);
 
-                Ok(Some(AnsiParserInner::Empty))
+                Ok(Some(ParserInner::Empty))
             }
             _ => Ok(None),
         }
@@ -143,7 +153,7 @@ impl CsiParser {
     fn ansi_parser_inner_csi_finished_move_up(
         &self,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<AnsiParserInner>, ()> {
+    ) -> Result<Option<ParserInner>, ()> {
         let Ok(param) = parse_param_as::<i32>(&self.params) else {
             warn!("Invalid cursor move up distance");
             output.push(TerminalOutput::Invalid);
@@ -155,13 +165,13 @@ impl CsiParser {
             y: Some(-param.unwrap_or(1)),
         });
 
-        Ok(Some(AnsiParserInner::Empty))
+        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_move_down(
         &self,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<AnsiParserInner>, ()> {
+    ) -> Result<Option<ParserInner>, ()> {
         let Ok(param) = parse_param_as::<i32>(&self.params) else {
             warn!("Invalid cursor move down distance");
             output.push(TerminalOutput::Invalid);
@@ -173,13 +183,13 @@ impl CsiParser {
             y: Some(param.unwrap_or(1)),
         });
 
-        Ok(Some(AnsiParserInner::Empty))
+        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_move_right(
         &self,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<AnsiParserInner>, ()> {
+    ) -> Result<Option<ParserInner>, ()> {
         let Ok(param) = parse_param_as::<i32>(&self.params) else {
             warn!("Invalid cursor move right distance");
             output.push(TerminalOutput::Invalid);
@@ -191,13 +201,13 @@ impl CsiParser {
             y: None,
         });
 
-        Ok(Some(AnsiParserInner::Empty))
+        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_move_left(
         &self,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<AnsiParserInner>, ()> {
+    ) -> Result<Option<ParserInner>, ()> {
         let Ok(param) = parse_param_as::<i32>(&self.params) else {
             warn!("Invalid cursor move left distance");
             output.push(TerminalOutput::Invalid);
@@ -209,13 +219,13 @@ impl CsiParser {
             y: None,
         });
 
-        Ok(Some(AnsiParserInner::Empty))
+        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_set_position_h(
         &self,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<AnsiParserInner>, ()> {
+    ) -> Result<Option<ParserInner>, ()> {
         let params = split_params_into_semicolon_delimited_usize(&self.params);
 
         let Ok(params) = params else {
@@ -229,13 +239,13 @@ impl CsiParser {
             y: Some(extract_param(0, &params).unwrap_or(1)),
         });
 
-        Ok(Some(AnsiParserInner::Empty))
+        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_set_position_g(
         &self,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<AnsiParserInner>, ()> {
+    ) -> Result<Option<ParserInner>, ()> {
         let Ok(param) = parse_param_as::<usize>(&self.params) else {
             warn!("Invalid cursor set position sequence");
             output.push(TerminalOutput::Invalid);
@@ -249,13 +259,13 @@ impl CsiParser {
             y: None,
         });
 
-        Ok(Some(AnsiParserInner::Empty))
+        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_set_position_j(
         &self,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<AnsiParserInner>, ()> {
+    ) -> Result<Option<ParserInner>, ()> {
         let Ok(param) = parse_param_as::<usize>(&self.params) else {
             warn!("Invalid clear command");
             output.push(TerminalOutput::Invalid);
@@ -270,13 +280,13 @@ impl CsiParser {
         };
         output.push(ret);
 
-        Ok(Some(AnsiParserInner::Empty))
+        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_set_position_k(
         &self,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<AnsiParserInner>, ()> {
+    ) -> Result<Option<ParserInner>, ()> {
         let Ok(param) = parse_param_as::<usize>(&self.params) else {
             warn!("Invalid erase in line command");
             output.push(TerminalOutput::Invalid);
@@ -293,13 +303,13 @@ impl CsiParser {
             }
         }
 
-        Ok(Some(AnsiParserInner::Empty))
+        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_set_position_l(
         &self,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<AnsiParserInner>, ()> {
+    ) -> Result<Option<ParserInner>, ()> {
         let Ok(param) = parse_param_as::<usize>(&self.params) else {
             warn!("Invalid il command");
             output.push(TerminalOutput::Invalid);
@@ -309,13 +319,13 @@ impl CsiParser {
 
         output.push(TerminalOutput::InsertLines(param.unwrap_or(1)));
 
-        Ok(Some(AnsiParserInner::Empty))
+        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_set_position_p(
         &self,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<AnsiParserInner>, ()> {
+    ) -> Result<Option<ParserInner>, ()> {
         let Ok(param) = parse_param_as::<usize>(&self.params) else {
             warn!("Invalid del command");
             output.push(TerminalOutput::Invalid);
@@ -325,13 +335,13 @@ impl CsiParser {
 
         output.push(TerminalOutput::Delete(param.unwrap_or(1)));
 
-        Ok(Some(AnsiParserInner::Empty))
+        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_sgr(
         &self,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<AnsiParserInner>, ()> {
+    ) -> Result<Option<ParserInner>, ()> {
         let params = split_params_into_semicolon_delimited_usize(&self.params);
 
         let Ok(mut params) = params else {
@@ -439,13 +449,13 @@ impl CsiParser {
             )));
         }
 
-        Ok(Some(AnsiParserInner::Empty))
+        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_ich(
         &self,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<AnsiParserInner>, ()> {
+    ) -> Result<Option<ParserInner>, ()> {
         let Ok(param) = parse_param_as::<usize>(&self.params) else {
             warn!("Invalid ich command");
             output.push(TerminalOutput::Invalid);
@@ -456,7 +466,7 @@ impl CsiParser {
         // ecma-48 8.3.64
         output.push(TerminalOutput::InsertSpaces(param.unwrap_or(1)));
 
-        Ok(Some(AnsiParserInner::Empty))
+        Ok(Some(ParserInner::Empty))
     }
 }
 

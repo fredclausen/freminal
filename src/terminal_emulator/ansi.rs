@@ -5,8 +5,8 @@
 
 use super::{
     ansi_components::{
-        csi::CsiParser,
-        osc::{OscParser, OscType},
+        csi::AnsiCsiParser,
+        osc::{AnsiOscParser, AnsiOscType},
         sgr::SelectGraphicRendition,
     },
     Mode,
@@ -31,7 +31,7 @@ pub enum TerminalOutput {
     ResetMode(Mode),
     // ich (8.3.64 of ecma-48)
     InsertSpaces(usize),
-    OscResponse(OscType),
+    OscResponse(AnsiOscType),
     CursorReport,
     Invalid,
 }
@@ -112,21 +112,21 @@ fn push_data_if_non_empty(data: &mut Vec<u8>, output: &mut Vec<TerminalOutput>) 
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub enum AnsiParserInner {
+pub enum ParserInner {
     Empty,
     Escape,
-    Csi(CsiParser),
-    Osc(OscParser),
+    Csi(AnsiCsiParser),
+    Osc(AnsiOscParser),
 }
 
 pub struct FreminalAnsiParser {
-    pub(crate) inner: AnsiParserInner,
+    pub(crate) inner: ParserInner,
 }
 
 impl FreminalAnsiParser {
     pub const fn new() -> Self {
         Self {
-            inner: AnsiParserInner::Empty,
+            inner: ParserInner::Empty,
         }
     }
 
@@ -137,7 +137,7 @@ impl FreminalAnsiParser {
         output: &mut Vec<TerminalOutput>,
     ) -> Result<(), ()> {
         if b == b'\x1b' {
-            self.inner = AnsiParserInner::Escape;
+            self.inner = ParserInner::Escape;
             return Err(());
         }
 
@@ -177,12 +177,12 @@ impl FreminalAnsiParser {
         push_data_if_non_empty(data_output, output);
 
         if b == b'[' {
-            self.inner = AnsiParserInner::Csi(CsiParser::new());
+            self.inner = ParserInner::Csi(AnsiCsiParser::new());
         } else if b == b']' {
-            self.inner = AnsiParserInner::Osc(OscParser::new());
+            self.inner = ParserInner::Osc(AnsiOscParser::new());
         } else {
             warn!("Unhandled escape sequence {b:x}");
-            self.inner = AnsiParserInner::Empty;
+            self.inner = ParserInner::Empty;
         }
     }
 
@@ -193,7 +193,7 @@ impl FreminalAnsiParser {
 
         for b in incoming {
             match &mut self.inner {
-                AnsiParserInner::Empty => {
+                ParserInner::Empty => {
                     if !output_string_sequence.is_empty() {
                         output_string_sequence.clear();
                     }
@@ -204,10 +204,10 @@ impl FreminalAnsiParser {
 
                     data_output.push(*b);
                 }
-                AnsiParserInner::Escape => {
+                ParserInner::Escape => {
                     self.ansiparser_inner_escape(*b, &mut data_output, &mut output);
                 }
-                AnsiParserInner::Csi(parser) => {
+                ParserInner::Csi(parser) => {
                     output_string_sequence.push(*b as char);
                     match parser.ansiparser_inner_csi(*b, &mut output) {
                         Ok(value) => match value {
@@ -228,25 +228,22 @@ impl FreminalAnsiParser {
                         Err(()) => continue,
                     }
                 }
-                AnsiParserInner::Osc(parser) => {
+                ParserInner::Osc(parser) => {
                     output_string_sequence.push(*b as char);
                     match parser.ansiparser_inner_osc(*b, &mut output) {
-                        Ok(value) => match value {
-                            Some(return_value) => {
-                                self.inner = return_value;
+                        Some(value) => {
+                            self.inner = value;
 
-                                // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
+                            // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
 
-                                if output.last() == Some(&TerminalOutput::Invalid) {
-                                    error!(
-                                        "OSC Sequence that threw an error: {}",
-                                        output_string_sequence
-                                    );
-                                }
+                            if output.last() == Some(&TerminalOutput::Invalid) {
+                                error!(
+                                    "OSC Sequence that threw an error: {}",
+                                    output_string_sequence
+                                );
                             }
-                            None => continue,
-                        },
-                        Err(()) => continue,
+                        }
+                        None => continue,
                     }
                 }
             }
@@ -268,7 +265,7 @@ impl FreminalAnsiParser {
 
 #[cfg(test)]
 mod test {
-    use crate::terminal_emulator::ansi_components::csi::CsiParserState;
+    use crate::terminal_emulator::ansi_components::csi::AnsiCsiParserState;
 
     use super::*;
 
@@ -375,40 +372,40 @@ mod test {
 
     #[test]
     fn test_parsing_unknown_csi() {
-        let mut parser = CsiParser::new();
+        let mut parser = AnsiCsiParser::new();
         for b in b"0123456789:;<=>?!\"#$%&'()*+,-./}" {
             parser.push(*b);
         }
 
         assert_eq!(parser.params, b"0123456789:;<=>?");
         assert_eq!(parser.intermediates, b"!\"#$%&'()*+,-./");
-        assert!(matches!(parser.state, CsiParserState::Finished(b'}')));
+        assert!(matches!(parser.state, AnsiCsiParserState::Finished(b'}')));
 
-        let mut parser = CsiParser::new();
+        let mut parser = AnsiCsiParser::new();
         parser.push(0x40);
 
         assert_eq!(parser.params, &[]);
         assert_eq!(parser.intermediates, &[]);
-        assert!(matches!(parser.state, CsiParserState::Finished(0x40)));
+        assert!(matches!(parser.state, AnsiCsiParserState::Finished(0x40)));
 
-        let mut parser = CsiParser::new();
+        let mut parser = AnsiCsiParser::new();
         parser.push(0x7e);
 
         assert_eq!(parser.params, &[]);
         assert_eq!(parser.intermediates, &[]);
-        assert!(matches!(parser.state, CsiParserState::Finished(0x7e)));
+        assert!(matches!(parser.state, AnsiCsiParserState::Finished(0x7e)));
     }
 
     #[test]
     fn test_parsing_invalid_csi() {
-        let mut parser = CsiParser::new();
+        let mut parser = AnsiCsiParser::new();
         for b in b"0$0" {
             parser.push(*b);
         }
 
-        assert!(matches!(parser.state, CsiParserState::Invalid));
+        assert!(matches!(parser.state, AnsiCsiParserState::Invalid));
         parser.push(b'm');
-        assert!(matches!(parser.state, CsiParserState::InvalidFinished));
+        assert!(matches!(parser.state, AnsiCsiParserState::InvalidFinished));
     }
 
     #[test]

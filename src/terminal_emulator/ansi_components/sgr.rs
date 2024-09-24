@@ -74,7 +74,7 @@ impl SelectGraphicRendition {
             36 => Self::ForegroundCyan,
             37 => Self::ForegroundWhite,
             38 => {
-                error!("We shouldn't end up here! Setting custom foreground color to black");
+                error!("This is a custom foreground color. We shouldn't end up here! Setting custom foreground color to black");
                 Self::ForegroundCustom(0, 0, 0)
             }
             39 => Self::DefaultForeground,
@@ -87,7 +87,7 @@ impl SelectGraphicRendition {
             46 => Self::BackgroundCyan,
             47 => Self::BackgroundWhite,
             48 => {
-                error!("We shouldn't end up here! Setting custom background color to black");
+                error!("This is a custom background color. We shouldn't end up here! Setting custom background color to black");
                 Self::ForegroundCustom(0, 0, 0)
             }
             49 => Self::DefaultBackground,

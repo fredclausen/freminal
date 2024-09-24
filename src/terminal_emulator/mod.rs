@@ -22,8 +22,8 @@ use self::io::CreatePtyIoError;
 use crate::{error::backtraced_err, terminal_emulator::io::ReadResponse};
 use ansi::{FreminalAnsiParser, TerminalOutput};
 use ansi_components::{
-    mode::{BracketedPaste, Decawm, Decckm, Mode, Modes},
-    osc::{OscInternalType, OscType},
+    mode::{BracketedPaste, Decawm, Decckm, Mode, TerminalModes},
+    osc::{AnsiOscInternalType, AnsiOscType},
     sgr::SelectGraphicRendition,
 };
 use buffer::TerminalBufferHolder;
@@ -278,7 +278,7 @@ pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
     terminal_buffer: TerminalBufferHolder,
     format_tracker: FormatTracker,
     cursor_state: CursorState,
-    modes: Modes,
+    modes: TerminalModes,
     io: Io,
     window_title: Option<String>,
     recording: Option<File>,
@@ -312,10 +312,10 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             parser: FreminalAnsiParser::new(),
             terminal_buffer: TerminalBufferHolder::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
             format_tracker: FormatTracker::new(),
-            modes: Modes {
-                cursor_key_mode: Decckm::default(),
-                autowrap_mode: Decawm::default(),
-                bracketed_paste_mode: BracketedPaste::default(),
+            modes: TerminalModes {
+                cursor_key: Decckm::default(),
+                autowrap: Decawm::default(),
+                bracketed_paste: BracketedPaste::default(),
             },
             cursor_state: CursorState {
                 pos: CursorPos { x: 0, y: 0 },
@@ -365,7 +365,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     }
 
     pub fn write(&mut self, to_write: &TerminalInput) -> Result<(), Box<dyn std::error::Error>> {
-        match to_write.to_payload(self.modes.cursor_key_mode == Decckm::Application) {
+        match to_write.to_payload(self.modes.cursor_key == Decckm::Application) {
             TerminalInputPayload::Single(c) => {
                 let mut written = 0;
                 while written == 0 {
@@ -678,14 +678,14 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     fn set_mode(&mut self, mode: &Mode) {
         match mode {
             Mode::Decckm => {
-                self.modes.cursor_key_mode = Decckm::Application;
+                self.modes.cursor_key = Decckm::Application;
             }
             Mode::Decawm => {
                 warn!("Decawm Set is not supported");
-                self.modes.autowrap_mode = Decawm::AutoWrap;
+                self.modes.autowrap = Decawm::AutoWrap;
             }
             Mode::BracketedPaste => {
-                self.modes.bracketed_paste_mode = BracketedPaste::Enabled;
+                self.modes.bracketed_paste = BracketedPaste::Enabled;
             }
             Mode::Unknown(_) => {
                 warn!("unhandled set mode: {mode:?}");
@@ -704,27 +704,27 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     fn reset_mode(&mut self, mode: &Mode) {
         match mode {
             Mode::Decckm => {
-                self.modes.cursor_key_mode = Decckm::Ansi;
+                self.modes.cursor_key = Decckm::Ansi;
             }
             Mode::Decawm => {
                 warn!("Decawm Reset is not supported");
-                self.modes.autowrap_mode = Decawm::NoAutoWrap;
+                self.modes.autowrap = Decawm::NoAutoWrap;
             }
             Mode::BracketedPaste => {
-                self.modes.bracketed_paste_mode = BracketedPaste::Disabled;
+                self.modes.bracketed_paste = BracketedPaste::Disabled;
             }
             Mode::Unknown(_) => {}
         }
     }
 
-    fn osc_response(&mut self, osc: OscType) {
+    fn osc_response(&mut self, osc: AnsiOscType) {
         match osc {
-            OscType::RequestColorQueryBackground(color) => {
+            AnsiOscType::RequestColorQueryBackground(color) => {
                 match color {
                     // OscInternalType::SetColor(_) => {
                     //     warn!("RequestColorQueryBackground: Set is not supported");
                     // }
-                    OscInternalType::Query => {
+                    AnsiOscInternalType::Query => {
                         // lets get the color as a hex string
 
                         let (r, g, b, a) = Color32::BLACK.to_tuple();
@@ -738,20 +738,20 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                                 .expect("Failed to write osc color response");
                         }
                     }
-                    OscInternalType::Unknown(_) => {
+                    AnsiOscInternalType::Unknown(_) => {
                         warn!("OSC Unknown is not supported");
                     }
-                    OscInternalType::String(_) => {
+                    AnsiOscInternalType::String(_) => {
                         warn!("OSC Type {color:?} Skipped");
                     }
                 }
             }
-            OscType::RequestColorQueryForeground(color) => {
+            AnsiOscType::RequestColorQueryForeground(color) => {
                 match color {
                     // OscInternalType::SetColor(_) => {
                     //     warn!("RequestColorQueryForeground: Set is not supported");
                     // }
-                    OscInternalType::Query => {
+                    AnsiOscInternalType::Query => {
                         // lets get the color as a hex string
                         let (r, g, b, a) = Color32::WHITE.to_tuple();
 
@@ -765,18 +765,18 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                                 .expect("Failed to write osc color response");
                         }
                     }
-                    OscInternalType::Unknown(_) => {
+                    AnsiOscInternalType::Unknown(_) => {
                         warn!("OSC Unknown is not supported");
                     }
-                    OscInternalType::String(_) => {
+                    AnsiOscInternalType::String(_) => {
                         warn!("OSC Type {color:?} Skipped");
                     }
                 }
             }
-            OscType::SetTitleBar(title) => {
+            AnsiOscType::SetTitleBar(title) => {
                 self.window_title = Some(title);
             }
-            OscType::Ftcs(value) => {
+            AnsiOscType::Ftcs(value) => {
                 warn!("Ftcs is not supported: {value}");
             }
         }

@@ -40,10 +40,10 @@ pub enum BracketedPaste {
     Enabled,
 }
 
-pub struct Modes {
-    pub cursor_key_mode: Decckm,
-    pub autowrap_mode: Decawm,
-    pub bracketed_paste_mode: BracketedPaste,
+pub struct TerminalModes {
+    pub cursor_key: Decckm,
+    pub autowrap: Decawm,
+    pub bracketed_paste: BracketedPaste,
 }
 
 impl fmt::Debug for Mode {
@@ -61,7 +61,7 @@ impl fmt::Debug for Mode {
     }
 }
 
-pub fn mode_from_params(params: &[u8]) -> Mode {
+pub fn terminal_mode_from_params(params: &[u8]) -> Mode {
     match params {
         // https://vt100.net/docs/vt510-rm/DECCKM.html
         b"?1" => Mode::Decckm,

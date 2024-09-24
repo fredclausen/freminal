@@ -2,19 +2,19 @@ use std::str::FromStr;
 
 //use eframe::egui::Color32;
 
-use crate::terminal_emulator::ansi::{AnsiParserInner, TerminalOutput};
+use crate::terminal_emulator::ansi::{ParserInner, TerminalOutput};
 
 #[derive(Eq, PartialEq, Debug)]
-pub enum OscInternalType {
+pub enum AnsiOscInternalType {
     Query,
     //SetColor(Color32),
     String(String),
-    Unknown(Option<OscToken>),
+    Unknown(Option<AnsiOscToken>),
 }
 
 // to string for OscInternalType
 
-impl std::fmt::Display for OscInternalType {
+impl std::fmt::Display for AnsiOscInternalType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Query => write!(f, "Query"),
@@ -25,15 +25,16 @@ impl std::fmt::Display for OscInternalType {
     }
 }
 
-impl From<Vec<Option<OscToken>>> for OscInternalType {
-    fn from(value: Vec<Option<OscToken>>) -> Self {
+impl From<Vec<Option<AnsiOscToken>>> for AnsiOscInternalType {
+    fn from(value: Vec<Option<AnsiOscToken>>) -> Self {
         // The first value is the type of the OSC sequence
         // if the first value is b'?', then it is a query
         // otherwise, it is a set but we'll leave that as unknown for now
 
-        match value.get(1) {
-            Some(value) => match value {
-                Some(OscToken::String(value)) => {
+        value
+            .get(1)
+            .map_or(Self::Unknown(None), |value| match value {
+                Some(AnsiOscToken::String(value)) => {
                     if value == &"?".to_string() {
                         Self::Query
                     } else {
@@ -42,9 +43,7 @@ impl From<Vec<Option<OscToken>>> for OscInternalType {
                 }
                 Some(value) => Self::Unknown(Some(value.clone())),
                 None => Self::Unknown(None),
-            },
-            None => Self::Unknown(None),
-        }
+            })
     }
 }
 
@@ -58,27 +57,27 @@ enum OscTarget {
     Unknown,
 }
 
-impl From<OscToken> for OscTarget {
-    fn from(value: OscToken) -> Self {
+impl From<AnsiOscToken> for OscTarget {
+    fn from(value: AnsiOscToken) -> Self {
         match value {
-            OscToken::U8(0) => Self::TitleBar,
-            OscToken::U8(11) => Self::Background,
-            OscToken::U8(10) => Self::Foreground,
-            OscToken::U8(133) => Self::Ftcs,
+            AnsiOscToken::U8(0) => Self::TitleBar,
+            AnsiOscToken::U8(11) => Self::Background,
+            AnsiOscToken::U8(10) => Self::Foreground,
+            AnsiOscToken::U8(133) => Self::Ftcs,
             _ => Self::Unknown,
         }
     }
 }
 
 #[derive(Eq, PartialEq, Debug)]
-pub enum OscType {
-    RequestColorQueryBackground(OscInternalType),
-    RequestColorQueryForeground(OscInternalType),
+pub enum AnsiOscType {
+    RequestColorQueryBackground(AnsiOscInternalType),
+    RequestColorQueryForeground(AnsiOscInternalType),
     Ftcs(String),
     SetTitleBar(String),
 }
 
-impl std::fmt::Display for OscType {
+impl std::fmt::Display for AnsiOscType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::RequestColorQueryBackground(value) => {
@@ -94,7 +93,7 @@ impl std::fmt::Display for OscType {
 }
 
 #[derive(Eq, PartialEq, Debug)]
-pub enum OscParserState {
+pub enum AnsiOscParserState {
     Params,
     //Intermediates,
     Finished,
@@ -103,8 +102,8 @@ pub enum OscParserState {
 }
 
 #[derive(Eq, PartialEq, Debug)]
-pub struct OscParser {
-    pub(crate) state: OscParserState,
+pub struct AnsiOscParser {
+    pub(crate) state: AnsiOscParserState,
     pub(crate) params: Vec<u8>,
     pub(crate) intermediates: Vec<u8>,
 }
@@ -112,31 +111,31 @@ pub struct OscParser {
 // OSC Sequence looks like this:
 // 1b]11;?1b\
 
-impl OscParser {
+impl AnsiOscParser {
     pub const fn new() -> Self {
         Self {
-            state: OscParserState::Params,
+            state: AnsiOscParserState::Params,
             params: Vec::new(),
             intermediates: Vec::new(),
         }
     }
 
     pub fn push(&mut self, b: u8) {
-        if let OscParserState::Finished | OscParserState::InvalidFinished = &self.state {
+        if let AnsiOscParserState::Finished | AnsiOscParserState::InvalidFinished = &self.state {
             panic!("OscParser should not be pushed to once finished");
         }
 
         match self.state {
-            OscParserState::Params => {
+            AnsiOscParserState::Params => {
                 if is_valid_osc_param(b) {
                     self.params.push(b);
                 } else {
                     warn!("Invalid OSC param: {:x}", b);
-                    self.state = OscParserState::Invalid;
+                    self.state = AnsiOscParserState::Invalid;
                 }
 
                 if is_osc_terminator(&self.params) {
-                    self.state = OscParserState::Finished;
+                    self.state = AnsiOscParserState::Finished;
 
                     while is_final_character_osc_terminator(self.params[self.params.len() - 1]) {
                         self.params.pop();
@@ -146,12 +145,12 @@ impl OscParser {
             // OscParserState::Intermediates => {
             //     panic!("OscParser should not be in intermediates state");
             // }
-            OscParserState::Finished | OscParserState::InvalidFinished => {
+            AnsiOscParserState::Finished | AnsiOscParserState::InvalidFinished => {
                 unreachable!()
             }
-            OscParserState::Invalid => {
+            AnsiOscParserState::Invalid => {
                 if is_osc_terminator(&self.params) {
-                    self.state = OscParserState::InvalidFinished;
+                    self.state = AnsiOscParserState::InvalidFinished;
                 }
             }
         }
@@ -161,26 +160,26 @@ impl OscParser {
         &mut self,
         b: u8,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<AnsiParserInner>, ()> {
+    ) -> Option<ParserInner> {
         self.push(b);
 
         match self.state {
-            OscParserState::Finished => {
+            AnsiOscParserState::Finished => {
                 if let Ok(params) = split_params_into_semicolon_delimited_usize(&self.params) {
                     let type_number = extract_param(0, &params).unwrap();
 
                     let osc_target = OscTarget::from(type_number.clone());
-                    let osc_internal_type = OscInternalType::from(params);
+                    let osc_internal_type = AnsiOscInternalType::from(params);
 
                     match osc_target {
                         OscTarget::Background => {
                             output.push(TerminalOutput::OscResponse(
-                                OscType::RequestColorQueryBackground(osc_internal_type),
+                                AnsiOscType::RequestColorQueryBackground(osc_internal_type),
                             ));
                         }
                         OscTarget::Foreground => {
                             output.push(TerminalOutput::OscResponse(
-                                OscType::RequestColorQueryForeground(osc_internal_type),
+                                AnsiOscType::RequestColorQueryForeground(osc_internal_type),
                             ));
                         }
                         OscTarget::Unknown => {
@@ -188,13 +187,13 @@ impl OscParser {
                             output.push(TerminalOutput::Invalid);
                         }
                         OscTarget::TitleBar => {
-                            output.push(TerminalOutput::OscResponse(OscType::SetTitleBar(
+                            output.push(TerminalOutput::OscResponse(AnsiOscType::SetTitleBar(
                                 osc_internal_type.to_string(),
                             )));
                         }
                         OscTarget::Ftcs => {
                             warn!("Ftcs is not supported");
-                            output.push(TerminalOutput::OscResponse(OscType::Ftcs(
+                            output.push(TerminalOutput::OscResponse(AnsiOscType::Ftcs(
                                 osc_internal_type.to_string(),
                             )));
                         }
@@ -204,13 +203,13 @@ impl OscParser {
                     output.push(TerminalOutput::Invalid);
                 };
 
-                Ok(Some(AnsiParserInner::Empty))
+                Some(ParserInner::Empty)
             }
-            OscParserState::Invalid => {
+            AnsiOscParserState::Invalid => {
                 output.push(TerminalOutput::Invalid);
-                Ok(Some(AnsiParserInner::Empty))
+                Some(ParserInner::Empty)
             }
-            _ => Ok(None),
+            _ => None,
         }
     }
 }
@@ -236,12 +235,12 @@ fn is_valid_osc_param(b: u8) -> bool {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum OscToken {
+pub enum AnsiOscToken {
     U8(u8),
     String(String),
 }
 
-impl FromStr for OscToken {
+impl FromStr for AnsiOscToken {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -254,11 +253,11 @@ impl FromStr for OscToken {
 
 pub fn split_params_into_semicolon_delimited_usize(
     params: &[u8],
-) -> Result<Vec<Option<OscToken>>, ()> {
+) -> Result<Vec<Option<AnsiOscToken>>, ()> {
     let params = params
         .split(|b| *b == b';')
-        .map(parse_param_as::<OscToken>)
-        .collect::<Result<Vec<Option<OscToken>>, ()>>();
+        .map(parse_param_as::<AnsiOscToken>)
+        .collect::<Result<Vec<Option<AnsiOscToken>>, ()>>();
 
     params
 }
@@ -282,7 +281,7 @@ pub fn parse_param_as<T: std::str::FromStr>(param_bytes: &[u8]) -> Result<Option
     )
 }
 
-pub fn extract_param(idx: usize, params: &[Option<OscToken>]) -> Option<OscToken> {
+pub fn extract_param(idx: usize, params: &[Option<AnsiOscToken>]) -> Option<AnsiOscToken> {
     // get the parameter at the index
     params.get(idx).and_then(std::clone::Clone::clone)
 }

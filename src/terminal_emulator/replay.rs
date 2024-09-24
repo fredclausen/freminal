@@ -9,7 +9,7 @@ use super::{
     buffer::TerminalBufferHolder,
     format_tracker::FormatTracker,
     split_format_data_for_scrollback, CursorPos, CursorState, Decawm, Decckm, FontDecorations,
-    FontWeight, FormatTag, Mode, Modes, TerminalColor, TerminalData,
+    FontWeight, FormatTag, Mode, TerminalColor, TerminalData, TerminalModes,
 };
 
 pub const TERMINAL_WIDTH: usize = 112;
@@ -20,7 +20,7 @@ pub struct ReplayIo {
     terminal_buffer: TerminalBufferHolder,
     format_tracker: FormatTracker,
     cursor_state: CursorState,
-    modes: Modes,
+    modes: TerminalModes,
     saved_color_state: Option<(TerminalColor, TerminalColor)>,
 }
 
@@ -37,10 +37,10 @@ impl ReplayIo {
                 color: TerminalColor::Default,
                 background_color: TerminalColor::Black,
             },
-            modes: Modes {
-                cursor_key_mode: Decckm::default(),
-                autowrap_mode: Decawm::default(),
-                bracketed_paste_mode: BracketedPaste::default(),
+            modes: TerminalModes {
+                cursor_key: Decckm::default(),
+                autowrap: Decawm::default(),
+                bracketed_paste: BracketedPaste::default(),
             },
             saved_color_state: None,
         }
@@ -352,13 +352,13 @@ impl ReplayIo {
     fn set_mode(&mut self, mode: &Mode) {
         match mode {
             Mode::Decckm => {
-                self.modes.cursor_key_mode = Decckm::Application;
+                self.modes.cursor_key = Decckm::Application;
             }
             Mode::Decawm => {
-                self.modes.autowrap_mode = Decawm::AutoWrap;
+                self.modes.autowrap = Decawm::AutoWrap;
             }
             Mode::BracketedPaste => {
-                self.modes.bracketed_paste_mode = BracketedPaste::Enabled;
+                self.modes.bracketed_paste = BracketedPaste::Enabled;
             }
             Mode::Unknown(_) => {
                 warn!("unhandled set mode: {mode:?}");
@@ -377,13 +377,13 @@ impl ReplayIo {
     fn reset_mode(&mut self, mode: &Mode) {
         match mode {
             Mode::Decckm => {
-                self.modes.cursor_key_mode = Decckm::Ansi;
+                self.modes.cursor_key = Decckm::Ansi;
             }
             Mode::Decawm => {
-                self.modes.autowrap_mode = Decawm::NoAutoWrap;
+                self.modes.autowrap = Decawm::NoAutoWrap;
             }
             Mode::BracketedPaste => {
-                self.modes.bracketed_paste_mode = BracketedPaste::Disabled;
+                self.modes.bracketed_paste = BracketedPaste::Disabled;
             }
             Mode::Unknown(_) => {}
         }
