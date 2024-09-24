@@ -501,6 +501,14 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             .retain(|d| *d != *decoration);
     }
 
+    fn set_foreground(&mut self, color: TerminalColor) {
+        self.cursor_state.color = color;
+    }
+
+    fn set_background(&mut self, color: TerminalColor) {
+        self.cursor_state.background_color = color;
+    }
+
     fn sgr(&mut self, sgr: SelectGraphicRendition) {
         match sgr {
             SelectGraphicRendition::Reset => self.reset(),
@@ -508,16 +516,16 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 self.cursor_state.font_weight = FontWeight::Bold;
             }
             SelectGraphicRendition::Italic => {
-                self.font_decordations_add_if_not_contains(FontDecorations::Italic)
+                self.font_decordations_add_if_not_contains(FontDecorations::Italic);
             }
             SelectGraphicRendition::Faint => {
-                self.font_decordations_add_if_not_contains(FontDecorations::Faint)
+                self.font_decordations_add_if_not_contains(FontDecorations::Faint);
             }
             SelectGraphicRendition::ResetBold => {
                 self.cursor_state.font_weight = FontWeight::Normal;
             }
             SelectGraphicRendition::NormalIntensity => {
-                self.font_decorations_remove_if_contains(&FontDecorations::Faint)
+                self.font_decorations_remove_if_contains(&FontDecorations::Faint);
             }
             SelectGraphicRendition::NotUnderlined => {
                 // remove FontDecorations::Underline if it's there
@@ -541,117 +549,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                     self.saved_color_state = None;
                 }
             }
-            SelectGraphicRendition::ForegroundBlack => {
-                self.cursor_state.color = TerminalColor::Black;
-            }
-            SelectGraphicRendition::ForegroundRed => {
-                self.cursor_state.color = TerminalColor::Red;
-            }
-            SelectGraphicRendition::ForegroundGreen => {
-                self.cursor_state.color = TerminalColor::Green;
-            }
-            SelectGraphicRendition::ForegroundYellow => {
-                self.cursor_state.color = TerminalColor::Yellow;
-            }
-            SelectGraphicRendition::ForegroundBlue => {
-                self.cursor_state.color = TerminalColor::Blue;
-            }
-            SelectGraphicRendition::ForegroundMagenta => {
-                self.cursor_state.color = TerminalColor::Magenta;
-            }
-            SelectGraphicRendition::ForegroundCyan => {
-                self.cursor_state.color = TerminalColor::Cyan;
-            }
-            SelectGraphicRendition::ForegroundWhite => {
-                self.cursor_state.color = TerminalColor::White;
-            }
-            SelectGraphicRendition::DefaultForeground => {
-                self.cursor_state.color = TerminalColor::Default;
-            }
-            SelectGraphicRendition::ForegroundCustom(r, g, b) => {
-                let r = u8::try_from(r).unwrap();
-                let g = u8::try_from(g).unwrap();
-                let b = u8::try_from(b).unwrap();
-                self.cursor_state.color = TerminalColor::Custom(r, g, b);
-            }
-            SelectGraphicRendition::ForegroundBrightYellow => {
-                self.cursor_state.color = TerminalColor::BrightYellow;
-            }
-            SelectGraphicRendition::ForegroundBrightBlack => {
-                self.cursor_state.color = TerminalColor::BrightBlack;
-            }
-            SelectGraphicRendition::ForegroundBrightRed => {
-                self.cursor_state.color = TerminalColor::BrightRed;
-            }
-            SelectGraphicRendition::ForegroundBrightGreen => {
-                self.cursor_state.color = TerminalColor::BrightGreen;
-            }
-            SelectGraphicRendition::ForegroundBrightBlue => {
-                self.cursor_state.color = TerminalColor::BrightBlue;
-            }
-            SelectGraphicRendition::ForegroundBrightMagenta => {
-                self.cursor_state.color = TerminalColor::BrightMagenta;
-            }
-            SelectGraphicRendition::ForegroundBrightCyan => {
-                self.cursor_state.color = TerminalColor::BrightCyan;
-            }
-            SelectGraphicRendition::ForegroundBrightWhite => {
-                self.cursor_state.color = TerminalColor::BrightWhite;
-            }
-            SelectGraphicRendition::DefaultBackground | SelectGraphicRendition::BackgroundBlack => {
-                self.cursor_state.background_color = TerminalColor::Black;
-            }
-            SelectGraphicRendition::BackgroundRed => {
-                self.cursor_state.background_color = TerminalColor::Red;
-            }
-            SelectGraphicRendition::BackgroundGreen => {
-                self.cursor_state.background_color = TerminalColor::Green;
-            }
-            SelectGraphicRendition::BackgroundYellow => {
-                self.cursor_state.background_color = TerminalColor::Yellow;
-            }
-            SelectGraphicRendition::BackgroundBlue => {
-                self.cursor_state.background_color = TerminalColor::Blue;
-            }
-            SelectGraphicRendition::BackgroundMagenta => {
-                self.cursor_state.background_color = TerminalColor::Magenta;
-            }
-            SelectGraphicRendition::BackgroundCyan => {
-                self.cursor_state.background_color = TerminalColor::Cyan;
-            }
-            SelectGraphicRendition::BackgroundWhite => {
-                self.cursor_state.background_color = TerminalColor::White;
-            }
-            SelectGraphicRendition::BackgroundBrightBlack => {
-                self.cursor_state.background_color = TerminalColor::BrightBlack;
-            }
-            SelectGraphicRendition::BackgroundBrightRed => {
-                self.cursor_state.background_color = TerminalColor::BrightRed;
-            }
-            SelectGraphicRendition::BackgroundBrightYellow => {
-                self.cursor_state.background_color = TerminalColor::BrightYellow;
-            }
-            SelectGraphicRendition::BackgroundBrightBlue => {
-                self.cursor_state.background_color = TerminalColor::BrightBlue;
-            }
-            SelectGraphicRendition::BackgroundBrightMagenta => {
-                self.cursor_state.background_color = TerminalColor::BrightMagenta;
-            }
-            SelectGraphicRendition::BackgroundBrightCyan => {
-                self.cursor_state.background_color = TerminalColor::BrightCyan;
-            }
-            SelectGraphicRendition::BackgroundBrightWhite => {
-                self.cursor_state.background_color = TerminalColor::BrightWhite;
-            }
-            SelectGraphicRendition::BackgroundBrightGreen => {
-                self.cursor_state.background_color = TerminalColor::BrightGreen;
-            }
-            SelectGraphicRendition::BackgroundCustom(r, g, b) => {
-                let r = u8::try_from(r).unwrap();
-                let g = u8::try_from(g).unwrap();
-                let b = u8::try_from(b).unwrap();
-                self.cursor_state.background_color = TerminalColor::Custom(r, g, b);
-            }
+            SelectGraphicRendition::Foreground(color) => self.set_foreground(color),
+            SelectGraphicRendition::Background(color) => self.set_background(color),
             SelectGraphicRendition::FastBlink | SelectGraphicRendition::SlowBlink => (),
             SelectGraphicRendition::Unknown(_) => {
                 warn!("Unhandled sgr: {:?}", sgr);

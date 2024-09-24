@@ -1,3 +1,5 @@
+use crate::terminal_emulator::TerminalColor;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SelectGraphicRendition {
     // NOTE: Non-exhaustive list
@@ -12,42 +14,8 @@ pub enum SelectGraphicRendition {
     ResetBold,
     NormalIntensity,
     NotUnderlined,
-    ForegroundBlack,
-    ForegroundRed,
-    ForegroundGreen,
-    ForegroundYellow,
-    ForegroundBlue,
-    ForegroundMagenta,
-    ForegroundCyan,
-    ForegroundWhite,
-    ForegroundCustom(usize, usize, usize),
-    BackgroundCustom(usize, usize, usize),
-    ForegroundBrightBlack,
-    ForegroundBrightRed,
-    ForegroundBrightGreen,
-    ForegroundBrightYellow,
-    ForegroundBrightBlue,
-    ForegroundBrightMagenta,
-    ForegroundBrightCyan,
-    ForegroundBrightWhite,
-    BackgroundBlack,
-    BackgroundRed,
-    BackgroundGreen,
-    BackgroundYellow,
-    BackgroundBlue,
-    BackgroundMagenta,
-    BackgroundCyan,
-    BackgroundWhite,
-    BackgroundBrightBlack,
-    BackgroundBrightRed,
-    BackgroundBrightGreen,
-    BackgroundBrightYellow,
-    BackgroundBrightBlue,
-    BackgroundBrightMagenta,
-    BackgroundBrightCyan,
-    BackgroundBrightWhite,
-    DefaultBackground,
-    DefaultForeground,
+    Foreground(TerminalColor),
+    Background(TerminalColor),
     Unknown(usize),
 }
 
@@ -65,56 +33,58 @@ impl SelectGraphicRendition {
             22 => Self::NormalIntensity,
             24 => Self::NotUnderlined,
             27 => Self::ResetReverseVideo,
-            30 => Self::ForegroundBlack,
-            31 => Self::ForegroundRed,
-            32 => Self::ForegroundGreen,
-            33 => Self::ForegroundYellow,
-            34 => Self::ForegroundBlue,
-            35 => Self::ForegroundMagenta,
-            36 => Self::ForegroundCyan,
-            37 => Self::ForegroundWhite,
+            30 | 39 => Self::Foreground(TerminalColor::Black),
+            31 => Self::Foreground(TerminalColor::Red),
+            32 => Self::Foreground(TerminalColor::Green),
+            33 => Self::Foreground(TerminalColor::Yellow),
+            34 => Self::Foreground(TerminalColor::Blue),
+            35 => Self::Foreground(TerminalColor::Magenta),
+            36 => Self::Foreground(TerminalColor::Cyan),
+            37 => Self::Foreground(TerminalColor::White),
             38 => {
                 error!("This is a custom foreground color. We shouldn't end up here! Setting custom foreground color to black");
-                Self::ForegroundCustom(0, 0, 0)
+                Self::Foreground(TerminalColor::Black)
             }
-            39 => Self::DefaultForeground,
-            40 => Self::BackgroundBlack,
-            41 => Self::BackgroundRed,
-            42 => Self::BackgroundGreen,
-            43 => Self::BackgroundYellow,
-            44 => Self::BackgroundBlue,
-            45 => Self::BackgroundMagenta,
-            46 => Self::BackgroundCyan,
-            47 => Self::BackgroundWhite,
+            40 | 49 => Self::Background(TerminalColor::Black),
+            41 => Self::Background(TerminalColor::Red),
+            42 => Self::Background(TerminalColor::Green),
+            43 => Self::Background(TerminalColor::Yellow),
+            44 => Self::Background(TerminalColor::Blue),
+            45 => Self::Background(TerminalColor::Magenta),
+            46 => Self::Background(TerminalColor::Cyan),
+            47 => Self::Background(TerminalColor::White),
             48 => {
                 error!("This is a custom background color. We shouldn't end up here! Setting custom background color to black");
-                Self::ForegroundCustom(0, 0, 0)
+                Self::Background(TerminalColor::Black)
             }
-            49 => Self::DefaultBackground,
-            90 => Self::ForegroundBrightBlack,
-            91 => Self::ForegroundBrightRed,
-            92 => Self::ForegroundBrightGreen,
-            93 => Self::ForegroundBrightYellow,
-            94 => Self::ForegroundBrightBlue,
-            95 => Self::ForegroundBrightMagenta,
-            96 => Self::ForegroundBrightCyan,
-            97 => Self::ForegroundBrightWhite,
-            100 => Self::BackgroundBrightBlack,
-            101 => Self::BackgroundBrightRed,
-            102 => Self::BackgroundBrightGreen,
-            103 => Self::BackgroundBrightYellow,
-            104 => Self::BackgroundBrightBlue,
-            105 => Self::BackgroundBrightMagenta,
-            106 => Self::BackgroundBrightCyan,
-            107 => Self::BackgroundBrightWhite,
+            90 => Self::Foreground(TerminalColor::BrightBlack),
+            91 => Self::Foreground(TerminalColor::BrightRed),
+            92 => Self::Foreground(TerminalColor::BrightGreen),
+            93 => Self::Foreground(TerminalColor::BrightYellow),
+            94 => Self::Foreground(TerminalColor::BrightBlue),
+            95 => Self::Foreground(TerminalColor::BrightMagenta),
+            96 => Self::Foreground(TerminalColor::BrightCyan),
+            97 => Self::Foreground(TerminalColor::BrightWhite),
+            100 => Self::Background(TerminalColor::BrightBlack),
+            101 => Self::Background(TerminalColor::BrightRed),
+            102 => Self::Background(TerminalColor::BrightGreen),
+            103 => Self::Background(TerminalColor::BrightYellow),
+            104 => Self::Background(TerminalColor::BrightBlue),
+            105 => Self::Background(TerminalColor::BrightMagenta),
+            106 => Self::Background(TerminalColor::BrightCyan),
+            107 => Self::Background(TerminalColor::BrightWhite),
             _ => Self::Unknown(val),
         }
     }
 
-    pub const fn from_usize_color(val: usize, r: usize, g: usize, b: usize) -> Self {
+    pub fn from_usize_color(val: usize, r: usize, g: usize, b: usize) -> Self {
+        let r = u8::try_from(r).unwrap();
+        let g = u8::try_from(g).unwrap();
+        let b = u8::try_from(b).unwrap();
+
         match val {
-            38 => Self::ForegroundCustom(r, g, b),
-            48 => Self::BackgroundCustom(r, g, b),
+            38 => Self::Foreground(TerminalColor::Custom(r, g, b)),
+            48 => Self::Background(TerminalColor::Custom(r, g, b)),
             _ => Self::Unknown(val),
         }
     }

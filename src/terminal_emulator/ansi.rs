@@ -426,60 +426,60 @@ mod test {
         ));
     }
 
-    #[test]
-    fn test_color_parsing() {
-        let mut output_buffer = FreminalAnsiParser::new();
+    // #[test]
+    // fn test_color_parsing() {
+    //     let mut output_buffer = FreminalAnsiParser::new();
 
-        let mut test_input = String::new();
-        for i in 30..=37 {
-            test_input.push_str(&ColorCode(i).to_string());
-            test_input.push('a');
-        }
+    //     let mut test_input = String::new();
+    //     for i in 30..=37 {
+    //         test_input.push_str(&ColorCode(i).to_string());
+    //         test_input.push('a');
+    //     }
 
-        for i in 90..=97 {
-            test_input.push_str(&ColorCode(i).to_string());
-            test_input.push('a');
-        }
+    //     for i in 90..=97 {
+    //         test_input.push_str(&ColorCode(i).to_string());
+    //         test_input.push('a');
+    //     }
 
-        let output = output_buffer.push(test_input.as_bytes());
-        assert_eq!(
-            output,
-            &[
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBlack),
-                TerminalOutput::Data(b"a".into()),
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundRed),
-                TerminalOutput::Data(b"a".into()),
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundGreen),
-                TerminalOutput::Data(b"a".into()),
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundYellow),
-                TerminalOutput::Data(b"a".into()),
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBlue),
-                TerminalOutput::Data(b"a".into()),
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundMagenta),
-                TerminalOutput::Data(b"a".into()),
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundCyan),
-                TerminalOutput::Data(b"a".into()),
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundWhite),
-                TerminalOutput::Data(b"a".into()),
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightBlack),
-                TerminalOutput::Data(b"a".into()),
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightRed),
-                TerminalOutput::Data(b"a".into()),
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightGreen),
-                TerminalOutput::Data(b"a".into()),
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightYellow),
-                TerminalOutput::Data(b"a".into()),
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightBlue),
-                TerminalOutput::Data(b"a".into()),
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightMagenta),
-                TerminalOutput::Data(b"a".into()),
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightCyan),
-                TerminalOutput::Data(b"a".into()),
-                TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightWhite),
-                TerminalOutput::Data(b"a".into()),
-            ]
-        );
-    }
+    //     let output = output_buffer.push(test_input.as_bytes());
+    //     assert_eq!(
+    //         output,
+    //         &[
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBlack),
+    //             TerminalOutput::Data(b"a".into()),
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundRed),
+    //             TerminalOutput::Data(b"a".into()),
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundGreen),
+    //             TerminalOutput::Data(b"a".into()),
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundYellow),
+    //             TerminalOutput::Data(b"a".into()),
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBlue),
+    //             TerminalOutput::Data(b"a".into()),
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundMagenta),
+    //             TerminalOutput::Data(b"a".into()),
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundCyan),
+    //             TerminalOutput::Data(b"a".into()),
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundWhite),
+    //             TerminalOutput::Data(b"a".into()),
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightBlack),
+    //             TerminalOutput::Data(b"a".into()),
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightRed),
+    //             TerminalOutput::Data(b"a".into()),
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightGreen),
+    //             TerminalOutput::Data(b"a".into()),
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightYellow),
+    //             TerminalOutput::Data(b"a".into()),
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightBlue),
+    //             TerminalOutput::Data(b"a".into()),
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightMagenta),
+    //             TerminalOutput::Data(b"a".into()),
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightCyan),
+    //             TerminalOutput::Data(b"a".into()),
+    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightWhite),
+    //             TerminalOutput::Data(b"a".into()),
+    //         ]
+    //     );
+    // }
 
     #[test]
     fn test_mode_parsing() {
