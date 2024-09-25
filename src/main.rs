@@ -26,6 +26,8 @@ struct Args {
 
 impl Args {
     fn parse<It: Iterator<Item = String>>(mut it: It) -> Self {
+        trace!("Parsing args");
+
         let program_name = it.next();
         let mut recording_path = None;
 
@@ -50,6 +52,8 @@ impl Args {
     }
 
     fn help(program_name: Option<&str>) -> ! {
+        trace!("Showing help");
+
         let program_name = program_name.unwrap_or("freminal");
         println!(
             "\
@@ -66,6 +70,11 @@ impl Args {
 
 fn main() {
     log::init();
+
+    trace!("Starting freminal");
+    debug!("Testing");
+    info!("Starting freminal");
+
     let args = Args::parse(std::env::args());
     let res = match TerminalEmulator::new(&args.recording) {
         Ok(v) => gui::run(v),

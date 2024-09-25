@@ -41,12 +41,19 @@ macro_rules! error {
     }
 }
 
+macro_rules! trace {
+    ($($arg:tt)+) => {
+        log!($crate::log::Level::Trace, $($arg)+)
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Level {
     Debug,
     Info,
     Warn,
     Error,
+    Trace,
 }
 
 impl FromStr for Level {
@@ -58,6 +65,7 @@ impl FromStr for Level {
             "info" => Ok(Self::Info),
             "warn" => Ok(Self::Warn),
             "error" => Ok(Self::Error),
+            "trace" => Ok(Self::Trace),
             _ => Err(()),
         }
     }
@@ -70,6 +78,7 @@ impl Level {
             Self::Info => "\x1b[34;1m INFO\x1b[m",
             Self::Warn => "\x1b[33;1m WARN\x1b[m",
             Self::Error => "\x1b[91;1mERROR\x1b[m",
+            Self::Trace => "\x1b[35;1mTRACE\x1b[m",
         }
     }
 }

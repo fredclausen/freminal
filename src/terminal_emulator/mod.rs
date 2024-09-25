@@ -16,6 +16,7 @@ pub mod ansi_components {
     pub mod osc;
     pub mod sgr;
 }
+pub mod error;
 pub mod playback;
 
 use self::io::CreatePtyIoError;
