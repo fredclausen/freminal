@@ -160,14 +160,15 @@ fn split_format_data_for_scrollback(
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct CursorPos {
     pub x: usize,
     pub y: usize,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub enum FontWeight {
+    #[default]
     Normal,
     Bold,
 }
@@ -187,6 +188,51 @@ struct CursorState {
     font_decorations: Vec<FontDecorations>,
     color: TerminalColor,
     background_color: TerminalColor,
+}
+
+impl Default for CursorState {
+    fn default() -> Self {
+        Self {
+            pos: CursorPos::default(),
+            font_weight: FontWeight::default(),
+            font_decorations: Vec::new(),
+            color: TerminalColor::Default,
+            background_color: TerminalColor::Black,
+        }
+    }
+}
+
+// FIXME: it would be cool to not lint this out
+#[allow(dead_code)]
+impl CursorState {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    const fn with_background_color(mut self, background_color: TerminalColor) -> Self {
+        self.background_color = background_color;
+        self
+    }
+
+    const fn with_color(mut self, color: TerminalColor) -> Self {
+        self.color = color;
+        self
+    }
+
+    const fn with_font_weight(mut self, font_weight: FontWeight) -> Self {
+        self.font_weight = font_weight;
+        self
+    }
+
+    fn with_font_decorations(mut self, font_decorations: Vec<FontDecorations>) -> Self {
+        self.font_decorations = font_decorations;
+        self
+    }
+
+    const fn with_pos(mut self, pos: CursorPos) -> Self {
+        self.pos = pos;
+        self
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

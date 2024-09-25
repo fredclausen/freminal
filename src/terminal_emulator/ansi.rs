@@ -265,7 +265,7 @@ impl FreminalAnsiParser {
 
 #[cfg(test)]
 mod test {
-    use crate::terminal_emulator::ansi_components::csi::AnsiCsiParserState;
+    use crate::terminal_emulator::{ansi_components::csi::AnsiCsiParserState, TerminalColor};
 
     use super::*;
 
@@ -426,60 +426,74 @@ mod test {
         ));
     }
 
-    // #[test]
-    // fn test_color_parsing() {
-    //     let mut output_buffer = FreminalAnsiParser::new();
+    #[test]
+    fn test_color_parsing() {
+        let mut output_buffer = FreminalAnsiParser::new();
 
-    //     let mut test_input = String::new();
-    //     for i in 30..=37 {
-    //         test_input.push_str(&ColorCode(i).to_string());
-    //         test_input.push('a');
-    //     }
+        let mut test_input = String::new();
+        for i in 30..=37 {
+            test_input.push_str(&ColorCode(i).to_string());
+            test_input.push('a');
+        }
 
-    //     for i in 90..=97 {
-    //         test_input.push_str(&ColorCode(i).to_string());
-    //         test_input.push('a');
-    //     }
+        for i in 90..=97 {
+            test_input.push_str(&ColorCode(i).to_string());
+            test_input.push('a');
+        }
 
-    //     let output = output_buffer.push(test_input.as_bytes());
-    //     assert_eq!(
-    //         output,
-    //         &[
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBlack),
-    //             TerminalOutput::Data(b"a".into()),
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundRed),
-    //             TerminalOutput::Data(b"a".into()),
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundGreen),
-    //             TerminalOutput::Data(b"a".into()),
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundYellow),
-    //             TerminalOutput::Data(b"a".into()),
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBlue),
-    //             TerminalOutput::Data(b"a".into()),
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundMagenta),
-    //             TerminalOutput::Data(b"a".into()),
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundCyan),
-    //             TerminalOutput::Data(b"a".into()),
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundWhite),
-    //             TerminalOutput::Data(b"a".into()),
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightBlack),
-    //             TerminalOutput::Data(b"a".into()),
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightRed),
-    //             TerminalOutput::Data(b"a".into()),
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightGreen),
-    //             TerminalOutput::Data(b"a".into()),
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightYellow),
-    //             TerminalOutput::Data(b"a".into()),
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightBlue),
-    //             TerminalOutput::Data(b"a".into()),
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightMagenta),
-    //             TerminalOutput::Data(b"a".into()),
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightCyan),
-    //             TerminalOutput::Data(b"a".into()),
-    //             TerminalOutput::Sgr(SelectGraphicRendition::ForegroundBrightWhite),
-    //             TerminalOutput::Data(b"a".into()),
-    //         ]
-    //     );
-    // }
+        let output = output_buffer.push(test_input.as_bytes());
+        assert_eq!(
+            output,
+            &[
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(TerminalColor::Black)),
+                TerminalOutput::Data(b"a".into()),
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(TerminalColor::Red)),
+                TerminalOutput::Data(b"a".into()),
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(TerminalColor::Green)),
+                TerminalOutput::Data(b"a".into()),
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(TerminalColor::Yellow)),
+                TerminalOutput::Data(b"a".into()),
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(TerminalColor::Blue)),
+                TerminalOutput::Data(b"a".into()),
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(TerminalColor::Magenta)),
+                TerminalOutput::Data(b"a".into()),
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(TerminalColor::Cyan)),
+                TerminalOutput::Data(b"a".into()),
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(TerminalColor::White)),
+                TerminalOutput::Data(b"a".into()),
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
+                    TerminalColor::BrightBlack
+                )),
+                TerminalOutput::Data(b"a".into()),
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(TerminalColor::BrightRed)),
+                TerminalOutput::Data(b"a".into()),
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
+                    TerminalColor::BrightGreen
+                )),
+                TerminalOutput::Data(b"a".into()),
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
+                    TerminalColor::BrightYellow
+                )),
+                TerminalOutput::Data(b"a".into()),
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
+                    TerminalColor::BrightBlue
+                )),
+                TerminalOutput::Data(b"a".into()),
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
+                    TerminalColor::BrightMagenta
+                )),
+                TerminalOutput::Data(b"a".into()),
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
+                    TerminalColor::BrightCyan
+                )),
+                TerminalOutput::Data(b"a".into()),
+                TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
+                    TerminalColor::BrightWhite
+                )),
+                TerminalOutput::Data(b"a".into()),
+            ]
+        );
+    }
 
     #[test]
     fn test_mode_parsing() {

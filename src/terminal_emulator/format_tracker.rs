@@ -231,23 +231,12 @@ impl FormatTracker {
 
 #[cfg(test)]
 mod test {
-    use super::super::{CursorPos, CursorState};
+    use super::super::CursorState;
     use super::*;
 
-    #[test]
-    fn basic_color_tracker_test() {
-        let mut format_tracker = FormatTracker::new();
-        let mut cursor_state = CursorState {
-            pos: CursorPos { x: 0, y: 0 },
-            color: TerminalColor::Default,
-            background_color: TerminalColor::Black,
-            font_weight: FontWeight::Normal,
-            font_decorations: Vec::new(),
-        };
-
-        cursor_state.color = TerminalColor::Yellow;
-        format_tracker.push_range(&cursor_state, 3..10);
+    fn basic_color_test_one(format_tracker: &FormatTracker) {
         let tags = format_tracker.tags();
+
         assert_eq!(
             tags,
             &[
@@ -277,9 +266,9 @@ mod test {
                 },
             ]
         );
+    }
 
-        cursor_state.color = TerminalColor::Blue;
-        format_tracker.push_range(&cursor_state, 5..7);
+    fn basic_color_test_two(format_tracker: &FormatTracker) {
         let tags = format_tracker.tags();
         assert_eq!(
             tags,
@@ -326,9 +315,9 @@ mod test {
                 },
             ]
         );
+    }
 
-        cursor_state.color = TerminalColor::Green;
-        format_tracker.push_range(&cursor_state, 7..9);
+    fn basic_color_test_three(format_tracker: &FormatTracker) {
         let tags = format_tracker.tags();
         assert_eq!(
             tags,
@@ -383,10 +372,9 @@ mod test {
                 },
             ]
         );
+    }
 
-        cursor_state.color = TerminalColor::Red;
-        cursor_state.font_weight = FontWeight::Bold;
-        format_tracker.push_range(&cursor_state, 6..11);
+    fn basic_color_test_four(format_tracker: &FormatTracker) {
         let tags = format_tracker.tags();
         assert_eq!(
             tags,
@@ -436,6 +424,28 @@ mod test {
     }
 
     #[test]
+    fn basic_color_tracker_test() {
+        let mut format_tracker = FormatTracker::new();
+        let mut cursor_state = CursorState::default().with_color(TerminalColor::Yellow);
+
+        format_tracker.push_range(&cursor_state, 3..10);
+        basic_color_test_one(&format_tracker);
+
+        cursor_state.color = TerminalColor::Blue;
+        format_tracker.push_range(&cursor_state, 5..7);
+        basic_color_test_two(&format_tracker);
+
+        cursor_state.color = TerminalColor::Green;
+        format_tracker.push_range(&cursor_state, 7..9);
+        basic_color_test_three(&format_tracker);
+
+        cursor_state.color = TerminalColor::Red;
+        cursor_state.font_weight = FontWeight::Bold;
+        format_tracker.push_range(&cursor_state, 6..11);
+        basic_color_test_four(&format_tracker);
+    }
+
+    #[test]
     fn test_range_overlap() {
         assert!(ranges_overlap(5..10, 7..9));
         assert!(ranges_overlap(5..10, 8..12));
@@ -445,21 +455,7 @@ mod test {
         assert!(!ranges_overlap(5..10, 0..5));
     }
 
-    #[test]
-    fn test_format_tracker_del_range() {
-        let mut format_tracker = FormatTracker::new();
-        let mut cursor = CursorState {
-            pos: CursorPos { x: 0, y: 0 },
-            color: TerminalColor::Blue,
-            background_color: TerminalColor::Black,
-            font_weight: FontWeight::Normal,
-            font_decorations: Vec::new(),
-        };
-        format_tracker.push_range(&cursor, 0..10);
-        cursor.color = TerminalColor::Red;
-        format_tracker.push_range(&cursor, 10..20);
-
-        format_tracker.delete_range(0..2);
+    fn del_range_test_one(format_tracker: &FormatTracker) {
         assert_eq!(
             format_tracker.tags(),
             [
@@ -489,8 +485,9 @@ mod test {
                 }
             ]
         );
+    }
 
-        format_tracker.delete_range(2..4);
+    fn del_range_test_two(format_tracker: &FormatTracker) {
         assert_eq!(
             format_tracker.tags(),
             [
@@ -520,8 +517,9 @@ mod test {
                 }
             ]
         );
+    }
 
-        format_tracker.delete_range(4..6);
+    fn del_range_test_three(format_tracker: &FormatTracker) {
         assert_eq!(
             format_tracker.tags(),
             [
@@ -551,8 +549,9 @@ mod test {
                 }
             ]
         );
+    }
 
-        format_tracker.delete_range(2..7);
+    fn del_range_test_four(format_tracker: &FormatTracker) {
         assert_eq!(
             format_tracker.tags(),
             [
@@ -585,19 +584,27 @@ mod test {
     }
 
     #[test]
-    fn test_range_adjustment() {
+    fn test_format_tracker_del_range() {
         let mut format_tracker = FormatTracker::new();
-        let mut cursor = CursorState {
-            pos: CursorPos { x: 0, y: 0 },
-            color: TerminalColor::Blue,
-            background_color: TerminalColor::Black,
-            font_weight: FontWeight::Normal,
-            font_decorations: Vec::new(),
-        };
-        format_tracker.push_range(&cursor, 0..5);
+        let mut cursor = CursorState::default().with_color(TerminalColor::Blue);
+        format_tracker.push_range(&cursor, 0..10);
         cursor.color = TerminalColor::Red;
-        format_tracker.push_range(&cursor, 5..10);
+        format_tracker.push_range(&cursor, 10..20);
 
+        format_tracker.delete_range(0..2);
+        del_range_test_one(&format_tracker);
+
+        format_tracker.delete_range(2..4);
+        del_range_test_two(&format_tracker);
+
+        format_tracker.delete_range(4..6);
+        del_range_test_three(&format_tracker);
+
+        format_tracker.delete_range(2..7);
+        del_range_test_four(&format_tracker);
+    }
+
+    fn range_adjustment_test_one(format_tracker: &FormatTracker) {
         assert_eq!(
             format_tracker.tags(),
             [
@@ -627,9 +634,9 @@ mod test {
                 },
             ]
         );
+    }
 
-        // This should extend the first section, and push all the ones after
-        format_tracker.push_range_adjustment(0..3);
+    fn range_adjustment_test_two(format_tracker: &FormatTracker) {
         assert_eq!(
             format_tracker.tags(),
             [
@@ -659,42 +666,9 @@ mod test {
                 },
             ]
         );
+    }
 
-        // Should have no effect as we're in the last range
-        format_tracker.push_range_adjustment(15..50);
-        assert_eq!(
-            format_tracker.tags(),
-            [
-                FormatTag {
-                    start: 0,
-                    end: 8,
-                    color: TerminalColor::Blue,
-                    background_color: TerminalColor::Black,
-                    font_weight: FontWeight::Normal,
-                    font_decorations: Vec::new(),
-                },
-                FormatTag {
-                    start: 8,
-                    end: 13,
-                    color: TerminalColor::Red,
-                    background_color: TerminalColor::Black,
-                    font_weight: FontWeight::Normal,
-                    font_decorations: Vec::new(),
-                },
-                FormatTag {
-                    start: 13,
-                    end: usize::MAX,
-                    color: TerminalColor::Default,
-                    background_color: TerminalColor::Black,
-                    font_weight: FontWeight::Normal,
-                    font_decorations: Vec::new(),
-                },
-            ]
-        );
-
-        // And for good measure, check something in the middle
-        // This should not touch the first segment, extend the second, and move the third forward
-        format_tracker.push_range_adjustment(10..12);
+    fn range_adjustment_test_three(format_tracker: &FormatTracker) {
         assert_eq!(
             format_tracker.tags(),
             [
@@ -724,5 +698,30 @@ mod test {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn test_range_adjustment() {
+        let mut format_tracker = FormatTracker::new();
+        let mut cursor = CursorState::default().with_color(TerminalColor::Blue);
+
+        format_tracker.push_range(&cursor, 0..5);
+        cursor.color = TerminalColor::Red;
+        format_tracker.push_range(&cursor, 5..10);
+        range_adjustment_test_one(&format_tracker);
+
+        // This should extend the first section, and push all the ones after
+        format_tracker.push_range_adjustment(0..3);
+        range_adjustment_test_two(&format_tracker);
+
+        // Should have no effect as we're in the last range
+        // Repeat the second test
+        format_tracker.push_range_adjustment(15..50);
+        range_adjustment_test_two(&format_tracker);
+
+        // And for good measure, check something in the middle
+        // This should not touch the first segment, extend the second, and move the third forward
+        format_tracker.push_range_adjustment(10..12);
+        range_adjustment_test_three(&format_tracker);
     }
 }
