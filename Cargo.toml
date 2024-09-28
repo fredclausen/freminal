@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 eframe = "0.29.0"
-tar = "0.4.41"
+tar = "0.4.42"
 nix = { version = "0.29.0", default-features = false, features = [
     "term",
     "process",
@@ -20,4 +20,4 @@ tinyjson = "2.5.1"
 conv = "0.3.3"
 
 [build-dependencies]
-tar = "0.4.41"
+tar = "0.4.42"
