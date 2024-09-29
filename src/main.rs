@@ -12,10 +12,13 @@
     clippy::all
 )]
 
-use terminal_emulator::TerminalEmulator;
-
 #[macro_use]
-mod log;
+extern crate tracing;
+
+use terminal_emulator::TerminalEmulator;
+use tracing::Level;
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+
 mod error;
 mod gui;
 mod terminal_emulator;
@@ -69,7 +72,24 @@ impl Args {
 }
 
 fn main() {
-    log::init();
+    // use env for filtering
+    // example
+    // RUST_LOG=none,spectre_config=debug cargo run
+
+    let env_filter = EnvFilter::builder()
+        .with_default_directive(Level::INFO.into())
+        .from_env_lossy()
+        .add_directive("winit=off".parse().unwrap())
+        .add_directive("wgpu=off".parse().unwrap())
+        .add_directive("eframe=off".parse().unwrap())
+        .add_directive("egui=off".parse().unwrap());
+
+    let subscriber = tracing_subscriber::registry().with(env_filter);
+    let fmt_layer = fmt::layer()
+        .with_line_number(true)
+        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::ACTIVE)
+        .compact();
+    subscriber.with(fmt_layer).init();
 
     trace!("Starting freminal");
     debug!("Testing");
