@@ -20,6 +20,8 @@ fn set_egui_options(ctx: &egui::Context) {
     ctx.options_mut(|options| {
         options.zoom_with_keyboard = false;
     });
+
+    ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
 }
 struct FreminalGui {
     terminal_emulator: TerminalEmulator<FreminalPtyInputOutput>,

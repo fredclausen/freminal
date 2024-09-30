@@ -45,7 +45,7 @@ impl SelectGraphicRendition {
                 error!("This is a custom foreground color. We shouldn't end up here! Setting custom foreground color to black");
                 Self::Foreground(TerminalColor::Black)
             }
-            40 | 49 => Self::Background(TerminalColor::Black),
+            40 => Self::Background(TerminalColor::Black),
             41 => Self::Background(TerminalColor::Red),
             42 => Self::Background(TerminalColor::Green),
             43 => Self::Background(TerminalColor::Yellow),
@@ -55,8 +55,9 @@ impl SelectGraphicRendition {
             47 => Self::Background(TerminalColor::White),
             48 => {
                 error!("This is a custom background color. We shouldn't end up here! Setting custom background color to black");
-                Self::Background(TerminalColor::Black)
+                Self::Background(TerminalColor::DefaultBackground)
             }
+            49 => Self::Background(TerminalColor::DefaultBackground),
             90 => Self::Foreground(TerminalColor::BrightBlack),
             91 => Self::Foreground(TerminalColor::BrightRed),
             92 => Self::Foreground(TerminalColor::BrightGreen),

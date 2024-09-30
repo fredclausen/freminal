@@ -198,7 +198,7 @@ impl Default for CursorState {
             font_weight: FontWeight::default(),
             font_decorations: Vec::new(),
             color: TerminalColor::Default,
-            background_color: TerminalColor::Black,
+            background_color: TerminalColor::DefaultBackground,
         }
     }
 }
@@ -239,6 +239,7 @@ impl CursorState {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TerminalColor {
     Default,
+    DefaultBackground,
     Black,
     Red,
     Green,
@@ -262,7 +263,7 @@ impl fmt::Display for TerminalColor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             Self::Default => "default",
-            Self::Black => "black",
+            Self::Black | Self::DefaultBackground => "black",
             Self::Red => "red",
             Self::Green => "green",
             Self::Yellow => "yellow",
@@ -293,6 +294,7 @@ impl std::str::FromStr for TerminalColor {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let ret = match s {
             "default" => Self::Default,
+            "default_background" => Self::DefaultBackground,
             "black" => Self::Black,
             "red" => Self::Red,
             "green" => Self::Green,
@@ -530,7 +532,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
 
     fn reset(&mut self) {
         self.cursor_state.color = TerminalColor::Default;
-        self.cursor_state.background_color = TerminalColor::Black;
+        self.cursor_state.background_color = TerminalColor::DefaultBackground;
         self.cursor_state.font_weight = FontWeight::Normal;
         self.cursor_state.font_decorations.clear();
         self.saved_color_state = None;

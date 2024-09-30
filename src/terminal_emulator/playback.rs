@@ -35,7 +35,7 @@ impl ReplayIo {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 color: TerminalColor::Default,
-                background_color: TerminalColor::Black,
+                background_color: TerminalColor::DefaultBackground,
             },
             modes: TerminalModes {
                 cursor_key: Decckm::default(),

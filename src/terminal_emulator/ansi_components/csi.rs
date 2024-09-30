@@ -1,8 +1,11 @@
 use crate::{
     gui::terminal::lookup_256_color_by_index,
-    terminal_emulator::ansi::{
-        extract_param, parse_param_as, split_params_into_semicolon_delimited_usize, ParserInner,
-        TerminalOutput,
+    terminal_emulator::{
+        ansi::{
+            extract_param, parse_param_as, split_params_into_semicolon_delimited_usize,
+            ParserInner, TerminalOutput,
+        },
+        TerminalColor,
     },
 };
 
@@ -378,8 +381,24 @@ impl AnsiCsiParser {
                 param = if let Some(Some(param)) = param_iter.next() {
                     param
                 } else {
-                    warn!("Invalid SGR sequence: {}", param);
-                    output.push(TerminalOutput::Invalid);
+                    // FIXME: we'll treat '\e[38m' or '\e[48m' as a color reset.
+                    // I can't find documentation for this, but it seems that other terminals handle it this way
+                    warn!(
+                        "SGR {} received with no color input. Resetting pallate",
+                        param
+                    );
+                    match param {
+                        38 => output.push(TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
+                            TerminalColor::Default,
+                        ))),
+                        48 => output.push(TerminalOutput::Sgr(SelectGraphicRendition::Background(
+                            TerminalColor::DefaultBackground,
+                        ))),
+                        _ => {
+                            warn!("Invalid SGR sequence: {}", param);
+                            output.push(TerminalOutput::Invalid);
+                        }
+                    }
                     continue;
                 };
 
