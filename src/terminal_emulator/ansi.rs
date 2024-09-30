@@ -9,8 +9,11 @@ use super::{
         osc::{AnsiOscParser, AnsiOscType},
         sgr::SelectGraphicRendition,
     },
+    error::ParserFailures,
     Mode,
 };
+
+use anyhow::Result;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum TerminalOutput {
@@ -173,7 +176,7 @@ impl FreminalAnsiParser {
         b: u8,
         data_output: &mut Vec<u8>,
         output: &mut Vec<TerminalOutput>,
-    ) {
+    ) -> Result<()> {
         push_data_if_non_empty(data_output, output);
 
         if b == b'[' {
@@ -181,9 +184,13 @@ impl FreminalAnsiParser {
         } else if b == b']' {
             self.inner = ParserInner::Osc(AnsiOscParser::new());
         } else {
-            warn!("Unhandled escape sequence {b:x}");
+            error!("Unhandled escape sequence {b:x}");
             self.inner = ParserInner::Empty;
+
+            return Err(ParserFailures::UnhandledInnerEscape(format!("{b:x}")).into());
         }
+
+        Ok(())
     }
 
     pub fn push(&mut self, incoming: &[u8]) -> Vec<TerminalOutput> {
@@ -205,7 +212,11 @@ impl FreminalAnsiParser {
                     data_output.push(*b);
                 }
                 ParserInner::Escape => {
-                    self.ansiparser_inner_escape(*b, &mut data_output, &mut output);
+                    if let Err(e) = self.ansiparser_inner_escape(*b, &mut data_output, &mut output)
+                    {
+                        error!("Parser Error: {e}");
+                        error!("Escape Sequence that threw an error: {output_string_sequence}");
+                    }
                 }
                 ParserInner::Csi(parser) => {
                     output_string_sequence.push(*b as char);
@@ -238,8 +249,7 @@ impl FreminalAnsiParser {
 
                             if output.last() == Some(&TerminalOutput::Invalid) {
                                 error!(
-                                    "OSC Sequence that threw an error: {}",
-                                    output_string_sequence
+                                    "OSC Sequence that threw an error: {output_string_sequence}",
                                 );
                             }
                         }
@@ -252,12 +262,6 @@ impl FreminalAnsiParser {
         if !data_output.is_empty() {
             output.push(TerminalOutput::Data(data_output));
         }
-
-        // info!("New Output:");
-        // for i in output.iter() {
-        //     info!("{}", i);
-        // }
-        // info!("End Output");
 
         output
     }
