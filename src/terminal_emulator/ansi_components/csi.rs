@@ -387,18 +387,15 @@ impl AnsiCsiParser {
                         "SGR {} received with no color input. Resetting pallate",
                         param
                     );
-                    match param {
-                        38 => output.push(TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
+                    output.push(if custom_color_control_code == 38 {
+                        TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
                             TerminalColor::Default,
-                        ))),
-                        48 => output.push(TerminalOutput::Sgr(SelectGraphicRendition::Background(
+                        ))
+                    } else {
+                        TerminalOutput::Sgr(SelectGraphicRendition::Background(
                             TerminalColor::DefaultBackground,
-                        ))),
-                        _ => {
-                            warn!("Invalid SGR sequence: {}", param);
-                            output.push(TerminalOutput::Invalid);
-                        }
-                    }
+                        ))
+                    });
                     continue;
                 };
 

@@ -386,7 +386,10 @@ fn create_terminal_output_layout_job(
     data: &[u8],
 ) -> Result<(LayoutJob, TextFormat), std::str::Utf8Error> {
     let text_style = &style.text_styles[&TextStyle::Monospace];
+    info!("Data: {data:?}");
+
     let data_utf8 = std::str::from_utf8(data)?;
+
     let mut job = egui::text::LayoutJob::simple(
         data_utf8.to_string(),
         text_style.clone(),
@@ -394,6 +397,8 @@ fn create_terminal_output_layout_job(
         width,
     );
 
+    // FIXME: should this be toggled based on the DECAWM flag?
+    // probably should be false and the formatter should handle it
     job.wrap.break_anywhere = true;
     let textformat = job.sections[0].format.clone();
     job.sections.clear();
