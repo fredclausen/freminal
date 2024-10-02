@@ -194,7 +194,7 @@ fn paint_cursor(label_rect: Rect, character_size: (f32, f32), cursor_pos: &Curso
     let top = label_rect.top();
     let left = label_rect.left();
     let y_offset: f32 = f32::value_from(cursor_pos.y).unwrap() * character_size.1;
-    let x_offset = f32::value_from(cursor_pos.x).unwrap() * character_size.0;
+    let x_offset = f32::value_from(cursor_pos.x_as_characters).unwrap() * character_size.0;
     painter.rect_filled(
         Rect::from_min_size(
             egui::pos2(left + x_offset, top + y_offset),
@@ -386,7 +386,6 @@ fn create_terminal_output_layout_job(
     data: &[u8],
 ) -> Result<(LayoutJob, TextFormat), std::str::Utf8Error> {
     let text_style = &style.text_styles[&TextStyle::Monospace];
-    info!("Data: {data:?}");
 
     let data_utf8 = std::str::from_utf8(data)?;
 

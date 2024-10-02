@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use std::ops::Range;
+use std::{borrow::Cow, ops::Range};
 use thiserror::Error;
 
 use super::{CursorPos, TerminalData};
@@ -70,13 +70,25 @@ fn buf_to_cursor_pos(
 
     if buf_pos < new_cursor_line.start {
         info!("Old cursor position no longer on screen");
-        return Ok(CursorPos { x: 0, y: 0 });
+        return Ok(CursorPos::default());
     };
 
     let new_cursor_x = buf_pos - new_cursor_line.start;
+
+    // We need to know the number of **visible** characters on the line. This is different from the bytes on the line
+    // FIXME: can we do this without creating a new string?
+    // and also should this be lossy or nah?
+    let new_cursor_x_as_character_pos = match String::from_utf8_lossy(&buf[new_cursor_line.clone()])
+    {
+        // If we hit a newline, the cursor should be at the start of the next line
+        Cow::Borrowed(s) => s.chars().count(),
+        Cow::Owned(s) => s.chars().count(),
+    };
+
     Ok(CursorPos {
         x: new_cursor_x,
         y: new_cursor_y,
+        x_as_characters: new_cursor_x_as_character_pos,
     })
 }
 
@@ -545,7 +557,11 @@ mod test {
     fn test_buffer_padding() {
         let mut buf = b"asdf\n1234\nzxyw".to_vec();
 
-        let cursor_pos = CursorPos { x: 8, y: 0 };
+        let cursor_pos = CursorPos {
+            x: 8,
+            y: 0,
+            x_as_characters: 8,
+        };
         let response = pad_buffer_for_write(&mut buf, 10, 10, &cursor_pos, 10);
         assert_eq!(buf, b"asdf              \n1234\nzxyw");
         assert_eq!(response.write_idx, 8);
@@ -556,7 +572,14 @@ mod test {
     fn test_canvas_clear_forwards() {
         let mut buffer = TerminalBufferHolder::new(5, 5);
         // Push enough data to get some in scrollback
-        buffer.insert_data(&CursorPos { x: 0, y: 0 }, b"012343456789\n0123456789\n1234");
+        buffer.insert_data(
+            &CursorPos {
+                x: 0,
+                y: 0,
+                x_as_characters: 0,
+            },
+            b"012343456789\n0123456789\n1234",
+        );
 
         assert_eq!(
             buffer.data().visible,
@@ -567,7 +590,11 @@ mod test {
                    56789\n\
                    1234\n"
         );
-        buffer.clear_forwards(&CursorPos { x: 1, y: 1 });
+        buffer.clear_forwards(&CursorPos {
+            x: 1,
+            y: 1,
+            x_as_characters: 1,
+        });
         // Same amount of lines should be present before and after clear
         assert_eq!(
             buffer.data().visible,
@@ -582,30 +609,67 @@ mod test {
         // A few special cases.
         // 1. Truncating on beginning of line and previous char was not a newline
         let mut buffer = TerminalBufferHolder::new(5, 5);
-        buffer.insert_data(&CursorPos { x: 0, y: 0 }, b"012340123401234012340123401234");
-        buffer.clear_forwards(&CursorPos { x: 0, y: 1 });
+        buffer.insert_data(
+            &CursorPos {
+                x: 0,
+                y: 0,
+                x_as_characters: 0,
+            },
+            b"012340123401234012340123401234",
+        );
+        buffer.clear_forwards(&CursorPos {
+            x: 0,
+            y: 1,
+            x_as_characters: 0,
+        });
         assert_eq!(buffer.data().visible, b"01234\n\n\n\n\n");
 
         // 2. Truncating on beginning of line and previous char was a newline
         let mut buffer = TerminalBufferHolder::new(5, 5);
         buffer.insert_data(
-            &CursorPos { x: 0, y: 0 },
+            &CursorPos {
+                x: 0,
+                y: 0,
+                x_as_characters: 0,
+            },
             b"01234\n0123401234012340123401234",
         );
-        buffer.clear_forwards(&CursorPos { x: 0, y: 1 });
+        buffer.clear_forwards(&CursorPos {
+            x: 0,
+            y: 1,
+            x_as_characters: 0,
+        });
         assert_eq!(buffer.data().visible, b"01234\n\n\n\n\n");
 
         // 3. Truncating on a newline
         let mut buffer = TerminalBufferHolder::new(5, 5);
-        buffer.insert_data(&CursorPos { x: 0, y: 0 }, b"\n\n\n\n\n\n");
-        buffer.clear_forwards(&CursorPos { x: 0, y: 1 });
+        buffer.insert_data(
+            &CursorPos {
+                x: 0,
+                y: 0,
+                x_as_characters: 0,
+            },
+            b"\n\n\n\n\n\n",
+        );
+        buffer.clear_forwards(&CursorPos {
+            x: 0,
+            y: 1,
+            x_as_characters: 0,
+        });
         assert_eq!(buffer.data().visible, b"\n\n\n\n\n");
     }
 
     #[test]
     fn test_canvas_clear() {
         let mut buffer = TerminalBufferHolder::new(5, 5);
-        buffer.insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789");
+        buffer.insert_data(
+            &CursorPos {
+                x: 0,
+                y: 0,
+                x_as_characters: 0,
+            },
+            b"0123456789",
+        );
         buffer.clear_all();
         assert_eq!(buffer.data().visible, &[]);
     }
@@ -613,24 +677,52 @@ mod test {
     #[test]
     fn test_terminal_buffer_overwrite_early_newline() {
         let mut buffer = TerminalBufferHolder::new(5, 5);
-        buffer.insert_data(&CursorPos { x: 0, y: 0 }, b"012\n3456789");
+        buffer.insert_data(
+            &CursorPos {
+                x: 0,
+                y: 0,
+                x_as_characters: 0,
+            },
+            b"012\n3456789",
+        );
         assert_eq!(buffer.data().visible, b"012\n3456789\n");
 
         // Cursor pos should be calculated based off wrapping at column 5, but should not result in
         // an extra newline
-        buffer.insert_data(&CursorPos { x: 2, y: 1 }, b"test");
+        buffer.insert_data(
+            &CursorPos {
+                x: 2,
+                y: 1,
+                x_as_characters: 2,
+            },
+            b"test",
+        );
         assert_eq!(buffer.data().visible, b"012\n34test9\n");
     }
 
     #[test]
     fn test_terminal_buffer_overwrite_no_newline() {
         let mut buffer = TerminalBufferHolder::new(5, 5);
-        buffer.insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789");
+        buffer.insert_data(
+            &CursorPos {
+                x: 0,
+                y: 0,
+                x_as_characters: 0,
+            },
+            b"0123456789",
+        );
         assert_eq!(buffer.data().visible, b"0123456789\n");
 
         // Cursor pos should be calculated based off wrapping at column 5, but should not result in
         // an extra newline
-        buffer.insert_data(&CursorPos { x: 2, y: 1 }, b"test");
+        buffer.insert_data(
+            &CursorPos {
+                x: 2,
+                y: 1,
+                x_as_characters: 2,
+            },
+            b"test",
+        );
         assert_eq!(buffer.data().visible, b"0123456test\n");
     }
 
@@ -639,20 +731,48 @@ mod test {
         // This should behave exactly as test_terminal_buffer_overwrite_no_newline(), except with a
         // neline between lines 1 and 2
         let mut buffer = TerminalBufferHolder::new(5, 5);
-        buffer.insert_data(&CursorPos { x: 0, y: 0 }, b"01234\n56789");
+        buffer.insert_data(
+            &CursorPos {
+                x: 0,
+                y: 0,
+                x_as_characters: 0,
+            },
+            b"01234\n56789",
+        );
         assert_eq!(buffer.data().visible, b"01234\n56789\n");
 
-        buffer.insert_data(&CursorPos { x: 2, y: 1 }, b"test");
+        buffer.insert_data(
+            &CursorPos {
+                x: 2,
+                y: 1,
+                x_as_characters: 2,
+            },
+            b"test",
+        );
         assert_eq!(buffer.data().visible, b"01234\n56test\n");
     }
 
     #[test]
     fn test_terminal_buffer_insert_unallocated_data() {
         let mut buffer = TerminalBufferHolder::new(10, 10);
-        buffer.insert_data(&CursorPos { x: 4, y: 5 }, b"hello world");
+        buffer.insert_data(
+            &CursorPos {
+                x: 4,
+                y: 5,
+                x_as_characters: 4,
+            },
+            b"hello world",
+        );
         assert_eq!(buffer.data().visible, b"\n\n\n\n\n    hello world\n");
 
-        buffer.insert_data(&CursorPos { x: 3, y: 2 }, b"hello world");
+        buffer.insert_data(
+            &CursorPos {
+                x: 3,
+                y: 2,
+                x_as_characters: 3,
+            },
+            b"hello world",
+        );
         assert_eq!(
             buffer.data().visible,
             b"\n\n   hello world\n\n\n    hello world\n"
@@ -662,7 +782,11 @@ mod test {
     #[test]
     fn test_canvas_scrolling() {
         let mut canvas = TerminalBufferHolder::new(10, 3);
-        let initial_cursor_pos = CursorPos { x: 0, y: 0 };
+        let initial_cursor_pos = CursorPos {
+            x: 0,
+            y: 0,
+            x_as_characters: 0,
+        };
 
         // Simulate real terminal usage where newlines are injected with cursor moves
         let mut response = canvas.insert_data(&initial_cursor_pos, b"asdf");
@@ -681,26 +805,61 @@ mod test {
     #[test]
     fn test_canvas_delete_forwards() {
         let mut canvas = TerminalBufferHolder::new(10, 5);
-        canvas.insert_data(&CursorPos { x: 0, y: 0 }, b"asdf\n123456789012345");
+        canvas.insert_data(
+            &CursorPos {
+                x: 0,
+                y: 0,
+                x_as_characters: 0,
+            },
+            b"asdf\n123456789012345",
+        );
 
         // Test normal deletion
-        let deleted_range = canvas.delete_forwards(&CursorPos { x: 1, y: 0 }, 1);
+        let deleted_range = canvas.delete_forwards(
+            &CursorPos {
+                x: 1,
+                y: 0,
+                x_as_characters: 1,
+            },
+            1,
+        );
 
         assert_eq!(deleted_range, Some(1..2));
         assert_eq!(canvas.data().visible, b"adf\n123456789012345\n");
 
         // Test deletion clamped on newline
-        let deleted_range = canvas.delete_forwards(&CursorPos { x: 1, y: 0 }, 10);
+        let deleted_range = canvas.delete_forwards(
+            &CursorPos {
+                x: 1,
+                y: 0,
+                x_as_characters: 1,
+            },
+            10,
+        );
         assert_eq!(deleted_range, Some(1..3));
         assert_eq!(canvas.data().visible, b"a\n123456789012345\n");
 
         // Test deletion clamped on wrap
-        let deleted_range = canvas.delete_forwards(&CursorPos { x: 7, y: 1 }, 10);
+        let deleted_range = canvas.delete_forwards(
+            &CursorPos {
+                x: 7,
+                y: 1,
+                x_as_characters: 7,
+            },
+            10,
+        );
         assert_eq!(deleted_range, Some(9..12));
         assert_eq!(canvas.data().visible, b"a\n1234567\n12345\n");
 
         // Test deletion in case where nothing is deleted
-        let deleted_range = canvas.delete_forwards(&CursorPos { x: 5, y: 5 }, 10);
+        let deleted_range = canvas.delete_forwards(
+            &CursorPos {
+                x: 5,
+                y: 5,
+                x_as_characters: 5,
+            },
+            10,
+        );
         assert_eq!(deleted_range, None);
         assert_eq!(canvas.data().visible, b"a\n1234567\n12345\n");
     }
@@ -708,37 +867,100 @@ mod test {
     #[test]
     fn test_canvas_insert_spaces() {
         let mut canvas = TerminalBufferHolder::new(10, 5);
-        canvas.insert_data(&CursorPos { x: 0, y: 0 }, b"asdf\n123456789012345");
+        canvas.insert_data(
+            &CursorPos {
+                x: 0,
+                y: 0,
+                x_as_characters: 0,
+            },
+            b"asdf\n123456789012345",
+        );
 
         // Happy path
-        let response = canvas.insert_spaces(&CursorPos { x: 2, y: 0 }, 2);
+        let response = canvas.insert_spaces(
+            &CursorPos {
+                x: 2,
+                y: 0,
+                x_as_characters: 2,
+            },
+            2,
+        );
         assert_eq!(response.written_range, 2..4);
         assert_eq!(response.insertion_range, 2..4);
-        assert_eq!(response.new_cursor_pos, CursorPos { x: 2, y: 0 });
+        assert_eq!(
+            response.new_cursor_pos,
+            CursorPos {
+                x: 2,
+                y: 0,
+                x_as_characters: 2
+            }
+        );
         assert_eq!(canvas.data().visible, b"as  df\n123456789012345\n");
 
         // Truncation at newline
-        let response = canvas.insert_spaces(&CursorPos { x: 2, y: 0 }, 1000);
+        let response = canvas.insert_spaces(
+            &CursorPos {
+                x: 2,
+                y: 0,
+                x_as_characters: 2,
+            },
+            1000,
+        );
         assert_eq!(response.written_range, 2..10);
         assert_eq!(response.insertion_range, 2..6);
-        assert_eq!(response.new_cursor_pos, CursorPos { x: 2, y: 0 });
+        assert_eq!(
+            response.new_cursor_pos,
+            CursorPos {
+                x: 2,
+                y: 2,
+                x_as_characters: 2
+            }
+        );
         assert_eq!(canvas.data().visible, b"as        \n123456789012345\n");
 
         // Truncation at line wrap
-        let response = canvas.insert_spaces(&CursorPos { x: 4, y: 1 }, 1000);
+        let response = canvas.insert_spaces(
+            &CursorPos {
+                x: 4,
+                y: 1,
+                x_as_characters: 2,
+            },
+            1000,
+        );
         assert_eq!(response.written_range, 15..21);
         assert_eq!(
             response.insertion_range.start - response.insertion_range.end,
             0
         );
-        assert_eq!(response.new_cursor_pos, CursorPos { x: 4, y: 1 });
+        assert_eq!(
+            response.new_cursor_pos,
+            CursorPos {
+                x: 4,
+                y: 1,
+                x_as_characters: 4
+            }
+        );
         assert_eq!(canvas.data().visible, b"as        \n1234      12345\n");
 
         // Insertion at non-existent buffer pos
-        let response = canvas.insert_spaces(&CursorPos { x: 2, y: 4 }, 3);
+        let response = canvas.insert_spaces(
+            &CursorPos {
+                x: 2,
+                y: 4,
+                x_as_characters: 2,
+            },
+            3,
+        );
         assert_eq!(response.written_range, 30..33);
         assert_eq!(response.insertion_range, 27..34);
-        assert_eq!(response.new_cursor_pos, CursorPos { x: 2, y: 4 });
+        assert_eq!(
+            response.new_cursor_pos,
+            CursorPos {
+                x: 2,
+                y: 4,
+                x_as_characters: 2
+            }
+        );
         assert_eq!(
             canvas.data().visible,
             b"as        \n1234      12345\n\n     \n"
@@ -748,20 +970,39 @@ mod test {
     #[test]
     fn test_clear_line_forwards() {
         let mut canvas = TerminalBufferHolder::new(10, 5);
-        canvas.insert_data(&CursorPos { x: 0, y: 0 }, b"asdf\n123456789012345");
+        canvas.insert_data(
+            &CursorPos {
+                x: 0,
+                y: 0,
+                x_as_characters: 0,
+            },
+            b"asdf\n123456789012345",
+        );
 
         // Nothing do delete
-        let response = canvas.clear_line_forwards(&CursorPos { x: 5, y: 5 });
+        let response = canvas.clear_line_forwards(&CursorPos {
+            x: 5,
+            y: 5,
+            x_as_characters: 5,
+        });
         assert_eq!(response, None);
         assert_eq!(canvas.data().visible, b"asdf\n123456789012345\n");
 
         // Hit a newline
-        let response = canvas.clear_line_forwards(&CursorPos { x: 2, y: 0 });
+        let response = canvas.clear_line_forwards(&CursorPos {
+            x: 2,
+            y: 0,
+            x_as_characters: 2,
+        });
         assert_eq!(response, Some(2..4));
         assert_eq!(canvas.data().visible, b"as\n123456789012345\n");
 
         // Hit a wrap
-        let response = canvas.clear_line_forwards(&CursorPos { x: 2, y: 1 });
+        let response = canvas.clear_line_forwards(&CursorPos {
+            x: 2,
+            y: 1,
+            x_as_characters: 2,
+        });
         assert_eq!(response, Some(5..13));
         assert_eq!(canvas.data().visible, b"as\n1212345\n");
     }
@@ -773,7 +1014,11 @@ mod test {
         // later improvements, but we can keep the test to make sure it still seems sane
         let mut canvas = TerminalBufferHolder::new(10, 6);
 
-        let cursor_pos = CursorPos { x: 0, y: 0 };
+        let cursor_pos = CursorPos {
+            x: 0,
+            y: 0,
+            x_as_characters: 0,
+        };
         let response = simulate_resize(&mut canvas, 10, 5, &cursor_pos);
         let response = simulate_resize(&mut canvas, 10, 4, &response.new_cursor_pos);
         let response = simulate_resize(&mut canvas, 10, 3, &response.new_cursor_pos);
@@ -786,7 +1031,14 @@ mod test {
         let mut canvas = TerminalBufferHolder::new(5, 5);
 
         // Test empty canvas
-        let response = canvas.insert_lines(&CursorPos { x: 0, y: 0 }, 3);
+        let response = canvas.insert_lines(
+            &CursorPos {
+                x: 0,
+                y: 0,
+                x_as_characters: 0,
+            },
+            3,
+        );
         // Clear doesn't have to do anything as there's nothing in the canvas to push aside
         assert_eq!(response.deleted_range.start - response.deleted_range.end, 0);
         assert_eq!(
@@ -796,15 +1048,36 @@ mod test {
         assert_eq!(canvas.data().visible, b"");
 
         // Test edge wrapped
-        canvas.insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789asdf\nxyzw");
+        canvas.insert_data(
+            &CursorPos {
+                x: 0,
+                y: 0,
+                x_as_characters: 0,
+            },
+            b"0123456789asdf\nxyzw",
+        );
         assert_eq!(canvas.data().visible, b"0123456789asdf\nxyzw\n");
-        let response = canvas.insert_lines(&CursorPos { x: 3, y: 2 }, 1);
+        let response = canvas.insert_lines(
+            &CursorPos {
+                x: 3,
+                y: 2,
+                x_as_characters: 3,
+            },
+            1,
+        );
         assert_eq!(canvas.data().visible, b"0123456789\n\nasdf\nxyzw\n");
         assert_eq!(response.deleted_range.start - response.deleted_range.end, 0);
         assert_eq!(response.inserted_range, 10..12);
 
         // Test newline wrapped + lines pushed off the edge
-        let response = canvas.insert_lines(&CursorPos { x: 3, y: 2 }, 1);
+        let response = canvas.insert_lines(
+            &CursorPos {
+                x: 3,
+                y: 2,
+                x_as_characters: 3,
+            },
+            1,
+        );
         assert_eq!(canvas.data().visible, b"0123456789\n\n\nasdf\n");
         assert_eq!(response.deleted_range, 17..22);
         assert_eq!(response.inserted_range, 11..12);

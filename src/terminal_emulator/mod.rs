@@ -165,6 +165,7 @@ fn split_format_data_for_scrollback(
 pub struct CursorPos {
     pub x: usize,
     pub y: usize,
+    pub x_as_characters: usize,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
@@ -367,7 +368,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
                 bracketed_paste: BracketedPaste::default(),
             },
             cursor_state: CursorState {
-                pos: CursorPos { x: 0, y: 0 },
+                pos: CursorPos::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 color: TerminalColor::Default,
@@ -729,6 +730,13 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     fn handle_incoming_data(&mut self, incoming: &[u8]) {
         let parsed = self.parser.push(incoming);
         for segment in parsed {
+            // if segment is not data, we want to print out the segment
+            if let TerminalOutput::Data(data) = &segment {
+                debug!("Incoming data: {:?}", str::from_utf8(data).unwrap());
+            } else {
+                debug!("Incoming segment: {:?}", segment);
+            }
+
             match segment {
                 TerminalOutput::Data(data) => self.handle_data(&data),
                 TerminalOutput::SetCursorPos { x, y } => self.set_cursor_pos(x, y),

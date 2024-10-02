@@ -31,7 +31,7 @@ impl ReplayIo {
             terminal_buffer: TerminalBufferHolder::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
             format_tracker: FormatTracker::new(),
             cursor_state: CursorState {
-                pos: CursorPos { x: 0, y: 0 },
+                pos: CursorPos::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 color: TerminalColor::Default,
