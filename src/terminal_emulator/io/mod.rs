@@ -3,8 +3,8 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-mod pty;
-pub use pty::{CreatePtyIoError, FreminalPtyInputOutput};
+pub mod pty;
+pub use pty::FreminalPtyInputOutput;
 
 pub type TermIoErr = Box<dyn std::error::Error>;
 
@@ -13,8 +13,19 @@ pub enum ReadResponse {
     Empty,
 }
 
+pub struct TerminalRead {
+    pub buf: [u8; 4096],
+    pub read: usize,
+}
+
 pub trait FreminalTermInputOutput {
-    fn read(&mut self, buf: &mut [u8]) -> Result<ReadResponse, TermIoErr>;
+    //fn read(&mut self);
     fn write(&mut self, buf: &[u8]) -> Result<usize, TermIoErr>;
-    fn set_win_size(&mut self, width: usize, height: usize) -> Result<(), TermIoErr>;
+    fn set_win_size(
+        &mut self,
+        width: usize,
+        height: usize,
+        font_width: usize,
+        font_height: usize,
+    ) -> Result<(), TermIoErr>;
 }

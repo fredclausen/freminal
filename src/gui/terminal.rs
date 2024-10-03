@@ -146,7 +146,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     }
 }
 
-fn get_char_size(ctx: &egui::Context, font_size: f32) -> (f32, f32) {
+pub fn get_char_size(ctx: &egui::Context, font_size: f32) -> (f32, f32) {
     let font_id = FontId {
         size: font_size,
         family: FontFamily::Name(REGULAR_FONT_NAME.into()),
@@ -560,6 +560,10 @@ impl FreminalTerminalWidget {
             font_size: 12.0,
             debug_renderer: DebugRenderer::new(),
         }
+    }
+
+    pub const fn get_font_size(&self) -> f32 {
+        self.font_size
     }
 
     pub fn calculate_available_size(&self, ui: &Ui) -> (usize, usize) {

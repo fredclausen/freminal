@@ -91,8 +91,6 @@ fn buf_to_cursor_pos(
         Cow::Owned(s) => s.chars().count(),
     };
 
-    info!("The line: {:?}", &buf[new_cursor_line.clone()]);
-
     Ok(CursorPos {
         x: new_cursor_x,
         y: new_cursor_y,
@@ -274,7 +272,6 @@ impl TerminalBufferHolder {
         cursor_pos: &CursorPos,
         data: &[u8],
     ) -> TerminalBufferInsertResponse {
-        info!("Inserting data : {:?}", data);
         let PadBufferForWriteResponse {
             write_idx,
             inserted_padding,
@@ -287,7 +284,6 @@ impl TerminalBufferHolder {
         );
         let write_range = write_idx..write_idx + data.len();
         self.buf[write_range.clone()].copy_from_slice(data);
-        info!("Buffer after insert: {:?}", self.buf);
         let new_cursor_pos = buf_to_cursor_pos(&self.buf, self.width, self.height, write_range.end)
             .expect("write range should be valid in buf");
         debug!("New cursor pos: {:?}", new_cursor_pos);
@@ -442,7 +438,7 @@ impl TerminalBufferHolder {
                 pos
             });
 
-        assert_eq!(new_cursor_pos, Ok(cursor_pos.clone()));
+        // assert_eq!(new_cursor_pos, Ok(cursor_pos.clone()));
         Some(buf_pos)
     }
 

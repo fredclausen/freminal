@@ -8,7 +8,7 @@ use crate::{
     terminal_emulator::{FreminalPtyInputOutput, TerminalEmulator},
 };
 use eframe::egui::{self, CentralPanel};
-use terminal::FreminalTerminalWidget;
+use terminal::{get_char_size, FreminalTerminalWidget};
 
 pub mod terminal;
 
@@ -47,10 +47,18 @@ impl eframe::App for FreminalGui {
         let panel_response = CentralPanel::default().show(ctx, |ui| {
             let (width_chars, height_chars) = self.terminal_widget.calculate_available_size(ui);
 
-            if let Err(e) = self
-                .terminal_emulator
-                .set_win_size(width_chars, height_chars)
-            {
+            let (font_width, font_height) =
+                get_char_size(ctx, self.terminal_widget.get_font_size());
+
+            let rounded_font_width = font_width.round() as usize;
+            let rounded_font_height = font_height.round() as usize;
+
+            if let Err(e) = self.terminal_emulator.set_win_size(
+                width_chars,
+                height_chars,
+                rounded_font_width,
+                rounded_font_height,
+            ) {
                 error!("failed to set window size {}", backtraced_err(&*e));
             }
 

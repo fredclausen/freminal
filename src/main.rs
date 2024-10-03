@@ -15,7 +15,7 @@
 #[macro_use]
 extern crate tracing;
 
-use terminal_emulator::TerminalEmulator;
+use terminal_emulator::{FreminalPtyInputOutput, TerminalEmulator};
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -91,18 +91,15 @@ fn main() {
         .compact();
     subscriber.with(fmt_layer).init();
 
-    trace!("Starting freminal");
-    debug!("Testing");
     info!("Starting freminal");
+
+    // spawn a thread to
 
     let args = Args::parse(std::env::args());
     let res = match TerminalEmulator::new(&args.recording) {
         Ok(v) => gui::run(v),
         Err(e) => {
-            error!(
-                "Failed to create terminal emulator: {}",
-                error::backtraced_err(&e)
-            );
+            error!("Failed to create terminal emulator: {e}",);
             return;
         }
     };

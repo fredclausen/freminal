@@ -4,7 +4,16 @@
 // https://opensource.org/licenses/MIT.
 
 use core::str;
-use std::{fmt, fs::File, io::Write};
+use std::{
+    fmt,
+    fs::File,
+    io::Write,
+    sync::{
+        mpsc::{Receiver, Sender},
+        Arc, Mutex,
+    },
+    thread,
+};
 
 mod ansi;
 mod buffer;
@@ -19,7 +28,6 @@ pub mod ansi_components {
 pub mod error;
 pub mod playback;
 
-use self::io::CreatePtyIoError;
 use crate::{error::backtraced_err, terminal_emulator::io::ReadResponse};
 use ansi::{FreminalAnsiParser, TerminalOutput};
 use ansi_components::{
@@ -27,10 +35,12 @@ use ansi_components::{
     osc::{AnsiOscInternalType, AnsiOscType},
     sgr::SelectGraphicRendition,
 };
+use anyhow::Result;
 use buffer::TerminalBufferHolder;
 use eframe::egui::Color32;
 pub use format_tracker::FormatTag;
 use format_tracker::FormatTracker;
+use io::{pty::read, TerminalRead};
 pub use io::{FreminalPtyInputOutput, FreminalTermInputOutput};
 
 const fn char_to_ctrl_code(c: u8) -> u8 {
@@ -330,6 +340,7 @@ pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
     cursor_state: CursorState,
     modes: TerminalModes,
     io: Io,
+    rx: Receiver<TerminalRead>,
     window_title: Option<String>,
     recording: Option<File>,
     saved_color_state: Option<(TerminalColor, TerminalColor)>,
@@ -339,11 +350,13 @@ pub const TERMINAL_WIDTH: usize = 50;
 pub const TERMINAL_HEIGHT: usize = 16;
 
 impl TerminalEmulator<FreminalPtyInputOutput> {
-    pub fn new(recording_path: &Option<String>) -> Result<Self, CreatePtyIoError> {
-        let mut io = FreminalPtyInputOutput::new()?;
+    pub fn new(recording_path: &Option<String>) -> Result<Self> {
         let mut recording = None;
 
-        if let Err(e) = io.set_win_size(TERMINAL_WIDTH, TERMINAL_HEIGHT) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut io = FreminalPtyInputOutput::new()?;
+
+        if let Err(e) = io.set_win_size(TERMINAL_WIDTH, TERMINAL_HEIGHT, 10, 10) {
             error!("Failed to set initial window size: {}", backtraced_err(&*e));
         }
 
@@ -357,6 +370,14 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
                 }
             }
         }
+
+        // spawn a thread to read from the
+
+        let reader = io.get_reader();
+
+        thread::spawn(move || {
+            read(reader, &tx);
+        });
 
         let ret = Self {
             parser: FreminalAnsiParser::new(),
@@ -375,6 +396,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
                 background_color: TerminalColor::Black,
             },
             io,
+            rx,
             window_title: None,
             recording,
             saved_color_state: None,
@@ -401,6 +423,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         &mut self,
         width_chars: usize,
         height_chars: usize,
+        font_width: usize,
+        font_height: usize,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let response =
             self.terminal_buffer
@@ -408,7 +432,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         self.cursor_state.pos = response.new_cursor_pos;
 
         if response.changed {
-            self.io.set_win_size(width_chars, height_chars)?;
+            self.io
+                .set_win_size(width_chars, height_chars, font_width, font_height)?;
         }
 
         Ok(())
@@ -764,17 +789,11 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     }
 
     pub fn read(&mut self) {
-        let mut buf = vec![0u8; 4096];
-        loop {
-            let read_size = match self.io.read(&mut buf) {
-                Ok(ReadResponse::Empty) => break,
-                Ok(ReadResponse::Success(v)) => v,
-                Err(e) => {
-                    error!("Failed to read from child process: {e}");
-                    break;
-                }
-            };
-
+        while let Ok(TerminalRead {
+            buf,
+            read: read_size,
+        }) = self.rx.try_recv()
+        {
             // debug!("Read size: {read_size}");
 
             let incoming = &buf[0..read_size];

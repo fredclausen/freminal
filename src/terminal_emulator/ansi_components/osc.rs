@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{os::fd::AsFd, str::FromStr};
 
 //use eframe::egui::Color32;
 
@@ -50,8 +50,10 @@ impl From<Vec<Option<AnsiOscToken>>> for AnsiOscInternalType {
 #[derive(Eq, PartialEq, Debug)]
 enum OscTarget {
     TitleBar,
+    IconName,
     Background,
     Foreground,
+    RemoteHostCurrentDir,
     // https://iterm2.com/documentation-escape-codes.html
     Ftcs,
     Unknown,
@@ -60,7 +62,10 @@ enum OscTarget {
 impl From<AnsiOscToken> for OscTarget {
     fn from(value: AnsiOscToken) -> Self {
         match value {
-            AnsiOscToken::U8(0) => Self::TitleBar,
+            // FIXME: This is not correct.....
+            AnsiOscToken::U8(0 | 2) => Self::TitleBar,
+            AnsiOscToken::U8(1) => Self::IconName,
+            AnsiOscToken::U8(7) => Self::RemoteHostCurrentDir,
             AnsiOscToken::U8(11) => Self::Background,
             AnsiOscToken::U8(10) => Self::Foreground,
             AnsiOscToken::U8(133) => Self::Ftcs,
@@ -172,6 +177,12 @@ impl AnsiOscParser {
                     let osc_internal_type = AnsiOscInternalType::from(params);
 
                     match osc_target {
+                        OscTarget::IconName => {
+                            warn!("Ignoring OSC IconName");
+                        }
+                        OscTarget::RemoteHostCurrentDir => {
+                            warn!("Ignoring OSC RemoteHostCurrentDir");
+                        }
                         OscTarget::Background => {
                             output.push(TerminalOutput::OscResponse(
                                 AnsiOscType::RequestColorQueryBackground(osc_internal_type),
