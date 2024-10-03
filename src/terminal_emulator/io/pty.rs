@@ -13,6 +13,8 @@ use portable_pty::{native_pty_system, Child, CommandBuilder, PtyPair, PtySize, P
 
 use tempfile::TempDir;
 
+use crate::Args;
+
 use super::{FreminalTermInputOutput, TermIoErr, TerminalRead};
 use easy_cast::ConvApprox;
 
@@ -104,7 +106,7 @@ pub struct FreminalPtyInputOutput {
 }
 
 impl FreminalPtyInputOutput {
-    pub fn new() -> Result<Self> {
+    pub fn new(args: &Args) -> Result<Self> {
         //let terminfo_dir = extract_terminfo().map_err(CreatePtyIoErrorKind::ExtractTerminfo)?;
         let pty_system = native_pty_system();
         let pair = pty_system.openpty(PtySize {
@@ -119,8 +121,11 @@ impl FreminalPtyInputOutput {
             pixel_height: 0,
         })?;
 
-        //let cmd = CommandBuilder::new_default_prog();
-        let cmd = CommandBuilder::new("bash");
+        let cmd = args
+            .shell
+            .as_ref()
+            .map_or_else(CommandBuilder::new_default_prog, CommandBuilder::new);
+
         let child = pair.slave.spawn_command(cmd)?;
         let writer = pair.master.take_writer()?;
 

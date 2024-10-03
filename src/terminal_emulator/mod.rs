@@ -19,7 +19,7 @@ pub mod ansi_components {
 pub mod error;
 pub mod playback;
 
-use crate::error::backtraced_err;
+use crate::{error::backtraced_err, Args};
 use ansi::{FreminalAnsiParser, TerminalOutput};
 use ansi_components::{
     mode::{BracketedPaste, Decawm, Decckm, Mode, TerminalModes},
@@ -341,18 +341,18 @@ pub const TERMINAL_WIDTH: usize = 50;
 pub const TERMINAL_HEIGHT: usize = 16;
 
 impl TerminalEmulator<FreminalPtyInputOutput> {
-    pub fn new(recording_path: &Option<String>) -> Result<Self> {
+    pub fn new(args: &Args) -> Result<Self> {
         let mut recording = None;
 
         let (tx, rx) = std::sync::mpsc::channel();
-        let mut io = FreminalPtyInputOutput::new()?;
+        let mut io = FreminalPtyInputOutput::new(args)?;
 
         if let Err(e) = io.set_win_size(TERMINAL_WIDTH, TERMINAL_HEIGHT, 10, 10) {
             error!("Failed to set initial window size: {}", backtraced_err(&*e));
         }
 
         // if recording path is some, open a file for writing
-        if let Some(path) = &recording_path {
+        if let Some(path) = &args.recording {
             recording = match std::fs::File::create(path) {
                 Ok(file) => Some(file),
                 Err(e) => {

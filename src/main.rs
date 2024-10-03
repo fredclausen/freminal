@@ -23,8 +23,9 @@ mod error;
 mod gui;
 mod terminal_emulator;
 
-struct Args {
+pub struct Args {
     recording: Option<String>,
+    shell: Option<String>,
 }
 
 impl Args {
@@ -33,12 +34,21 @@ impl Args {
 
         let program_name = it.next();
         let mut recording_path = None;
+        let mut shell = None;
 
         while let Some(arg) = it.next() {
             if arg.as_str() == "--recording-path" {
                 recording_path = it.next().map_or_else(
                     || {
                         println!("Missing argument for --recording-path");
+                        Self::help(program_name.as_deref());
+                    },
+                    Some,
+                );
+            } else if arg.as_str() == "--shell" {
+                shell = it.next().map_or_else(
+                    || {
+                        println!("Missing argument for --shell");
                         Self::help(program_name.as_deref());
                     },
                     Some,
@@ -51,6 +61,7 @@ impl Args {
 
         Self {
             recording: recording_path,
+            shell,
         }
     }
 
@@ -65,6 +76,7 @@ impl Args {
                  \n\
                  Args:\n\
                  --recording-path: Optional, where to output recordings to
+                 --shell: Optional, the shell to use\n\
                  "
         );
         std::process::exit(1);
@@ -96,7 +108,7 @@ fn main() {
     // spawn a thread to
 
     let args = Args::parse(std::env::args());
-    let res = match TerminalEmulator::new(&args.recording) {
+    let res = match TerminalEmulator::new(&args) {
         Ok(v) => gui::run(v),
         Err(e) => {
             error!("Failed to create terminal emulator: {e}",);
