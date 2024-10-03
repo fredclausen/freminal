@@ -15,6 +15,7 @@ use tempfile::TempDir;
 use thiserror::Error;
 
 use super::{FreminalTermInputOutput, ReadResponse, TermIoErr, TerminalRead};
+use easy_cast::{Conv, ConvApprox};
 
 // ioctl_write_ptr_bad!(
 //     set_window_size_ioctl,
@@ -195,10 +196,10 @@ impl FreminalTermInputOutput for FreminalPtyInputOutput {
         font_height: usize,
     ) -> Result<(), TermIoErr> {
         let new_pty_pair = PtySize {
-            rows: height as u16,
-            cols: width as u16,
-            pixel_width: font_width as u16,
-            pixel_height: font_height as u16,
+            rows: u16::conv_approx(height),
+            cols: u16::conv_approx(width),
+            pixel_width: u16::conv_approx(font_width),
+            pixel_height: u16::conv_approx(font_height),
         };
 
         self.pair.master.resize(new_pty_pair)?;

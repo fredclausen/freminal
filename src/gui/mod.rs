@@ -7,6 +7,7 @@ use crate::{
     error::backtraced_err,
     terminal_emulator::{FreminalPtyInputOutput, TerminalEmulator},
 };
+use easy_cast::{Conv, ConvApprox};
 use eframe::egui::{self, CentralPanel};
 use terminal::{get_char_size, FreminalTerminalWidget};
 
@@ -50,8 +51,8 @@ impl eframe::App for FreminalGui {
             let (font_width, font_height) =
                 get_char_size(ctx, self.terminal_widget.get_font_size());
 
-            let rounded_font_width = font_width.round() as usize;
-            let rounded_font_height = font_height.round() as usize;
+            let rounded_font_width = usize::conv_approx(font_width.round());
+            let rounded_font_height = usize::conv_approx(font_height.round());
 
             if let Err(e) = self.terminal_emulator.set_win_size(
                 width_chars,
