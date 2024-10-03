@@ -728,6 +728,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     }
 
     fn handle_incoming_data(&mut self, incoming: &[u8]) {
+        debug!("Incoming data: {:?}", incoming);
         let parsed = self.parser.push(incoming);
         for segment in parsed {
             // if segment is not data, we want to print out the segment
@@ -773,6 +774,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                     break;
                 }
             };
+
+            // debug!("Read size: {read_size}");
 
             let incoming = &buf[0..read_size];
 
