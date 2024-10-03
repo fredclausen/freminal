@@ -425,18 +425,18 @@ impl TerminalBufferHolder {
             }
         }
 
-        let new_cursor_pos =
-            buf_to_cursor_pos(&self.buf, self.width, self.height, buf_pos).map(|mut pos| {
-                // NOTE: buf to cursor pos may put the cursor one past the end of the line. In this
-                // case it's ok because there are two valid cursor positions and we only care about one
-                // of them
-                if pos.x == self.width {
-                    pos.x = 0;
-                    pos.y += 1;
-                    pos.x_as_characters = 0;
-                }
-                pos
-            });
+        // let new_cursor_pos =
+        //     buf_to_cursor_pos(&self.buf, self.width, self.height, buf_pos).map(|mut pos| {
+        //         // NOTE: buf to cursor pos may put the cursor one past the end of the line. In this
+        //         // case it's ok because there are two valid cursor positions and we only care about one
+        //         // of them
+        //         if pos.x == self.width {
+        //             pos.x = 0;
+        //             pos.y += 1;
+        //             pos.x_as_characters = 0;
+        //         }
+        //         pos
+        //     });
 
         // assert_eq!(new_cursor_pos, Ok(cursor_pos.clone()));
         Some(buf_pos)

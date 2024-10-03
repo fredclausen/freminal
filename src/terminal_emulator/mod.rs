@@ -4,16 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use core::str;
-use std::{
-    fmt,
-    fs::File,
-    io::Write,
-    sync::{
-        mpsc::{Receiver, Sender},
-        Arc, Mutex,
-    },
-    thread,
-};
+use std::{fmt, fs::File, io::Write, sync::mpsc::Receiver, thread};
 
 mod ansi;
 mod buffer;
@@ -28,7 +19,7 @@ pub mod ansi_components {
 pub mod error;
 pub mod playback;
 
-use crate::{error::backtraced_err, terminal_emulator::io::ReadResponse};
+use crate::error::backtraced_err;
 use ansi::{FreminalAnsiParser, TerminalOutput};
 use ansi_components::{
     mode::{BracketedPaste, Decawm, Decckm, Mode, TerminalModes},

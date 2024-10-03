@@ -8,11 +8,6 @@ pub use pty::FreminalPtyInputOutput;
 
 pub type TermIoErr = Box<dyn std::error::Error>;
 
-pub enum ReadResponse {
-    Success(usize),
-    Empty,
-}
-
 pub struct TerminalRead {
     pub buf: [u8; 4096],
     pub read: usize,

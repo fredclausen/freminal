@@ -8,40 +8,13 @@ use std::{
     sync::mpsc::Sender,
 };
 
-use anyhow::{Error, Result};
+use anyhow::Result;
 use portable_pty::{native_pty_system, Child, CommandBuilder, PtyPair, PtySize, PtySystem};
 
 use tempfile::TempDir;
-use thiserror::Error;
 
-use super::{FreminalTermInputOutput, ReadResponse, TermIoErr, TerminalRead};
-use easy_cast::{Conv, ConvApprox};
-
-// ioctl_write_ptr_bad!(
-//     set_window_size_ioctl,
-//     nix::libc::TIOCSWINSZ,
-//     nix::pty::Winsize
-// );
-
-#[derive(Error, Debug)]
-enum ExtractTerminfoError {
-    #[error("failed to extract")]
-    Extraction(#[source] std::io::Error),
-    #[error("failed to create temp dir")]
-    CreateTempDir(#[source] std::io::Error),
-}
-
-const TERMINFO: &[u8] = include_bytes!(std::concat!(std::env!("OUT_DIR"), "/terminfo.tar"));
-
-fn extract_terminfo() -> Result<TempDir, ExtractTerminfoError> {
-    let mut terminfo_tarball = tar::Archive::new(TERMINFO);
-    let temp_dir = TempDir::new().map_err(ExtractTerminfoError::CreateTempDir)?;
-    terminfo_tarball
-        .unpack(temp_dir.path())
-        .map_err(ExtractTerminfoError::Extraction)?;
-
-    Ok(temp_dir)
-}
+use super::{FreminalTermInputOutput, TermIoErr, TerminalRead};
+use easy_cast::ConvApprox;
 
 /// Spawn a shell in a child process and return the file descriptor used for I/O
 // fn spawn_shell(terminfo_dir: &Path) -> Result<OwnedFd, SpawnShellError> {
@@ -123,10 +96,10 @@ fn extract_terminfo() -> Result<TempDir, ExtractTerminfoError> {
 // pub struct FreminalPtyIoErr(#[from] PtyIoErrKind);
 
 pub struct FreminalPtyInputOutput {
-    pty_system: Box<dyn PtySystem>,
+    _pty_system: Box<dyn PtySystem>,
     pair: PtyPair,
     writer: Box<dyn Write + Send>,
-    child: Box<dyn Child + Send + Sync>,
+    _child: Box<dyn Child + Send + Sync>,
     _terminfo_dir: TempDir,
 }
 
@@ -151,10 +124,10 @@ impl FreminalPtyInputOutput {
         let writer = pair.master.take_writer()?;
 
         Ok(Self {
-            pty_system,
+            _pty_system: pty_system,
             pair,
             writer,
-            child,
+            _child: child,
             _terminfo_dir: TempDir::new()?,
         })
     }

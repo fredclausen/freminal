@@ -15,7 +15,7 @@
 #[macro_use]
 extern crate tracing;
 
-use terminal_emulator::{FreminalPtyInputOutput, TerminalEmulator};
+use terminal_emulator::TerminalEmulator;
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 

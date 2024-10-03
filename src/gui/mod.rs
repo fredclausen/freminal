@@ -7,7 +7,7 @@ use crate::{
     error::backtraced_err,
     terminal_emulator::{FreminalPtyInputOutput, TerminalEmulator},
 };
-use easy_cast::{Conv, ConvApprox};
+use easy_cast::ConvApprox;
 use eframe::egui::{self, CentralPanel};
 use terminal::{get_char_size, FreminalTerminalWidget};
 
