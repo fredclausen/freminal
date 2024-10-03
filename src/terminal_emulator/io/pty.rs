@@ -150,9 +150,12 @@ pub fn read(mut reader: Box<dyn Read>, channel: &Sender<TerminalRead>) {
             0 => {
                 continue;
             }
-            read => {
-                let _ = channel.send(TerminalRead { buf, read });
-            }
+            read => match channel.send(TerminalRead { buf, read }) {
+                Ok(()) => {}
+                Err(_) => {
+                    error!("Failed to send read data to channel");
+                }
+            },
         }
     }
 }

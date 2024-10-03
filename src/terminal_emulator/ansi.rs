@@ -187,6 +187,8 @@ impl FreminalAnsiParser {
             self.inner = ParserInner::Osc(AnsiOscParser::new());
         } else if b == b'=' {
             self.inner = ParserInner::Decpam;
+        } else if b == b'>' {
+            self.inner = ParserInner::Decpnm;
         } else {
             error!("Unhandled escape sequence {b:x}");
             self.inner = ParserInner::Empty;
