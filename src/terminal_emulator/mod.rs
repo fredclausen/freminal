@@ -4,7 +4,14 @@
 // https://opensource.org/licenses/MIT.
 
 use core::str;
-use std::{fmt, fs::File, io::Write, sync::mpsc::Receiver, thread};
+use crossbeam_channel::{unbounded, Receiver};
+use std::{
+    fmt,
+    fs::File,
+    io::Write,
+    sync::{Arc, Mutex, MutexGuard},
+    thread,
+};
 
 mod ansi;
 mod buffer;
@@ -28,7 +35,7 @@ use ansi_components::{
 };
 use anyhow::Result;
 use buffer::TerminalBufferHolder;
-use eframe::egui::Color32;
+use eframe::{egui::Color32, epaint::text::cursor};
 pub use format_tracker::FormatTag;
 use format_tracker::FormatTracker;
 use io::{pty::read, TerminalRead};
@@ -324,17 +331,21 @@ pub struct TerminalData<T> {
     pub visible: T,
 }
 
-pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
+struct TermininalEmulatorInternalState {
     parser: FreminalAnsiParser,
     terminal_buffer: TerminalBufferHolder,
     format_tracker: FormatTracker,
     cursor_state: CursorState,
     modes: TerminalModes,
-    io: Io,
-    rx: Receiver<TerminalRead>,
     window_title: Option<String>,
-    recording: Option<File>,
     saved_color_state: Option<(TerminalColor, TerminalColor)>,
+}
+
+pub struct TerminalEmulator<Io: FreminalTermInputOutput + Send + Sync> {
+    io: Arc<Mutex<Io>>,
+    rx: Receiver<TerminalRead>,
+    recording: Option<File>,
+    internal_state: Arc<Mutex<TermininalEmulatorInternalState>>,
 }
 
 pub const TERMINAL_WIDTH: usize = 50;
@@ -344,7 +355,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
     pub fn new(args: &Args) -> Result<Self> {
         let mut recording = None;
 
-        let (tx, rx) = std::sync::mpsc::channel();
+        let (tx, rx) = unbounded::<TerminalRead>();
         let mut io = FreminalPtyInputOutput::new(args)?;
 
         if let Err(e) = io.set_win_size(TERMINAL_WIDTH, TERMINAL_HEIGHT, 10, 10) {
@@ -362,7 +373,19 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             }
         }
 
+        let io_guard = Arc::new(Mutex::new(io));
+
         // spawn a thread to read from the
+
+        let internal_state = Arc::new(Mutex::new(TermininalEmulatorInternalState {
+            parser: FreminalAnsiParser::new(),
+            terminal_buffer: TerminalBufferHolder::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
+            format_tracker: FormatTracker::new(),
+            cursor_state: CursorState::new(),
+            modes: TerminalModes::default(),
+            window_title: None,
+            saved_color_state: None,
+        }));
 
         let reader = io.get_reader();
 
@@ -370,458 +393,558 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             read(reader, &tx);
         });
 
+        let internal_guard = io_guard.clone();
+        let internal_rx = rx.clone();
+        let internal_internal_state = internal_state.clone();
+
+        thread::spawn(move || {
+            read_channel(&internal_rx, internal_internal_state, internal_guard);
+        });
+
         let ret = Self {
-            parser: FreminalAnsiParser::new(),
-            terminal_buffer: TerminalBufferHolder::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
-            format_tracker: FormatTracker::new(),
-            modes: TerminalModes {
-                cursor_key: Decckm::default(),
-                autowrap: Decawm::default(),
-                bracketed_paste: BracketedPaste::default(),
-                keypad: Keypad::default(),
-            },
-            cursor_state: CursorState {
-                pos: CursorPos::default(),
-                font_weight: FontWeight::Normal,
-                font_decorations: Vec::new(),
-                color: TerminalColor::Default,
-                background_color: TerminalColor::Black,
-            },
-            io,
+            io: io_guard.clone(),
             rx,
-            window_title: None,
             recording,
-            saved_color_state: None,
+            internal_state,
         };
         Ok(ret)
     }
 }
 
 impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
-    pub const fn get_win_size(&self) -> (usize, usize) {
-        self.terminal_buffer.get_win_size()
+    pub fn get_win_size(&self) -> (usize, usize) {
+        self.internal_state
+            .lock()
+            .unwrap()
+            .terminal_buffer
+            .get_win_size()
     }
 
     pub fn get_window_title(&self) -> Option<String> {
-        self.window_title.clone()
+        self.internal_state.lock().unwrap().window_title.clone()
     }
 
     #[allow(dead_code)]
-    pub fn clear_window_title(&mut self) {
-        self.window_title = None;
+    pub fn clear_window_title(&self) {
+        self.internal_state.lock().unwrap().window_title = None;
     }
 
     pub fn set_win_size(
-        &mut self,
+        &self,
         width_chars: usize,
         height_chars: usize,
         font_width: usize,
         font_height: usize,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let response =
-            self.terminal_buffer
-                .set_win_size(width_chars, height_chars, &self.cursor_state.pos);
-        self.cursor_state.pos = response.new_cursor_pos;
+        let mut internal_state = self.internal_state.lock().unwrap();
+        let mut io = self.io.lock().unwrap();
+        let pos = internal_state.cursor_state.pos.clone();
+        let response = internal_state
+            .terminal_buffer
+            .set_win_size(width_chars, height_chars, &pos);
+        internal_state.cursor_state.pos = response.new_cursor_pos;
 
         if response.changed {
-            self.io
-                .set_win_size(width_chars, height_chars, font_width, font_height)?;
+            io.set_win_size(width_chars, height_chars, font_width, font_height)?;
         }
 
         Ok(())
     }
 
-    pub fn write(&mut self, to_write: &TerminalInput) -> Result<(), Box<dyn std::error::Error>> {
-        match to_write.to_payload(self.modes.cursor_key == Decckm::Application) {
-            TerminalInputPayload::Single(c) => {
-                let mut written = 0;
-                while written == 0 {
-                    written = self.io.write(&[c])?;
-                }
-            }
-            TerminalInputPayload::Many(mut to_write) => {
-                while !to_write.is_empty() {
-                    let written = self.io.write(to_write)?;
-                    to_write = &to_write[written..];
-                }
-            }
-        };
+    pub fn write(&self, to_write: &TerminalInput) -> Result<(), Box<dyn std::error::Error>> {
+        let internal_state = self.internal_state.lock().unwrap();
+        let mut io = self.io.lock().unwrap();
 
-        Ok(())
+        write(&internal_state, &mut *io, to_write)
     }
 
-    fn handle_data(&mut self, data: &[u8]) {
-        let response = self
-            .terminal_buffer
-            .insert_data(&self.cursor_state.pos, data);
-        self.format_tracker
-            .push_range_adjustment(response.insertion_range);
-        self.format_tracker
-            .push_range(&self.cursor_state, response.written_range);
-        self.cursor_state.pos = response.new_cursor_pos;
-    }
+    pub fn data(&self) -> TerminalData<Vec<u8>> {
+        let internal_state = self.internal_state.lock().unwrap();
 
-    fn set_cursor_pos(&mut self, x: Option<usize>, y: Option<usize>) {
-        if let Some(x) = x {
-            self.cursor_state.pos.x = x - 1;
+        let data = internal_state.terminal_buffer.data();
+
+        TerminalData {
+            scrollback: data.scrollback.to_vec(),
+            visible: data.visible.to_vec(),
         }
-        if let Some(y) = y {
-            self.cursor_state.pos.y = y - 1;
-        }
-    }
-
-    fn set_cursor_pos_rel(&mut self, x: Option<i32>, y: Option<i32>) {
-        if let Some(x) = x {
-            let x: i64 = x.into();
-            let current_x: i64 = self
-                .cursor_state
-                .pos
-                .x
-                .try_into()
-                .expect("x position larger than i64 can handle");
-            self.cursor_state.pos.x = usize::try_from((current_x + x).max(0)).unwrap_or(0);
-        }
-        if let Some(y) = y {
-            let y: i64 = y.into();
-            let current_y: i64 = self
-                .cursor_state
-                .pos
-                .y
-                .try_into()
-                .expect("y position larger than i64 can handle");
-            // ensure y is not negative, and throw an error if it is
-            self.cursor_state.pos.y = usize::try_from((current_y + y).max(0)).unwrap_or(0);
-        }
-    }
-
-    fn clear_forwards(&mut self) {
-        if let Some(buf_pos) = self.terminal_buffer.clear_forwards(&self.cursor_state.pos) {
-            self.format_tracker
-                .push_range(&self.cursor_state, buf_pos..usize::MAX);
-        }
-    }
-
-    fn clear_all(&mut self) {
-        self.format_tracker
-            .push_range(&self.cursor_state, 0..usize::MAX);
-        self.terminal_buffer.clear_all();
-    }
-
-    fn clear_line_forwards(&mut self) {
-        if let Some(range) = self
-            .terminal_buffer
-            .clear_line_forwards(&self.cursor_state.pos)
-        {
-            self.format_tracker.delete_range(range);
-        }
-    }
-
-    fn carriage_return(&mut self) {
-        self.cursor_state.pos.x = 0;
-    }
-
-    fn new_line(&mut self) {
-        self.cursor_state.pos.y += 1;
-    }
-
-    fn backspace(&mut self) {
-        if self.cursor_state.pos.x >= 1 {
-            self.cursor_state.pos.x -= 1;
-        }
-    }
-
-    fn insert_lines(&mut self, num_lines: usize) {
-        let response = self
-            .terminal_buffer
-            .insert_lines(&self.cursor_state.pos, num_lines);
-        self.format_tracker.delete_range(response.deleted_range);
-        self.format_tracker
-            .push_range_adjustment(response.inserted_range);
-    }
-
-    fn delete(&mut self, num_chars: usize) {
-        let deleted_buf_range = self
-            .terminal_buffer
-            .delete_forwards(&self.cursor_state.pos, num_chars);
-        if let Some(range) = deleted_buf_range {
-            self.format_tracker.delete_range(range);
-        }
-    }
-
-    fn reset(&mut self) {
-        self.cursor_state.color = TerminalColor::Default;
-        self.cursor_state.background_color = TerminalColor::DefaultBackground;
-        self.cursor_state.font_weight = FontWeight::Normal;
-        self.cursor_state.font_decorations.clear();
-        self.saved_color_state = None;
-    }
-
-    fn font_decordations_add_if_not_contains(&mut self, decoration: FontDecorations) {
-        if !self.cursor_state.font_decorations.contains(&decoration) {
-            self.cursor_state.font_decorations.push(decoration);
-        }
-    }
-
-    fn font_decorations_remove_if_contains(&mut self, decoration: &FontDecorations) {
-        self.cursor_state
-            .font_decorations
-            .retain(|d| *d != *decoration);
-    }
-
-    fn set_foreground(&mut self, color: TerminalColor) {
-        self.cursor_state.color = color;
-    }
-
-    fn set_background(&mut self, color: TerminalColor) {
-        self.cursor_state.background_color = color;
-    }
-
-    fn sgr(&mut self, sgr: SelectGraphicRendition) {
-        match sgr {
-            SelectGraphicRendition::Reset => self.reset(),
-            SelectGraphicRendition::Bold => {
-                self.cursor_state.font_weight = FontWeight::Bold;
-            }
-            SelectGraphicRendition::Italic => {
-                self.font_decordations_add_if_not_contains(FontDecorations::Italic);
-            }
-            SelectGraphicRendition::Faint => {
-                self.font_decordations_add_if_not_contains(FontDecorations::Faint);
-            }
-            SelectGraphicRendition::ResetBold => {
-                self.cursor_state.font_weight = FontWeight::Normal;
-            }
-            SelectGraphicRendition::NormalIntensity => {
-                self.font_decorations_remove_if_contains(&FontDecorations::Faint);
-            }
-            SelectGraphicRendition::NotUnderlined => {
-                // remove FontDecorations::Underline if it's there
-                self.cursor_state.font_decorations.retain(|d| {
-                    *d != FontDecorations::Underline || *d != FontDecorations::DoubleUnderline
-                });
-            }
-            SelectGraphicRendition::ReverseVideo => {
-                let foreground = self.cursor_state.color;
-                let background = self.cursor_state.background_color;
-                self.saved_color_state = Some((foreground, background));
-
-                self.cursor_state.color = background;
-                self.cursor_state.background_color = foreground;
-            }
-            SelectGraphicRendition::ResetReverseVideo => {
-                if let Some((foreground, background)) = self.saved_color_state {
-                    self.cursor_state.color = foreground;
-                    self.cursor_state.background_color = background;
-
-                    self.saved_color_state = None;
-                }
-            }
-            SelectGraphicRendition::Foreground(color) => self.set_foreground(color),
-            SelectGraphicRendition::Background(color) => self.set_background(color),
-            SelectGraphicRendition::FastBlink | SelectGraphicRendition::SlowBlink => (),
-            SelectGraphicRendition::Unknown(_) => {
-                warn!("Unhandled sgr: {:?}", sgr);
-            }
-        }
-    }
-
-    fn set_mode(&mut self, mode: &Mode) {
-        match mode {
-            Mode::Decckm => {
-                self.modes.cursor_key = Decckm::Application;
-            }
-            Mode::Decawm => {
-                warn!("Decawm Set is not supported");
-                self.modes.autowrap = Decawm::AutoWrap;
-            }
-            Mode::BracketedPaste => {
-                self.modes.bracketed_paste = BracketedPaste::Enabled;
-            }
-            Mode::Unknown(_) => {
-                warn!("unhandled set mode: {mode:?}");
-            }
-            Mode::Keypad => {
-                warn!("Decpam is not supported");
-                self.modes.keypad = Keypad::Application;
-            }
-        }
-    }
-
-    fn insert_spaces(&mut self, num_spaces: usize) {
-        let response = self
-            .terminal_buffer
-            .insert_spaces(&self.cursor_state.pos, num_spaces);
-        self.format_tracker
-            .push_range_adjustment(response.insertion_range);
-    }
-
-    fn reset_mode(&mut self, mode: &Mode) {
-        match mode {
-            Mode::Decckm => {
-                self.modes.cursor_key = Decckm::Ansi;
-            }
-            Mode::Decawm => {
-                warn!("Decawm Reset is not supported");
-                self.modes.autowrap = Decawm::NoAutoWrap;
-            }
-            Mode::BracketedPaste => {
-                self.modes.bracketed_paste = BracketedPaste::Disabled;
-            }
-            Mode::Keypad => {
-                warn!("Decpam is not supported");
-                self.modes.keypad = Keypad::Numeric;
-            }
-            Mode::Unknown(_) => {}
-        }
-    }
-
-    fn osc_response(&mut self, osc: AnsiOscType) {
-        match osc {
-            AnsiOscType::RequestColorQueryBackground(color) => {
-                match color {
-                    // OscInternalType::SetColor(_) => {
-                    //     warn!("RequestColorQueryBackground: Set is not supported");
-                    // }
-                    AnsiOscInternalType::Query => {
-                        // lets get the color as a hex string
-
-                        let (r, g, b, a) = Color32::BLACK.to_tuple();
-
-                        let formatted_string =
-                            format!("\x1b]11;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\");
-                        let output = formatted_string.as_bytes();
-
-                        for byte in output {
-                            self.write(&TerminalInput::Ascii(*byte))
-                                .expect("Failed to write osc color response");
-                        }
-                    }
-                    AnsiOscInternalType::Unknown(_) => {
-                        warn!("OSC Unknown is not supported");
-                    }
-                    AnsiOscInternalType::String(_) => {
-                        warn!("OSC Type {color:?} Skipped");
-                    }
-                }
-            }
-            AnsiOscType::RequestColorQueryForeground(color) => {
-                match color {
-                    // OscInternalType::SetColor(_) => {
-                    //     warn!("RequestColorQueryForeground: Set is not supported");
-                    // }
-                    AnsiOscInternalType::Query => {
-                        // lets get the color as a hex string
-                        let (r, g, b, a) = Color32::WHITE.to_tuple();
-
-                        let formatted_string =
-                            format!("\x1b]10;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\");
-
-                        let output = formatted_string.as_bytes();
-
-                        for byte in output {
-                            self.write(&TerminalInput::Ascii(*byte))
-                                .expect("Failed to write osc color response");
-                        }
-                    }
-                    AnsiOscInternalType::Unknown(_) => {
-                        warn!("OSC Unknown is not supported");
-                    }
-                    AnsiOscInternalType::String(_) => {
-                        warn!("OSC Type {color:?} Skipped");
-                    }
-                }
-            }
-            AnsiOscType::SetTitleBar(title) => {
-                self.window_title = Some(title);
-            }
-            AnsiOscType::Ftcs(value) => {
-                warn!("Ftcs is not supported: {value}");
-            }
-        }
-    }
-
-    fn report_cursor_position(&mut self) {
-        let x = self.cursor_state.pos.x + 1;
-        let y = self.cursor_state.pos.y + 1;
-        let formatted_string = format!("\x1b[{y};{x}R");
-        let output = formatted_string.as_bytes();
-
-        for byte in output {
-            self.write(&TerminalInput::Ascii(*byte))
-                .expect("Failed to write cursor position report");
-        }
-    }
-
-    fn handle_incoming_data(&mut self, incoming: &[u8]) {
-        debug!("Incoming data: {:?}", incoming);
-        let parsed = self.parser.push(incoming);
-        for segment in parsed {
-            // if segment is not data, we want to print out the segment
-            if let TerminalOutput::Data(data) = &segment {
-                debug!("Incoming data: {:?}", str::from_utf8(data).unwrap());
-            } else {
-                debug!("Incoming segment: {:?}", segment);
-            }
-
-            match segment {
-                TerminalOutput::Data(data) => self.handle_data(&data),
-                TerminalOutput::SetCursorPos { x, y } => self.set_cursor_pos(x, y),
-                TerminalOutput::SetCursorPosRel { x, y } => self.set_cursor_pos_rel(x, y),
-                TerminalOutput::ClearForwards => self.clear_forwards(),
-                TerminalOutput::ClearAll => self.clear_all(),
-                TerminalOutput::ClearLineForwards => self.clear_line_forwards(),
-                TerminalOutput::CarriageReturn => self.carriage_return(),
-                TerminalOutput::Newline => self.new_line(),
-                TerminalOutput::Backspace => self.backspace(),
-                TerminalOutput::InsertLines(num_lines) => self.insert_lines(num_lines),
-                TerminalOutput::Delete(num_chars) => self.delete(num_chars),
-                TerminalOutput::Sgr(sgr) => self.sgr(sgr),
-                TerminalOutput::SetMode(mode) => self.set_mode(&mode),
-                TerminalOutput::InsertSpaces(num_spaces) => self.insert_spaces(num_spaces),
-                TerminalOutput::ResetMode(mode) => self.reset_mode(&mode),
-                TerminalOutput::OscResponse(osc) => self.osc_response(osc),
-                TerminalOutput::CursorReport => self.report_cursor_position(),
-                TerminalOutput::Bell | TerminalOutput::Invalid => {
-                    info!("Unhandled terminal output: {segment:?}");
-                }
-            }
-        }
-    }
-
-    pub fn read(&mut self) {
-        while let Ok(TerminalRead {
-            buf,
-            read: read_size,
-        }) = self.rx.try_recv()
-        {
-            // debug!("Read size: {read_size}");
-
-            let incoming = &buf[0..read_size];
-
-            if let Some(file) = &mut self.recording {
-                let mut output = String::new();
-                // loop over the buffer and convert to a string representation of the number, separated by commas
-                for byte in incoming {
-                    output.push_str(&format!("{byte},"));
-                }
-                let _ = file.write_all(output.as_bytes());
-            }
-            //debug!("Incoming data: {:?}", std::str::from_utf8(incoming));
-            self.handle_incoming_data(incoming);
-        }
-    }
-
-    pub fn data(&self) -> TerminalData<&[u8]> {
-        self.terminal_buffer.data()
     }
 
     pub fn format_data(&self) -> TerminalData<Vec<FormatTag>> {
-        let offset = self.terminal_buffer.data().scrollback.len();
-        split_format_data_for_scrollback(self.format_tracker.tags(), offset)
+        let internal_state = self.internal_state.lock().unwrap();
+
+        let offset = internal_state.terminal_buffer.data().scrollback.len();
+        split_format_data_for_scrollback(internal_state.format_tracker.tags(), offset)
     }
 
     pub fn cursor_pos(&self) -> CursorPos {
-        self.cursor_state.pos.clone()
+        let internal_state = self.internal_state.lock().unwrap();
+        internal_state.cursor_state.pos.clone()
+    }
+}
+
+fn reset(internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>) {
+    internal_state.cursor_state.color = TerminalColor::Default;
+    internal_state.cursor_state.background_color = TerminalColor::DefaultBackground;
+    internal_state.cursor_state.font_weight = FontWeight::Normal;
+    internal_state.cursor_state.font_decorations.clear();
+    internal_state.saved_color_state = None;
+}
+
+fn set_cursor_pos(
+    internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>,
+    x: Option<usize>,
+    y: Option<usize>,
+) {
+    if let Some(x) = x {
+        internal_state.cursor_state.pos.x = x - 1;
+    }
+    if let Some(y) = y {
+        internal_state.cursor_state.pos.y = y - 1;
+    }
+}
+
+fn set_cursor_pos_rel(
+    internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>,
+    x: Option<i32>,
+    y: Option<i32>,
+) {
+    if let Some(x) = x {
+        let x: i64 = x.into();
+        let current_x: i64 = internal_state
+            .cursor_state
+            .pos
+            .x
+            .try_into()
+            .expect("x position larger than i64 can handle");
+        internal_state.cursor_state.pos.x = usize::try_from((current_x + x).max(0)).unwrap_or(0);
+    }
+    if let Some(y) = y {
+        let y: i64 = y.into();
+        let current_y: i64 = internal_state
+            .cursor_state
+            .pos
+            .y
+            .try_into()
+            .expect("y position larger than i64 can handle");
+        // ensure y is not negative, and throw an error if it is
+        internal_state.cursor_state.pos.y = usize::try_from((current_y + y).max(0)).unwrap_or(0);
+    }
+}
+
+fn clear_forwards(internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>) {
+    let pos = internal_state.cursor_state.pos.clone();
+    if let Some(buf_pos) = internal_state.terminal_buffer.clear_forwards(&pos) {
+        let cursor_state = internal_state.cursor_state.clone();
+        internal_state
+            .format_tracker
+            .push_range(&cursor_state, buf_pos..usize::MAX);
+    }
+}
+
+fn clear_all(internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>) {
+    let cursor_state = internal_state.cursor_state.clone();
+    internal_state
+        .format_tracker
+        .push_range(&cursor_state, 0..usize::MAX);
+    internal_state.terminal_buffer.clear_all();
+}
+
+fn clear_line_forwards(internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>) {
+    let cursor_state = internal_state.cursor_state.clone();
+    if let Some(range) = internal_state
+        .terminal_buffer
+        .clear_line_forwards(&cursor_state.pos)
+    {
+        internal_state.format_tracker.delete_range(range);
+    }
+}
+
+fn carriage_return(internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>) {
+    internal_state.cursor_state.pos.x = 0;
+}
+
+fn new_line(internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>) {
+    internal_state.cursor_state.pos.y = 0;
+}
+
+fn backspace(internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>) {
+    if internal_state.cursor_state.pos.x >= 1 {
+        internal_state.cursor_state.pos.x -= 1;
+    }
+}
+
+fn insert_lines(
+    internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>,
+    num_lines: usize,
+) {
+    let cursor_state = internal_state.cursor_state.clone();
+
+    let response = internal_state
+        .terminal_buffer
+        .insert_lines(&cursor_state.pos, num_lines);
+    internal_state
+        .format_tracker
+        .delete_range(response.deleted_range);
+    internal_state
+        .format_tracker
+        .push_range_adjustment(response.inserted_range);
+}
+
+fn delete(internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>, num_chars: usize) {
+    let cursor_state = internal_state.cursor_state.clone();
+
+    let deleted_buf_range = internal_state
+        .terminal_buffer
+        .delete_forwards(&cursor_state.pos, num_chars);
+    if let Some(range) = deleted_buf_range {
+        internal_state.format_tracker.delete_range(range);
+    }
+}
+
+fn font_decordations_add_if_not_contains(
+    internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>,
+    decoration: FontDecorations,
+) {
+    if !internal_state
+        .cursor_state
+        .font_decorations
+        .contains(&decoration)
+    {
+        internal_state
+            .cursor_state
+            .font_decorations
+            .push(decoration);
+    }
+}
+
+fn font_decorations_remove_if_contains(
+    internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>,
+    decoration: &FontDecorations,
+) {
+    internal_state
+        .cursor_state
+        .font_decorations
+        .retain(|d| *d != *decoration);
+}
+
+fn set_foreground(
+    internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>,
+    color: TerminalColor,
+) {
+    internal_state.cursor_state.color = color;
+}
+
+fn set_background(
+    internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>,
+    color: TerminalColor,
+) {
+    internal_state.cursor_state.background_color = color;
+}
+
+fn sgr_process(
+    internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>,
+    sgr: SelectGraphicRendition,
+) {
+    match sgr {
+        SelectGraphicRendition::Reset => reset(internal_state),
+        SelectGraphicRendition::Bold => {
+            internal_state.cursor_state.font_weight = FontWeight::Bold;
+        }
+        SelectGraphicRendition::Italic => {
+            font_decordations_add_if_not_contains(internal_state, FontDecorations::Italic);
+        }
+        SelectGraphicRendition::Faint => {
+            font_decordations_add_if_not_contains(internal_state, FontDecorations::Faint);
+        }
+        SelectGraphicRendition::ResetBold => {
+            internal_state.cursor_state.font_weight = FontWeight::Normal;
+        }
+        SelectGraphicRendition::NormalIntensity => {
+            font_decorations_remove_if_contains(internal_state, &FontDecorations::Faint);
+        }
+        SelectGraphicRendition::NotUnderlined => {
+            // remove FontDecorations::Underline if it's there
+            internal_state.cursor_state.font_decorations.retain(|d| {
+                *d != FontDecorations::Underline || *d != FontDecorations::DoubleUnderline
+            });
+        }
+        SelectGraphicRendition::ReverseVideo => {
+            let foreground = internal_state.cursor_state.color;
+            let background = internal_state.cursor_state.background_color;
+            internal_state.saved_color_state = Some((foreground, background));
+
+            internal_state.cursor_state.color = background;
+            internal_state.cursor_state.background_color = foreground;
+        }
+        SelectGraphicRendition::ResetReverseVideo => {
+            if let Some((foreground, background)) = internal_state.saved_color_state {
+                internal_state.cursor_state.color = foreground;
+                internal_state.cursor_state.background_color = background;
+
+                internal_state.saved_color_state = None;
+            }
+        }
+        SelectGraphicRendition::Foreground(color) => set_foreground(internal_state, color),
+        SelectGraphicRendition::Background(color) => set_background(internal_state, color),
+        SelectGraphicRendition::FastBlink | SelectGraphicRendition::SlowBlink => (),
+        SelectGraphicRendition::Unknown(_) => {
+            warn!("Unhandled sgr: {:?}", sgr);
+        }
+    }
+}
+
+fn set_mode(internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>, mode: &Mode) {
+    match mode {
+        Mode::Decckm => {
+            internal_state.modes.cursor_key = Decckm::Application;
+        }
+        Mode::Decawm => {
+            warn!("Decawm Set is not supported");
+            internal_state.modes.autowrap = Decawm::AutoWrap;
+        }
+        Mode::BracketedPaste => {
+            internal_state.modes.bracketed_paste = BracketedPaste::Enabled;
+        }
+        Mode::Unknown(_) => {
+            warn!("unhandled set mode: {mode:?}");
+        }
+        Mode::Keypad => {
+            warn!("Decpam is not supported");
+            internal_state.modes.keypad = Keypad::Application;
+        }
+    }
+}
+
+fn insert_spaces(
+    internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>,
+    num_spaces: usize,
+) {
+    let cursor_state = internal_state.cursor_state.clone();
+
+    let response = internal_state
+        .terminal_buffer
+        .insert_spaces(&cursor_state.pos, num_spaces);
+    internal_state
+        .format_tracker
+        .push_range_adjustment(response.insertion_range);
+}
+
+fn reset_mode(internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>, mode: &Mode) {
+    match mode {
+        Mode::Decckm => {
+            internal_state.modes.cursor_key = Decckm::Ansi;
+        }
+        Mode::Decawm => {
+            warn!("Decawm Reset is not supported");
+            internal_state.modes.autowrap = Decawm::NoAutoWrap;
+        }
+        Mode::BracketedPaste => {
+            internal_state.modes.bracketed_paste = BracketedPaste::Disabled;
+        }
+        Mode::Keypad => {
+            warn!("Decpam is not supported");
+            internal_state.modes.keypad = Keypad::Numeric;
+        }
+        Mode::Unknown(_) => {}
+    }
+}
+
+fn osc_response(
+    internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>,
+    io: &mut dyn FreminalTermInputOutput,
+    osc: AnsiOscType,
+) {
+    match osc {
+        AnsiOscType::RequestColorQueryBackground(color) => {
+            match color {
+                // OscInternalType::SetColor(_) => {
+                //     warn!("RequestColorQueryBackground: Set is not supported");
+                // }
+                AnsiOscInternalType::Query => {
+                    // lets get the color as a hex string
+
+                    let (r, g, b, a) = Color32::BLACK.to_tuple();
+
+                    let formatted_string =
+                        format!("\x1b]11;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\");
+                    let output = formatted_string.as_bytes();
+
+                    for byte in output {
+                        io.write(&[*byte])
+                            .expect("Failed to write osc color response");
+                    }
+                }
+                AnsiOscInternalType::Unknown(_) => {
+                    warn!("OSC Unknown is not supported");
+                }
+                AnsiOscInternalType::String(_) => {
+                    warn!("OSC Type {color:?} Skipped");
+                }
+            }
+        }
+        AnsiOscType::RequestColorQueryForeground(color) => {
+            match color {
+                // OscInternalType::SetColor(_) => {
+                //     warn!("RequestColorQueryForeground: Set is not supported");
+                // }
+                AnsiOscInternalType::Query => {
+                    // lets get the color as a hex string
+                    let (r, g, b, a) = Color32::WHITE.to_tuple();
+
+                    let formatted_string =
+                        format!("\x1b]10;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\");
+
+                    let output = formatted_string.as_bytes();
+
+                    for byte in output {
+                        io.write(&[*byte])
+                            .expect("Failed to write osc color response");
+                    }
+                }
+                AnsiOscInternalType::Unknown(_) => {
+                    warn!("OSC Unknown is not supported");
+                }
+                AnsiOscInternalType::String(_) => {
+                    warn!("OSC Type {color:?} Skipped");
+                }
+            }
+        }
+        AnsiOscType::SetTitleBar(title) => {
+            internal_state.window_title = Some(title);
+        }
+        AnsiOscType::Ftcs(value) => {
+            warn!("Ftcs is not supported: {value}");
+        }
+    }
+}
+
+fn report_cursor_position(
+    internal_state: &MutexGuard<'_, TermininalEmulatorInternalState>,
+    io: &mut dyn FreminalTermInputOutput,
+) {
+    let x = internal_state.cursor_state.pos.x + 1;
+    let y = internal_state.cursor_state.pos.y + 1;
+    let formatted_string = format!("\x1b[{y};{x}R");
+    let output = formatted_string.as_bytes();
+
+    for byte in output {
+        io.write(&[*byte])
+            .expect("Failed to write cursor position report");
+    }
+}
+
+fn handle_data(internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>, data: &[u8]) {
+    let cursor_state = internal_state.cursor_state.clone();
+
+    let response = internal_state
+        .terminal_buffer
+        .insert_data(&cursor_state.pos, data);
+
+    internal_state
+        .format_tracker
+        .push_range_adjustment(response.insertion_range);
+    internal_state
+        .format_tracker
+        .push_range(&cursor_state, response.written_range);
+    internal_state.cursor_state.pos = response.new_cursor_pos;
+}
+
+fn write(
+    internal_state: &MutexGuard<'_, TermininalEmulatorInternalState>,
+    io: &mut dyn FreminalTermInputOutput,
+    to_write: &TerminalInput,
+) -> Result<(), Box<dyn std::error::Error>> {
+    match to_write.to_payload(internal_state.modes.cursor_key == Decckm::Application) {
+        TerminalInputPayload::Single(c) => {
+            let mut written = 0;
+            while written == 0 {
+                written = io.write(&[c])?;
+            }
+        }
+        TerminalInputPayload::Many(mut to_write) => {
+            while !to_write.is_empty() {
+                let written = io.write(to_write)?;
+                to_write = &to_write[written..];
+            }
+        }
+    };
+
+    Ok(())
+}
+
+pub fn read_channel(
+    rx: &Receiver<TerminalRead>,
+    guard: Arc<Mutex<TermininalEmulatorInternalState>>,
+    io_guard: Arc<Mutex<dyn FreminalTermInputOutput>>,
+) {
+    while let Ok(TerminalRead {
+        buf,
+        read: read_size,
+    }) = rx.recv()
+    {
+        info!("in reader");
+        // debug!("Read size: {read_size}");
+
+        let incoming = &buf[0..read_size];
+
+        // if let Some(file) = &mut self.recording {
+        //     let mut output = String::new();
+        //     // loop over the buffer and convert to a string representation of the number, separated by commas
+        //     for byte in incoming {
+        //         output.push_str(&format!("{byte},"));
+        //     }
+        //     let _ = file.write_all(output.as_bytes());
+        // }
+        //debug!("Incoming data: {:?}", std::str::from_utf8(incoming));
+        {
+            let mut internal_state = guard.lock().unwrap();
+            handle_incoming_data(&mut internal_state, io_guard.clone(), incoming);
+        }
+    }
+
+    info!("out reader");
+}
+
+fn handle_incoming_data(
+    mut internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>,
+    io: Arc<Mutex<dyn FreminalTermInputOutput>>,
+    incoming: &[u8],
+) {
+    let mut io_opened = io.lock().unwrap();
+    debug!("Incoming data: {:?}", incoming);
+    let parsed = internal_state.parser.push(incoming);
+    for segment in parsed {
+        // if segment is not data, we want to print out the segment
+        if let TerminalOutput::Data(data) = &segment {
+            debug!("Incoming data: {:?}", str::from_utf8(data).unwrap());
+        } else {
+            debug!("Incoming segment: {:?}", segment);
+        }
+
+        match segment {
+            TerminalOutput::Data(data) => handle_data(internal_state, &data),
+            TerminalOutput::SetCursorPos { x, y } => set_cursor_pos(internal_state, x, y),
+            TerminalOutput::SetCursorPosRel { x, y } => set_cursor_pos_rel(internal_state, x, y),
+            TerminalOutput::ClearForwards => clear_forwards(internal_state),
+            TerminalOutput::ClearAll => clear_all(internal_state),
+            TerminalOutput::ClearLineForwards => clear_line_forwards(internal_state),
+            TerminalOutput::CarriageReturn => carriage_return(internal_state),
+            TerminalOutput::Newline => new_line(internal_state),
+            TerminalOutput::Backspace => backspace(internal_state),
+            TerminalOutput::InsertLines(num_lines) => insert_lines(internal_state, num_lines),
+            TerminalOutput::Delete(num_chars) => delete(internal_state, num_chars),
+            TerminalOutput::Sgr(sgr) => sgr_process(internal_state, sgr),
+            TerminalOutput::SetMode(mode) => set_mode(internal_state, &mode),
+            TerminalOutput::InsertSpaces(num_spaces) => insert_spaces(internal_state, num_spaces),
+            TerminalOutput::ResetMode(mode) => reset_mode(internal_state, &mode),
+            TerminalOutput::OscResponse(osc) => {
+                osc_response(internal_state, &mut *io_opened, osc);
+            }
+            TerminalOutput::CursorReport => report_cursor_position(internal_state, &mut *io_opened),
+            TerminalOutput::Bell | TerminalOutput::Invalid => {
+                info!("Unhandled terminal output: {segment:?}");
+            }
+        }
     }
 }
 

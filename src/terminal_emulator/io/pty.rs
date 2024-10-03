@@ -3,17 +3,14 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use std::{
-    io::{Read, Write},
-    sync::mpsc::Sender,
-};
+use std::io::{Read, Write};
 
 use anyhow::Result;
 use portable_pty::{native_pty_system, Child, CommandBuilder, PtyPair, PtySize, PtySystem};
 
-use tempfile::TempDir;
-
 use crate::Args;
+use crossbeam_channel::Sender;
+use tempfile::TempDir;
 
 use super::{FreminalTermInputOutput, TermIoErr, TerminalRead};
 use easy_cast::ConvApprox;
@@ -102,7 +99,6 @@ pub struct FreminalPtyInputOutput {
     pair: PtyPair,
     writer: Box<dyn Write + Send>,
     _child: Box<dyn Child + Send + Sync>,
-    _terminfo_dir: TempDir,
 }
 
 impl FreminalPtyInputOutput {
@@ -134,7 +130,6 @@ impl FreminalPtyInputOutput {
             pair,
             writer,
             _child: child,
-            _terminfo_dir: TempDir::new()?,
         })
     }
 
@@ -152,8 +147,8 @@ pub fn read(mut reader: Box<dyn Read>, channel: &Sender<TerminalRead>) {
             }
             read => match channel.send(TerminalRead { buf, read }) {
                 Ok(()) => {}
-                Err(_) => {
-                    error!("Failed to send read data to channel");
+                Err(e) => {
+                    error!("Failed to send read data to channel: {e}");
                 }
             },
         }

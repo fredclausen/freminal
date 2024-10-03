@@ -52,6 +52,7 @@ pub enum Keypad {
     Application,
 }
 
+#[derive(Debug, Default)]
 pub struct TerminalModes {
     pub cursor_key: Decckm,
     pub autowrap: Decawm,

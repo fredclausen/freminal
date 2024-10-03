@@ -48,7 +48,7 @@ fn control_key(key: Key) -> Option<Cow<'static, [TerminalInput]>> {
 
 fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     input: &InputState,
-    terminal_emulator: &mut TerminalEmulator<Io>,
+    terminal_emulator: &TerminalEmulator<Io>,
 ) {
     for event in &input.raw.events {
         let inputs: Cow<'static, [TerminalInput]> = match event {
@@ -484,14 +484,14 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
     // Arguably incorrect. Scrollback does end with a newline, and that newline causes a blank
     // space between widgets. Should we strip it here, or in the terminal emulator output?
     if scrollback_data.ends_with(b"\n") {
-        scrollback_data = &scrollback_data[0..scrollback_data.len() - 1];
+        scrollback_data = scrollback_data[0..scrollback_data.len() - 1].to_vec();
         if let Some(last_tag) = format_data.scrollback.last_mut() {
             last_tag.end = last_tag.end.min(scrollback_data.len());
         }
     }
 
     if canvas_data.ends_with(b"\n") {
-        canvas_data = &canvas_data[0..canvas_data.len() - 1];
+        canvas_data = canvas_data[0..canvas_data.len() - 1].to_vec();
     }
 
     let response = egui::ScrollArea::new([false, true])
@@ -508,13 +508,13 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                 };
             let scrollback_area = error_logged_rect(add_terminal_data_to_ui(
                 ui,
-                scrollback_data,
+                &scrollback_data,
                 &format_data.scrollback,
                 font_size,
             ));
             let canvas_area = error_logged_rect(add_terminal_data_to_ui(
                 ui,
-                canvas_data,
+                &canvas_data,
                 &format_data.visible,
                 font_size,
             ));
@@ -582,11 +582,9 @@ impl FreminalTerminalWidget {
     pub fn show<Io: FreminalTermInputOutput>(
         &self,
         ui: &mut Ui,
-        terminal_emulator: &mut TerminalEmulator<Io>,
+        terminal_emulator: &TerminalEmulator<Io>,
     ) {
         let character_size = get_char_size(ui.ctx(), self.font_size);
-
-        terminal_emulator.read();
 
         let frame_response = egui::Frame::none().show(ui, |ui| {
             let (width_chars, height_chars) = terminal_emulator.get_win_size();
