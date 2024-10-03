@@ -913,6 +913,7 @@ mod test {
             CursorPos {
                 x: 2,
                 y: 2,
+                y: 0,
                 x_as_characters: 2
             }
         );
@@ -924,6 +925,7 @@ mod test {
                 x: 4,
                 y: 1,
                 x_as_characters: 2,
+                x_as_characters: 4,
             },
             1000,
         );
