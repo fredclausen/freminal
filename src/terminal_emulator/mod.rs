@@ -639,6 +639,9 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             Mode::Unknown(_) => {
                 warn!("unhandled set mode: {mode:?}");
             }
+            Mode::Keypad => {
+                warn!("Decpam is not supported");
+            }
         }
     }
 
@@ -661,6 +664,9 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             }
             Mode::BracketedPaste => {
                 self.modes.bracketed_paste = BracketedPaste::Disabled;
+            }
+            Mode::Keypad => {
+                warn!("Decpam is not supported");
             }
             Mode::Unknown(_) => {}
         }

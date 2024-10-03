@@ -248,6 +248,9 @@ impl ReplayIo {
             Mode::BracketedPaste => {
                 self.modes.bracketed_paste = BracketedPaste::Enabled;
             }
+            Mode::Keypad => {
+                warn!("Decpam not implemented");
+            }
             Mode::Unknown(_) => {
                 warn!("unhandled set mode: {mode:?}");
             }
@@ -272,6 +275,9 @@ impl ReplayIo {
             }
             Mode::BracketedPaste => {
                 self.modes.bracketed_paste = BracketedPaste::Disabled;
+            }
+            Mode::Keypad => {
+                warn!("Decpam not implemented");
             }
             Mode::Unknown(_) => {}
         }

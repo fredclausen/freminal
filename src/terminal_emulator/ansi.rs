@@ -118,6 +118,8 @@ fn push_data_if_non_empty(data: &mut Vec<u8>, output: &mut Vec<TerminalOutput>) 
 pub enum ParserInner {
     Empty,
     Escape,
+    Decpam,
+    Decpnm,
     Csi(AnsiCsiParser),
     Osc(AnsiOscParser),
 }
@@ -183,6 +185,8 @@ impl FreminalAnsiParser {
             self.inner = ParserInner::Csi(AnsiCsiParser::new());
         } else if b == b']' {
             self.inner = ParserInner::Osc(AnsiOscParser::new());
+        } else if b == b'=' {
+            self.inner = ParserInner::Decpam;
         } else {
             error!("Unhandled escape sequence {b:x}");
             self.inner = ParserInner::Empty;
@@ -255,6 +259,14 @@ impl FreminalAnsiParser {
                         }
                         None => continue,
                     }
+                }
+                ParserInner::Decpam => {
+                    self.inner = ParserInner::Empty;
+                    output.push(TerminalOutput::SetMode(Mode::Keypad));
+                }
+                ParserInner::Decpnm => {
+                    self.inner = ParserInner::Empty;
+                    output.push(TerminalOutput::ResetMode(Mode::Keypad));
                 }
             }
         }

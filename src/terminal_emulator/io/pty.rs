@@ -119,7 +119,8 @@ impl FreminalPtyInputOutput {
             pixel_height: 0,
         })?;
 
-        let cmd = CommandBuilder::new_default_prog();
+        //let cmd = CommandBuilder::new_default_prog();
+        let cmd = CommandBuilder::new("bash");
         let child = pair.slave.spawn_command(cmd)?;
         let writer = pair.master.take_writer()?;
 
