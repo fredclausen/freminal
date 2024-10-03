@@ -56,6 +56,7 @@ pub struct TerminalModes {
     pub cursor_key: Decckm,
     pub autowrap: Decawm,
     pub bracketed_paste: BracketedPaste,
+    pub keypad: Keypad,
 }
 
 impl fmt::Debug for Mode {

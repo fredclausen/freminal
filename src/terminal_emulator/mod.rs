@@ -22,7 +22,7 @@ pub mod playback;
 use crate::{error::backtraced_err, Args};
 use ansi::{FreminalAnsiParser, TerminalOutput};
 use ansi_components::{
-    mode::{BracketedPaste, Decawm, Decckm, Mode, TerminalModes},
+    mode::{BracketedPaste, Decawm, Decckm, Keypad, Mode, TerminalModes},
     osc::{AnsiOscInternalType, AnsiOscType},
     sgr::SelectGraphicRendition,
 };
@@ -378,6 +378,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
                 cursor_key: Decckm::default(),
                 autowrap: Decawm::default(),
                 bracketed_paste: BracketedPaste::default(),
+                keypad: Keypad::default(),
             },
             cursor_state: CursorState {
                 pos: CursorPos::default(),
@@ -641,6 +642,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             }
             Mode::Keypad => {
                 warn!("Decpam is not supported");
+                self.modes.keypad = Keypad::Application;
             }
         }
     }
@@ -667,6 +669,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             }
             Mode::Keypad => {
                 warn!("Decpam is not supported");
+                self.modes.keypad = Keypad::Numeric;
             }
             Mode::Unknown(_) => {}
         }
