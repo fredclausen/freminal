@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use std::io::{Read, Write};
+use std::{io::{Read, Write}, rc::Rc, sync::{Arc, Mutex}};
 
 use anyhow::Result;
 use portable_pty::{native_pty_system, Child, CommandBuilder, PtyPair, PtySize, PtySystem};
@@ -130,11 +130,11 @@ pub enum TerminalWriteCommand {
 }
 
 pub struct FreminalPtyInputOutput {
-    _pty_system: Box<dyn PtySystem>,
-    pair: PtyPair,
-    writer: Box<dyn Write + Send>,
-    _child: Box<dyn Child + Send + Sync>,
-    terminal_size: TerminalSize,
+    _pty_system: Rc<Mutex<Box<dyn PtySystem>>>,
+    pair: Arc<Mutex<PtyPair>>,
+    writer: Arc<Mutex<Box<dyn Write + Send>>>,
+    _child: Arc<Mutex<Box<dyn Child + Send + Sync>>>,
+    terminal_size: Arc<Mutex<TerminalSize>>,
 }
 
 impl FreminalPtyInputOutput {
@@ -162,16 +162,16 @@ impl FreminalPtyInputOutput {
         let writer = pair.master.take_writer()?;
 
         Ok(Self {
-            _pty_system: pty_system,
-            pair,
-            writer,
-            terminal_size: TerminalSize::default(),
-            _child: child,
+            _pty_system: Rc::new(Mutex::new(pty_system)),
+            pair: Arc::new(Mutex::new(pair)),
+            writer: Arc::new(Mutex::new(writer)),
+            terminal_size: Arc::new(Mutex::new(TerminalSize::default())),
+            _child: Arc::new(Mutex::new(child)),
         })
     }
 
     pub fn get_reader(&self) -> Box<dyn Read + Send> {
-        self.pair.master.try_clone_reader().unwrap()
+        self.pair.lock().unwrap().master.try_clone_reader().unwrap()
     }
 
     pub fn pty_handler(&mut self, channel: &Receiver<TerminalWriteCommand>, send_channel: &Sender<TerminalRead>) {
@@ -189,7 +189,8 @@ impl FreminalPtyInputOutput {
                         }
                     }
                     TerminalWriteCommand::Write(data) => {
-                        match self.writer.write_all(&data) {
+                        let mut writer = self.writer.lock().unwrap();
+                        match writer.write_all(&data) {
                             Ok(()) => {}
                             Err(e) => {
                                 error!("Failed to write data to pty: {e}");
@@ -221,12 +222,13 @@ impl FreminalTermInputOutput for FreminalPtyInputOutput {
         &mut self,
         terminal_size: TerminalSize,
     ) -> Result<(), TermIoErr> {
-        if self.terminal_size == terminal_size {
+        let old_size = self.terminal_size.lock().unwrap().clone();
+        if old_size == terminal_size {
             return Ok(());
         }
 
-        self.pair.master.resize(terminal_size.clone().into())?;
-        self.terminal_size = terminal_size;
+        self.pair.lock().unwrap().master.resize(terminal_size.clone().into())?;
+        self.terminal_size = Arc::new(Mutex::new(terminal_size));
 
         Ok(())
     }
