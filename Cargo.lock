@@ -1205,7 +1205,6 @@ dependencies = [
  "eframe",
  "portable-pty",
  "tar",
- "tempfile",
  "thiserror",
  "tracing",
  "tracing-subscriber",

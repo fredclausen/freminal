@@ -6,6 +6,8 @@
 pub mod pty;
 pub use pty::FreminalPtyInputOutput;
 
+use crate::gui::terminal;
+
 pub type TermIoErr = Box<dyn std::error::Error>;
 
 pub struct TerminalRead {
@@ -15,12 +17,9 @@ pub struct TerminalRead {
 
 pub trait FreminalTermInputOutput {
     //fn read(&mut self);
-    fn write(&mut self, buf: &[u8]) -> Result<usize, TermIoErr>;
+    // fn write(&mut self, buf: &[u8]) -> Result<usize, TermIoErr>;
     fn set_win_size(
         &mut self,
-        width: usize,
-        height: usize,
-        font_width: usize,
-        font_height: usize,
+        terminal_size: pty::TerminalSize,
     ) -> Result<(), TermIoErr>;
 }

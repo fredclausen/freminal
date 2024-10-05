@@ -108,13 +108,14 @@ fn main() {
     // spawn a thread to
 
     let args = Args::parse(std::env::args());
-    let res = match TerminalEmulator::new(&args) {
-        Ok(v) => gui::run(v),
-        Err(e) => {
-            error!("Failed to create terminal emulator: {e}",);
-            return;
-        }
-    };
+    let res =
+        match TerminalEmulator::<terminal_emulator::io::pty::FreminalPtyInputOutput>::new(&args) {
+            Ok(v) => gui::run(v),
+            Err(e) => {
+                error!("Failed to create terminal emulator: {e}",);
+                return;
+            }
+        };
 
     if let Err(e) = res {
         error!("Failed to run gui: {}", error::backtraced_err(&*e));

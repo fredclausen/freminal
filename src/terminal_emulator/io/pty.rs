@@ -8,9 +8,8 @@ use std::io::{Read, Write};
 use anyhow::Result;
 use portable_pty::{native_pty_system, Child, CommandBuilder, PtyPair, PtySize, PtySystem};
 
-use crate::Args;
-use crossbeam_channel::Sender;
-use tempfile::TempDir;
+use crate::{terminal_emulator, Args};
+use crossbeam_channel::{Receiver, Sender};
 
 use super::{FreminalTermInputOutput, TermIoErr, TerminalRead};
 use easy_cast::ConvApprox;
@@ -94,11 +93,48 @@ use easy_cast::ConvApprox;
 // #[error(transparent)]
 // pub struct FreminalPtyIoErr(#[from] PtyIoErrKind);
 
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct TerminalSize {
+    pub rows: usize,
+    pub cols: usize,
+    pub pixel_width: usize,
+    pub pixel_height: usize,
+}
+
+impl From<TerminalSize> for PtySize {
+    fn from(size: TerminalSize) -> Self {
+        Self {
+            rows: u16::conv_approx(size.rows),
+            cols: u16::conv_approx(size.cols),
+            pixel_width: u16::conv_approx(size.pixel_width),
+            pixel_height: u16::conv_approx(size.pixel_height),
+        }
+    }
+}
+
+impl Default for TerminalSize {
+    fn default() -> Self {
+        Self {
+            rows: 24,
+            cols: 80,
+            pixel_width: 0,
+            pixel_height: 0,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum TerminalWriteCommand {
+    Write(Vec<u8>),
+    Resize(TerminalSize),
+}
+
 pub struct FreminalPtyInputOutput {
     _pty_system: Box<dyn PtySystem>,
     pair: PtyPair,
     writer: Box<dyn Write + Send>,
     _child: Box<dyn Child + Send + Sync>,
+    terminal_size: TerminalSize,
 }
 
 impl FreminalPtyInputOutput {
@@ -129,6 +165,7 @@ impl FreminalPtyInputOutput {
             _pty_system: pty_system,
             pair,
             writer,
+            terminal_size: TerminalSize::default(),
             _child: child,
         })
     }
@@ -136,51 +173,65 @@ impl FreminalPtyInputOutput {
     pub fn get_reader(&self) -> Box<dyn Read + Send> {
         self.pair.master.try_clone_reader().unwrap()
     }
-}
 
-pub fn read(mut reader: Box<dyn Read>, channel: &Sender<TerminalRead>) {
-    let mut buf = [0u8; 4096];
-    while let Ok(read) = reader.read(&mut buf) {
-        match read {
-            0 => {
-                continue;
-            }
-            read => match channel.send(TerminalRead { buf, read }) {
-                Ok(()) => {}
-                Err(e) => {
-                    error!("Failed to send read data to channel: {e}");
+    pub fn pty_handler(&mut self, channel: &Receiver<TerminalWriteCommand>, send_channel: &Sender<TerminalRead>) {
+        info!("Starting pty loop");
+
+        let mut buf = [0u8; 4096];
+        let mut reader = self.get_reader();
+
+        loop {
+            if let Ok(data) = channel.try_recv() {
+                match data {
+                    TerminalWriteCommand::Resize(size) => {
+                        if let Err(e) = self.set_win_size(size) {
+                            error!("Failed to set win size: {e}");
+                        }
+                    }
+                    TerminalWriteCommand::Write(data) => {
+                        match self.writer.write_all(&data) {
+                            Ok(()) => {}
+                            Err(e) => {
+                                error!("Failed to write data to pty: {e}");
+                            }
+                        }
+                    }
                 }
-            },
+            }
+
+            if let Ok(read) = reader.read(&mut buf) {
+                match read {
+                    0 => {
+                        continue;
+                    }
+                    read => match send_channel.send(TerminalRead { buf, read }) {
+                        Ok(()) => {}
+                        Err(e) => {
+                            error!("Failed to send read data to channel: {e}");
+                        }
+                    },
+                }
+            }
         }
     }
 }
 
 impl FreminalTermInputOutput for FreminalPtyInputOutput {
-    fn write(&mut self, buf: &[u8]) -> Result<usize, TermIoErr> {
-        let output_string = std::str::from_utf8(buf)?;
-        let output_length = output_string.len();
-
-        self.writer.write_all(buf)?;
-
-        Ok(output_length)
-    }
-
     fn set_win_size(
         &mut self,
-        width: usize,
-        height: usize,
-        font_width: usize,
-        font_height: usize,
+        terminal_size: TerminalSize,
     ) -> Result<(), TermIoErr> {
-        let new_pty_pair = PtySize {
-            rows: u16::conv_approx(height),
-            cols: u16::conv_approx(width),
-            pixel_width: u16::conv_approx(font_width),
-            pixel_height: u16::conv_approx(font_height),
-        };
+        if self.terminal_size == terminal_size {
+            return Ok(());
+        }
 
-        self.pair.master.resize(new_pty_pair)?;
+        self.pair.master.resize(terminal_size.clone().into())?;
+        self.terminal_size = terminal_size;
 
         Ok(())
     }
+}
+
+unsafe impl Send for FreminalPtyInputOutput {
+    // This is safe because PtyPair is Send
 }
