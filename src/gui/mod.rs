@@ -64,7 +64,7 @@ impl eframe::App for FreminalGui {
                 rounded_font_width,
                 rounded_font_height,
             ) {
-                error!("failed to set window size {}", backtraced_err(&*e));
+                error!("failed to set window size {}", backtraced_err(&e));
             }
 
             self.terminal_widget.show(ui, &self.terminal_emulator);

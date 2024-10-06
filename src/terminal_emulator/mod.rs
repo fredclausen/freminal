@@ -4,7 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use core::str;
-use crossbeam_channel::{unbounded, Receiver, Sender};
+use crossbeam_channel::{unbounded, Receiver, SendError, Sender};
 use std::{
     fmt,
     fs::File,
@@ -439,16 +439,14 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         height_chars: usize,
         font_width: usize,
         font_height: usize,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), SendError<TerminalWriteCommand>> {
         let sender = self.tx_sender.clone();
         sender.send(TerminalWriteCommand::Resize(TerminalSize {
             cols: width_chars,
             rows: height_chars,
             pixel_width: font_width,
             pixel_height: font_height,
-        }));
-
-        Ok(())
+        }))
     }
 
     pub fn write(&self, to_write: &TerminalInput) -> Result<(), Box<dyn std::error::Error>> {
