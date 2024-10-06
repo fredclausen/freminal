@@ -5,10 +5,12 @@
 
 use core::str;
 use crossbeam_channel::{unbounded, Receiver, SendError, Sender};
+use path_clean::PathClean;
 use std::{
-    fmt,
+    default, env, fmt,
     fs::File,
     io::Write,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex, MutexGuard},
     thread,
 };
@@ -345,11 +347,24 @@ struct TermininalEmulatorInternalState {
 }
 
 pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
-    io: Arc<Mutex<Io>>,
-    rx_reader: Receiver<TerminalRead>,
+    _io: Arc<Mutex<Io>>,
     tx_sender: Sender<TerminalWriteCommand>,
-    recording: Option<File>,
     internal_state: Arc<Mutex<TermininalEmulatorInternalState>>,
+}
+
+fn absolute_path(path: impl AsRef<Path>) -> std::io::Result<PathBuf> {
+    let path = path.as_ref();
+
+    let absolute_path = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        env::current_dir()?.join(path)
+    }
+    .clean();
+
+    info!("Recording path: {}", absolute_path.display());
+
+    Ok(absolute_path)
 }
 
 impl TerminalEmulator<FreminalPtyInputOutput> {
@@ -362,7 +377,10 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
 
         // if recording path is some, open a file for writing
         if let Some(path) = &args.recording {
-            recording = match std::fs::File::create(path) {
+            // convert the path to a fully qualified path
+            let cleaned_path = absolute_path(path)?;
+
+            recording = match std::fs::File::create(cleaned_path) {
                 Ok(file) => Some(file),
                 Err(e) => {
                     error!("Failed to create recording file: {}", backtraced_err(&e));
@@ -373,9 +391,13 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
 
         // spawn a thread to read from the
 
+        let default_size = TerminalSize::default();
         let internal_state = Arc::new(Mutex::new(TermininalEmulatorInternalState {
             parser: FreminalAnsiParser::new(),
-            terminal_buffer: TerminalBufferHolder::new(80, 24),
+            terminal_buffer: TerminalBufferHolder::new(
+                default_size.get_rows(),
+                default_size.get_cols(),
+            ),
             format_tracker: FormatTracker::new(),
             cursor_state: CursorState::new(),
             modes: TerminalModes::default(),
@@ -383,20 +405,9 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             saved_color_state: None,
         }));
 
-        let internal_rx = rx_reader.clone();
-        let internal_internal_state = internal_state.clone();
-        let internal_tx = tx_writer.clone();
-
-        thread::spawn(move || {
-            read_channel(&internal_rx, internal_internal_state, internal_tx);
-        });
-
         let io_clone = Arc::clone(&io);
         thread::spawn(move || {
-            let value = io_clone
-                .lock()
-                .unwrap()
-                .set_win_size(TerminalSize::default());
+            let value = io_clone.lock().unwrap().set_win_size(default_size);
             if let Err(e) = value {
                 error!("Failed to set initial window size: {}", backtraced_err(&*e));
             }
@@ -404,11 +415,21 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             io_clone.lock().unwrap().pty_handler(&rx_writer, &tx_reader);
         });
 
+        let internal_internal_state = internal_state.clone();
+        let internal_tx = tx_writer.clone();
+
+        thread::spawn(move || {
+            read_channel(
+                &rx_reader,
+                &internal_internal_state,
+                &internal_tx,
+                &mut recording,
+            );
+        });
+
         let ret = Self {
-            io,
-            rx_reader,
+            _io: io,
             tx_sender: tx_writer,
-            recording,
             internal_state,
         };
         Ok(ret)
@@ -434,19 +455,41 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     }
 
     pub fn set_win_size(
-        &mut self,
+        &self,
         width_chars: usize,
         height_chars: usize,
         font_width: usize,
         font_height: usize,
     ) -> Result<(), SendError<TerminalWriteCommand>> {
         let sender = self.tx_sender.clone();
-        sender.send(TerminalWriteCommand::Resize(TerminalSize {
-            cols: width_chars,
-            rows: height_chars,
-            pixel_width: font_width,
-            pixel_height: font_height,
-        }))
+        return match self.internal_state.lock() {
+            Ok(mut state) => {
+                let cursor_state = state.cursor_state.clone();
+
+                let response = state.terminal_buffer.set_win_size(
+                    width_chars,
+                    height_chars,
+                    &cursor_state.pos,
+                );
+                state.cursor_state.pos = response.new_cursor_pos;
+
+                if response.changed {
+                    debug!("Resizing terminal to: {width_chars}x{height_chars}");
+                    sender.send(TerminalWriteCommand::Resize(TerminalSize {
+                        cols: width_chars,
+                        rows: height_chars,
+                        pixel_width: font_width,
+                        pixel_height: font_height,
+                    }))
+                } else {
+                    Ok(())
+                }
+            }
+            Err(e) => {
+                error!("Failed to lock io: {}", backtraced_err(&e));
+                Err(SendError(TerminalWriteCommand::Write(Vec::new())))
+            }
+        };
     }
 
     pub fn write(&self, to_write: &TerminalInput) -> Result<(), Box<dyn std::error::Error>> {
@@ -876,53 +919,51 @@ fn write(
     Ok(())
 }
 
-pub fn read_channel(
+fn read_channel(
     rx: &Receiver<TerminalRead>,
-    guard: Arc<Mutex<TermininalEmulatorInternalState>>,
-    write_channel: Sender<TerminalWriteCommand>,
+    guard: &Arc<Mutex<TermininalEmulatorInternalState>>,
+    write_channel: &Sender<TerminalWriteCommand>,
+    recording: &mut Option<File>,
 ) {
     while let Ok(TerminalRead {
         buf,
         read: read_size,
     }) = rx.recv()
     {
-        info!("in reader");
-        // debug!("Read size: {read_size}");
-
+        info!("buffer: {:?}", buf[0..read_size].to_vec());
         let incoming = &buf[0..read_size];
 
-        // if let Some(file) = &mut self.recording {
-        //     let mut output = String::new();
-        //     // loop over the buffer and convert to a string representation of the number, separated by commas
-        //     for byte in incoming {
-        //         output.push_str(&format!("{byte},"));
-        //     }
-        //     let _ = file.write_all(output.as_bytes());
-        // }
-        //debug!("Incoming data: {:?}", std::str::from_utf8(incoming));
-        {
-            let mut internal_state = guard.lock().unwrap();
-            handle_incoming_data(&mut internal_state, write_channel.clone(), incoming);
+        if let Some(file) = recording {
+            let mut output = String::new();
+            // loop over the buffer and convert to a string representation of the number, separated by commas
+            for byte in incoming {
+                output.push_str(&format!("{byte},"));
+            }
+            let _ = file.write_all(output.as_bytes());
         }
-    }
+        //debug!("Incoming data: {:?}", std::str::from_utf8(incoming));
 
-    info!("out reader");
+        let mut internal_state = guard.lock().unwrap();
+        handle_incoming_data(&mut internal_state, write_channel, incoming);
+    }
 }
 
 fn handle_incoming_data(
-    mut internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>,
-    write_channel: Sender<TerminalWriteCommand>,
+    internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>,
+    write_channel: &Sender<TerminalWriteCommand>,
     incoming: &[u8],
 ) {
     debug!("Incoming data: {:?}", incoming);
     let parsed = internal_state.parser.push(incoming);
+    info!("Parsed data: {:?}", parsed);
     for segment in parsed {
         // if segment is not data, we want to print out the segment
         if let TerminalOutput::Data(data) = &segment {
             debug!("Incoming data: {:?}", str::from_utf8(data).unwrap());
-        } else {
-            debug!("Incoming segment: {:?}", segment);
         }
+        // else {
+        //     debug!("Incoming segment: {:?}", segment);
+        // }
 
         match segment {
             TerminalOutput::Data(data) => handle_data(internal_state, &data),

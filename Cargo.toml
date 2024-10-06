@@ -16,6 +16,7 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tracing = "0.1.40"
 easy-cast = "0.5.2"
 crossbeam-channel = "0.5.13"
+path-clean = "1.0.1"
 
 [build-dependencies]
 tar = "0.4.42"

@@ -18,91 +18,25 @@ use crossbeam_channel::{Receiver, Sender};
 use super::{FreminalTermInputOutput, TermIoErr, TerminalRead};
 use easy_cast::ConvApprox;
 
-/// Spawn a shell in a child process and return the file descriptor used for I/O
-// fn spawn_shell(terminfo_dir: &Path) -> Result<OwnedFd, SpawnShellError> {
-//     unsafe {
-//         let res = nix::pty::forkpty(None, None).map_err(SpawnShellErrorKind::Fork)?;
-//         match res {
-//             ForkptyResult::Parent {
-//                 child: _child,
-//                 master,
-//             } => Ok(master),
-//             ForkptyResult::Child => {
-//                 // FIXME: grab the shell from $SHELL
-//                 let shell_name = c"zsh";
-//                 let args: &[&[u8]] = &[b"bash\0", b"--noprofile\0", b"--norc\0"];
-
-//                 let args: Vec<&'static CStr> = args
-//                     .iter()
-//                     .map(|v| {
-//                         CStr::from_bytes_with_nul(v).expect("Should always have null terminator")
-//                     })
-//                     .collect::<Vec<_>>();
-
-//                 // FIXME: Temporary workaround to avoid rendering issues
-//                 std::env::remove_var("PROMPT_COMMAND");
-//                 std::env::set_var("TERMINFO", terminfo_dir);
-//                 std::env::set_var("TERM", "freminal");
-//                 std::env::set_var("PS1", "$ ");
-//                 nix::unistd::execvp(shell_name, &args).map_err(SpawnShellErrorKind::Exec)?;
-//                 // Should never run
-//                 std::process::exit(1);
-//             }
-//         }
-//     }
-// }
-
-// #[derive(Error, Debug)]
-// enum SetNonblockError {
-//     #[error("failed to get current fcntl args")]
-//     GetCurrent(#[source] Errno),
-//     #[error("failed to parse retrieved oflags")]
-//     ParseFlags,
-//     #[error("failed to set new fcntl args")]
-//     SetNew(#[source] Errno),
-// }
-
-// fn set_nonblock(fd: &OwnedFd) -> Result<(), SetNonblockError> {
-//     let flags = nix::fcntl::fcntl(fd.as_raw_fd(), nix::fcntl::FcntlArg::F_GETFL)
-//         .map_err(SetNonblockError::GetCurrent)?;
-//     let mut flags = nix::fcntl::OFlag::from_bits(flags & nix::fcntl::OFlag::O_ACCMODE.bits())
-//         .ok_or(SetNonblockError::ParseFlags)?;
-//     flags.set(nix::fcntl::OFlag::O_NONBLOCK, true);
-
-//     nix::fcntl::fcntl(fd.as_raw_fd(), nix::fcntl::FcntlArg::F_SETFL(flags))
-//         .map_err(SetNonblockError::SetNew)?;
-//     Ok(())
-// }
-// #[derive(Debug, Error)]
-// enum SetWindowSizeErrorKind {
-//     #[error("height too large")]
-//     HeightTooLarge(#[source] std::num::TryFromIntError),
-//     #[error("width too large")]
-//     WidthTooLarge(#[source] std::num::TryFromIntError),
-//     #[error("failed to execute ioctl")]
-//     IoctlFailed(#[source] Errno),
-// }
-
-// #[derive(Debug, Error)]
-// enum PtyIoErrKind {
-//     #[error("failed to set win size")]
-//     SetWinSize(#[from] SetWindowSizeErrorKind),
-//     #[error("failed to read from file descriptor")]
-//     Read(#[source] Errno),
-//     #[error("failed to write to file descriptor")]
-//     Write(#[source] Errno),
-// }
-
-// #[derive(Debug, Error)]
-// #[error(transparent)]
-// pub struct FreminalPtyIoErr(#[from] PtyIoErrKind);
-
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct TerminalSize {
     pub rows: usize,
     pub cols: usize,
     pub pixel_width: usize,
     pub pixel_height: usize,
+}
+
+impl std::fmt::Display for TerminalSize {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "TerminalSize {{ rows: {rows}, cols: {cols}, pixel_width: {pixel_width}, pixel_height: {pixel_height} }}",
+            rows = self.rows,
+            cols = self.cols,
+            pixel_width = self.pixel_width,
+            pixel_height = self.pixel_height
+        )
+    }
 }
 
 impl From<TerminalSize> for PtySize {
@@ -119,11 +53,23 @@ impl From<TerminalSize> for PtySize {
 impl Default for TerminalSize {
     fn default() -> Self {
         Self {
-            rows: 24,
-            cols: 80,
-            pixel_width: 0,
-            pixel_height: 0,
+            rows: 38,
+            cols: 112,
+            pixel_width: 7,
+            pixel_height: 15,
         }
+    }
+}
+
+impl TerminalSize {
+    #[must_use]
+    pub const fn get_rows(&self) -> usize {
+        self.rows
+    }
+
+    #[must_use]
+    pub const fn get_cols(&self) -> usize {
+        self.cols
     }
 }
 
@@ -134,10 +80,8 @@ pub enum TerminalWriteCommand {
 }
 
 pub struct FreminalPtyInputOutput {
-    _pty_system: Rc<Mutex<Box<dyn PtySystem>>>,
     pair: Arc<Mutex<PtyPair>>,
     writer: Arc<Mutex<Box<dyn Write + Send>>>,
-    _child: Arc<Mutex<Box<dyn Child + Send + Sync>>>,
     terminal_size: Arc<Mutex<TerminalSize>>,
 }
 
@@ -162,15 +106,13 @@ impl FreminalPtyInputOutput {
             .as_ref()
             .map_or_else(CommandBuilder::new_default_prog, CommandBuilder::new);
 
-        let child = pair.slave.spawn_command(cmd)?;
+        pair.slave.spawn_command(cmd)?;
         let writer = pair.master.take_writer()?;
 
         Ok(Self {
-            _pty_system: Rc::new(Mutex::new(pty_system)),
             pair: Arc::new(Mutex::new(pair)),
             writer: Arc::new(Mutex::new(writer)),
             terminal_size: Arc::new(Mutex::new(TerminalSize::default())),
-            _child: Arc::new(Mutex::new(child)),
         })
     }
 
@@ -192,6 +134,7 @@ impl FreminalPtyInputOutput {
             if let Ok(data) = channel.try_recv() {
                 match data {
                     TerminalWriteCommand::Resize(size) => {
+                        info!("pty_handler Resizing terminal to: {size}");
                         if let Err(e) = self.set_win_size(size) {
                             error!("Failed to set win size: {e}");
                         }
@@ -227,6 +170,7 @@ impl FreminalPtyInputOutput {
 
 impl FreminalTermInputOutput for FreminalPtyInputOutput {
     fn set_win_size(&mut self, terminal_size: TerminalSize) -> Result<(), TermIoErr> {
+        debug!("PTY setting win size to: {terminal_size}");
         let old_size = self.terminal_size.lock().unwrap().clone();
         if old_size == terminal_size {
             return Ok(());
@@ -241,8 +185,4 @@ impl FreminalTermInputOutput for FreminalPtyInputOutput {
 
         Ok(())
     }
-}
-
-unsafe impl Send for FreminalPtyInputOutput {
-    // This is safe because PtyPair is Send
 }
