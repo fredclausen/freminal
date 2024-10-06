@@ -6,8 +6,6 @@
 pub mod pty;
 pub use pty::FreminalPtyInputOutput;
 
-use crate::gui::terminal;
-
 pub type TermIoErr = Box<dyn std::error::Error>;
 
 pub struct TerminalRead {

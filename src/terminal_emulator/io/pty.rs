@@ -5,14 +5,13 @@
 
 use std::{
     io::{Read, Write},
-    rc::Rc,
     sync::{Arc, Mutex},
 };
 
 use anyhow::Result;
-use portable_pty::{native_pty_system, Child, CommandBuilder, PtyPair, PtySize, PtySystem};
+use portable_pty::{native_pty_system, CommandBuilder, PtyPair, PtySize, PtySystem};
 
-use crate::{terminal_emulator, Args};
+use crate::Args;
 use crossbeam_channel::{Receiver, Sender};
 
 use super::{FreminalTermInputOutput, TermIoErr, TerminalRead};

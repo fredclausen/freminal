@@ -7,7 +7,7 @@ use core::str;
 use crossbeam_channel::{unbounded, Receiver, SendError, Sender};
 use path_clean::PathClean;
 use std::{
-    default, env, fmt,
+    env, fmt,
     fs::File,
     io::Write,
     path::{Path, PathBuf},
@@ -37,7 +37,7 @@ use ansi_components::{
 };
 use anyhow::Result;
 use buffer::TerminalBufferHolder;
-use eframe::{egui::Color32, epaint::text::cursor};
+use eframe::egui::Color32;
 pub use format_tracker::FormatTag;
 use format_tracker::FormatTracker;
 use io::{
