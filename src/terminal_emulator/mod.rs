@@ -492,10 +492,10 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         };
     }
 
-    pub fn write(&self, to_write: &TerminalInput) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn write(&self, to_write: &TerminalInput) -> Result<(), SendError<TerminalWriteCommand>> {
         let internal_state = self.internal_state.lock().unwrap();
 
-        write(&internal_state, self.tx_sender.clone(), to_write)
+        write(&internal_state, &self.tx_sender, to_write)
     }
 
     pub fn data(&self) -> TerminalData<Vec<u8>> {
@@ -900,23 +900,26 @@ fn handle_data(internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalSta
 
 fn write(
     internal_state: &MutexGuard<'_, TermininalEmulatorInternalState>,
-    io: Sender<TerminalWriteCommand>,
+    io: &Sender<TerminalWriteCommand>,
     to_write: &TerminalInput,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), SendError<TerminalWriteCommand>> {
     match to_write.to_payload(internal_state.modes.cursor_key == Decckm::Application) {
         TerminalInputPayload::Single(c) => {
             let message = TerminalWriteCommand::Write(vec![c]);
-            io.send(message);
+            io.send(message)
         }
         TerminalInputPayload::Many(to_write) => {
             while !to_write.is_empty() {
                 let message = TerminalWriteCommand::Write(to_write.to_vec());
-                io.send(message);
+                match io.send(message) {
+                    Ok(()) => (),
+                    Err(e) => return Err(e),
+                }
             }
-        }
-    };
 
-    Ok(())
+            Ok(())
+        }
+    }
 }
 
 fn read_channel(

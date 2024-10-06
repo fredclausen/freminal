@@ -9,7 +9,7 @@ use std::{
 };
 
 use anyhow::Result;
-use portable_pty::{native_pty_system, CommandBuilder, PtyPair, PtySize, PtySystem};
+use portable_pty::{native_pty_system, CommandBuilder, PtyPair, PtySize};
 
 use crate::Args;
 use crossbeam_channel::{Receiver, Sender};

@@ -139,7 +139,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
             if let Err(e) = terminal_emulator.write(input) {
                 error!(
                     "Failed to write input to terminal emulator: {}",
-                    backtraced_err(&*e)
+                    backtraced_err(&e)
                 );
             }
         }
