@@ -26,6 +26,7 @@ mod terminal_emulator;
 pub struct Args {
     recording: Option<String>,
     shell: Option<String>,
+    start_maximized: bool,
 }
 
 impl Args {
@@ -35,6 +36,7 @@ impl Args {
         let program_name = it.next();
         let mut recording_path = None;
         let mut shell = None;
+        let mut start_maximized = false;
 
         while let Some(arg) = it.next() {
             if arg.as_str() == "--recording-path" {
@@ -53,6 +55,10 @@ impl Args {
                     },
                     Some,
                 );
+            } else if arg.as_str() == "--start-maximized" {
+                start_maximized = true;
+            } else if arg.as_str() == "--help" {
+                Self::help(program_name.as_deref());
             } else {
                 println!("Invalid argument {arg}");
                 Self::help(program_name.as_deref())
@@ -62,6 +68,7 @@ impl Args {
         Self {
             recording: recording_path,
             shell,
+            start_maximized,
         }
     }
 
@@ -77,6 +84,8 @@ impl Args {
                  Args:\n\
                  --recording-path: Optional, where to output recordings to
                  --shell: Optional, the shell to use\n\
+                 --start-maximized: Optional, start maximized\n\
+                 --help: Optional, show this help message\n\
                  "
         );
         std::process::exit(1);
@@ -110,7 +119,7 @@ fn main() {
     let args = Args::parse(std::env::args());
     let res =
         match TerminalEmulator::<terminal_emulator::io::pty::FreminalPtyInputOutput>::new(&args) {
-            Ok(v) => gui::run(v),
+            Ok(v) => gui::run(v, args),
             Err(e) => {
                 error!("Failed to create terminal emulator: {e}",);
                 return;

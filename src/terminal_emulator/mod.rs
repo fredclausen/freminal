@@ -38,7 +38,10 @@ use buffer::TerminalBufferHolder;
 use eframe::{egui::Color32, epaint::text::cursor};
 pub use format_tracker::FormatTag;
 use format_tracker::FormatTracker;
-use io::{pty::{TerminalSize, TerminalWriteCommand}, TerminalRead};
+use io::{
+    pty::{TerminalSize, TerminalWriteCommand},
+    TerminalRead,
+};
 pub use io::{FreminalPtyInputOutput, FreminalTermInputOutput};
 
 const fn char_to_ctrl_code(c: u8) -> u8 {
@@ -390,11 +393,10 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
 
         let io_clone = Arc::clone(&io);
         thread::spawn(move || {
-            let value =
-                io_clone
-                    .lock()
-                    .unwrap()
-                    .set_win_size(TerminalSize::default());
+            let value = io_clone
+                .lock()
+                .unwrap()
+                .set_win_size(TerminalSize::default());
             if let Err(e) = value {
                 error!("Failed to set initial window size: {}", backtraced_err(&*e));
             }

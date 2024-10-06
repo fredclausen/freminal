@@ -3,7 +3,11 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use std::{io::{Read, Write}, rc::Rc, sync::{Arc, Mutex}};
+use std::{
+    io::{Read, Write},
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::Result;
 use portable_pty::{native_pty_system, Child, CommandBuilder, PtyPair, PtySize, PtySystem};
@@ -174,7 +178,11 @@ impl FreminalPtyInputOutput {
         self.pair.lock().unwrap().master.try_clone_reader().unwrap()
     }
 
-    pub fn pty_handler(&mut self, channel: &Receiver<TerminalWriteCommand>, send_channel: &Sender<TerminalRead>) {
+    pub fn pty_handler(
+        &mut self,
+        channel: &Receiver<TerminalWriteCommand>,
+        send_channel: &Sender<TerminalRead>,
+    ) {
         info!("Starting pty loop");
 
         let mut buf = [0u8; 4096];
@@ -218,16 +226,17 @@ impl FreminalPtyInputOutput {
 }
 
 impl FreminalTermInputOutput for FreminalPtyInputOutput {
-    fn set_win_size(
-        &mut self,
-        terminal_size: TerminalSize,
-    ) -> Result<(), TermIoErr> {
+    fn set_win_size(&mut self, terminal_size: TerminalSize) -> Result<(), TermIoErr> {
         let old_size = self.terminal_size.lock().unwrap().clone();
         if old_size == terminal_size {
             return Ok(());
         }
 
-        self.pair.lock().unwrap().master.resize(terminal_size.clone().into())?;
+        self.pair
+            .lock()
+            .unwrap()
+            .master
+            .resize(terminal_size.clone().into())?;
         self.terminal_size = Arc::new(Mutex::new(terminal_size));
 
         Ok(())

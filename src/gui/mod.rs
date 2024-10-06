@@ -6,6 +6,7 @@
 use crate::{
     error::backtraced_err,
     terminal_emulator::{FreminalPtyInputOutput, TerminalEmulator},
+    Args,
 };
 use easy_cast::ConvApprox;
 use eframe::egui::{self, CentralPanel};
@@ -13,7 +14,7 @@ use terminal::{get_char_size, FreminalTerminalWidget};
 
 pub mod terminal;
 
-fn set_egui_options(ctx: &egui::Context) {
+fn set_egui_options(ctx: &egui::Context, start_maximized: bool) {
     ctx.style_mut(|style| {
         style.visuals.window_fill = egui::Color32::BLACK;
         style.visuals.panel_fill = egui::Color32::BLACK;
@@ -22,7 +23,9 @@ fn set_egui_options(ctx: &egui::Context) {
         options.zoom_with_keyboard = false;
     });
 
-    ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+    if start_maximized {
+        ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+    }
 }
 struct FreminalGui {
     terminal_emulator: TerminalEmulator<FreminalPtyInputOutput>,
@@ -33,8 +36,9 @@ impl FreminalGui {
     fn new(
         cc: &eframe::CreationContext<'_>,
         terminal_emulator: TerminalEmulator<FreminalPtyInputOutput>,
+        args: &Args,
     ) -> Self {
-        set_egui_options(&cc.egui_ctx);
+        set_egui_options(&cc.egui_ctx, args.start_maximized);
 
         Self {
             terminal_emulator,
@@ -63,7 +67,7 @@ impl eframe::App for FreminalGui {
                 error!("failed to set window size {}", backtraced_err(&*e));
             }
 
-            self.terminal_widget.show(ui, &mut self.terminal_emulator);
+            self.terminal_widget.show(ui, &self.terminal_emulator);
         });
 
         panel_response.response.context_menu(|ui| {
@@ -74,13 +78,14 @@ impl eframe::App for FreminalGui {
 
 pub fn run(
     terminal_emulator: TerminalEmulator<FreminalPtyInputOutput>,
+    args: Args,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let native_options = eframe::NativeOptions::default();
 
     eframe::run_native(
         "Freminal",
         native_options,
-        Box::new(move |cc| Ok(Box::new(FreminalGui::new(cc, terminal_emulator)))),
+        Box::new(move |cc| Ok(Box::new(FreminalGui::new(cc, terminal_emulator, &args)))),
     )?;
     Ok(())
 }

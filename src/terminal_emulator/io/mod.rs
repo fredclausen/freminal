@@ -18,8 +18,5 @@ pub struct TerminalRead {
 pub trait FreminalTermInputOutput {
     //fn read(&mut self);
     // fn write(&mut self, buf: &[u8]) -> Result<usize, TermIoErr>;
-    fn set_win_size(
-        &mut self,
-        terminal_size: pty::TerminalSize,
-    ) -> Result<(), TermIoErr>;
+    fn set_win_size(&mut self, terminal_size: pty::TerminalSize) -> Result<(), TermIoErr>;
 }
