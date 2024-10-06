@@ -15,6 +15,7 @@
 #[macro_use]
 extern crate tracing;
 
+use anyhow::Result;
 use terminal_emulator::TerminalEmulator;
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -92,7 +93,8 @@ impl Args {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<()> {
     // use env for filtering
     // example
     // RUST_LOG=none,spectre_config=debug cargo run
@@ -122,11 +124,13 @@ fn main() {
             Ok(v) => gui::run(v, args),
             Err(e) => {
                 error!("Failed to create terminal emulator: {e}",);
-                return;
+                return Err(e);
             }
         };
 
     if let Err(e) = res {
         error!("Failed to run gui: {}", error::backtraced_err(&*e));
     }
+
+    Ok(())
 }

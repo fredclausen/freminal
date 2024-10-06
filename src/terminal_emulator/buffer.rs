@@ -286,7 +286,6 @@ impl TerminalBufferHolder {
         self.buf[write_range.clone()].copy_from_slice(data);
         let new_cursor_pos = buf_to_cursor_pos(&self.buf, self.width, self.height, write_range.end)
             .expect("write range should be valid in buf");
-        debug!("New cursor pos: {:?}", new_cursor_pos);
         TerminalBufferInsertResponse {
             written_range: write_range,
             insertion_range: inserted_padding,

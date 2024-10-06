@@ -4,7 +4,6 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::{
-    error::backtraced_err,
     terminal_emulator::{FreminalPtyInputOutput, TerminalEmulator},
     Args,
 };
@@ -58,14 +57,12 @@ impl eframe::App for FreminalGui {
             let rounded_font_width = usize::conv_approx(font_width.round());
             let rounded_font_height = usize::conv_approx(font_height.round());
 
-            if let Err(e) = self.terminal_emulator.set_win_size(
+            futures::executor::block_on(self.terminal_emulator.set_win_size(
                 width_chars,
                 height_chars,
                 rounded_font_width,
                 rounded_font_height,
-            ) {
-                error!("failed to set window size {}", backtraced_err(&e));
-            }
+            )).unwrap();
 
             self.terminal_widget.show(ui, &self.terminal_emulator);
         });

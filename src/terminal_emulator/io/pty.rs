@@ -4,17 +4,18 @@
 // https://opensource.org/licenses/MIT.
 
 use std::{
-    io::{Read, Write},
-    sync::{Arc, Mutex},
+    io::{Read, Write}, pin::Pin, sync::{Arc, Mutex}
 };
 
 use anyhow::Result;
+use futures::io::BufReader;
 use portable_pty::{native_pty_system, CommandBuilder, PtyPair, PtySize};
+use tokio::{io::AsyncRead, select, sync::mpsc::{self, Receiver, Sender}};
+use tokio::io::{self, AsyncReadExt};
 
 use crate::Args;
-use crossbeam_channel::{Receiver, Sender};
 
-use super::{FreminalTermInputOutput, TermIoErr, TerminalRead};
+use super::{FreminalTermInputOutput, TerminalRead};
 use easy_cast::ConvApprox;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -88,17 +89,7 @@ impl FreminalPtyInputOutput {
     pub fn new(args: &Args) -> Result<Self> {
         //let terminfo_dir = extract_terminfo().map_err(CreatePtyIoErrorKind::ExtractTerminfo)?;
         let pty_system = native_pty_system();
-        let pair = pty_system.openpty(PtySize {
-            rows: 24,
-            cols: 80,
-            // Not all systems support pixel_width, pixel_height,
-            // but it is good practice to set it to something
-            // that matches the size of the selected font.  That
-            // is more complex than can be shown here in this
-            // brief example though!
-            pixel_width: 0,
-            pixel_height: 0,
-        })?;
+        let pair = pty_system.openpty(TerminalSize::default().into())?;
 
         let cmd = args
             .shell
@@ -115,60 +106,97 @@ impl FreminalPtyInputOutput {
         })
     }
 
-    pub fn get_reader(&self) -> Box<dyn Read + Send> {
-        self.pair.lock().unwrap().master.try_clone_reader().unwrap()
+    pub fn get_reader(&self) -> Pin<Box<dyn AsyncRead>> {
+        Box::pin(BufReader::new(self.pair.lock().unwrap().master.try_clone_reader()))
     }
 
     pub fn pty_handler(
         &mut self,
-        channel: &Receiver<TerminalWriteCommand>,
-        send_channel: &Sender<TerminalRead>,
+        mut write_channel: Receiver<TerminalWriteCommand>,
+        send_channel: Sender<TerminalRead>,
     ) {
-        info!("Starting pty loop");
-
-        let mut buf = [0u8; 4096];
         let mut reader = self.get_reader();
 
-        loop {
-            if let Ok(data) = channel.try_recv() {
-                match data {
+        tokio::spawn(async move {
+            let mut buf = [0u8; 4096];
+            while let Ok(read) = reader.read(&mut buf).await {
+                let read = TerminalRead {
+                    buf,
+                    read,
+                };
+                info!("Sending read data to channel");
+                if let Err(e) = send_channel.send(read).await {
+                    error!("Failed to send read data to channel: {e}");
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            while let Some(command) = write_channel.recv().await {
+                match command {
                     TerminalWriteCommand::Resize(size) => {
-                        info!("pty_handler Resizing terminal to: {size}");
-                        if let Err(e) = self.set_win_size(size) {
-                            error!("Failed to set win size: {e}");
-                        }
+                        // info!("pty_handler Resizing terminal to: {size}");
+                        // if let Err(e) = self.set_win_size(size) {
+                        //     error!("Failed to set win size: {e}");
+                        // }
+                        // info!("Resized termina");
                     }
                     TerminalWriteCommand::Write(data) => {
-                        let mut writer = self.writer.lock().unwrap();
-                        match writer.write_all(&data) {
-                            Ok(()) => {}
-                            Err(e) => {
-                                error!("Failed to write data to pty: {e}");
-                            }
-                        }
+                        info!("Writing data to pty: {data:?}");
+                        // let mut writer = self.writer.lock().unwrap();
+                        // match writer.write_all(&data) {
+                        //     Ok(()) => {}
+                        //     Err(e) => {
+                        //         error!("Failed to write data to pty: {e}");
+                        //     }
+                        // }
                     }
                 }
             }
+        });
 
-            if let Ok(read) = reader.read(&mut buf) {
-                match read {
-                    0 => {
-                        continue;
-                    }
-                    read => match send_channel.send(TerminalRead { buf, read }) {
-                        Ok(()) => {}
-                        Err(e) => {
-                            error!("Failed to send read data to channel: {e}");
-                        }
-                    },
-                }
-            }
-        }
+        // // loop {
+        //     select! {
+        //         data = write_channel.recv() => {
+        //             info!("Received data from channel: {data:?}");
+        //             match data {
+        //                 Some(data) => {
+        //                     match data {
+        //                         TerminalWriteCommand::Resize(size) => {
+        //                             info!("pty_handler Resizing terminal to: {size}");
+        //                             if let Err(e) = self.set_win_size(size) {
+        //                                 error!("Failed to set win size: {e}");
+        //                             }
+        //                             info!("Resized termina");
+        //                         }
+        //                         TerminalWriteCommand::Write(data) => {
+        //                             info!("Writing data to pty: {data:?}");
+        //                             let mut writer = self.writer.lock().unwrap();
+        //                             match writer.write_all(&data) {
+        //                                 Ok(()) => {}
+        //                                 Err(e) => {
+        //                                     error!("Failed to write data to pty: {e}");
+        //                                 }
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //                 None => {
+        //                     error!("Failed to receive data from channel");
+        //                 }
+        //             }
+        //         },
+
+        //         read = rx.recv() => {
+        //             info!("Received read data from channel");
+        //         }
+        //     }
+        // }
     }
 }
 
 impl FreminalTermInputOutput for FreminalPtyInputOutput {
-    fn set_win_size(&mut self, terminal_size: TerminalSize) -> Result<(), TermIoErr> {
+    fn set_win_size(&mut self, terminal_size: TerminalSize) -> Result<()> {
         debug!("PTY setting win size to: {terminal_size}");
         let old_size = self.terminal_size.lock().unwrap().clone();
         if old_size == terminal_size {

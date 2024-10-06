@@ -46,7 +46,7 @@ fn control_key(key: Key) -> Option<Cow<'static, [TerminalInput]>> {
     None
 }
 
-fn write_input_to_terminal<Io: FreminalTermInputOutput>(
+async fn write_input_to_terminal<Io: FreminalTermInputOutput + Send + Sync>(
     input: &InputState,
     terminal_emulator: &TerminalEmulator<Io>,
 ) {
@@ -136,12 +136,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
         };
 
         for input in inputs.as_ref() {
-            if let Err(e) = terminal_emulator.write(input) {
-                error!(
-                    "Failed to write input to terminal emulator: {}",
-                    backtraced_err(&e)
-                );
-            }
+            let _ = terminal_emulator.write(input).await;
         }
     }
 }
@@ -471,15 +466,15 @@ struct TerminalOutputRenderResponse {
     canvas_area: Rect,
 }
 
-fn render_terminal_output<Io: FreminalTermInputOutput>(
+async fn render_terminal_output<Io: FreminalTermInputOutput + Send + Sync>(
     ui: &mut egui::Ui,
     terminal_emulator: &TerminalEmulator<Io>,
     font_size: f32,
 ) -> TerminalOutputRenderResponse {
-    let terminal_data = terminal_emulator.data();
+    let terminal_data = terminal_emulator.data().await;
     let mut scrollback_data = terminal_data.scrollback;
     let mut canvas_data = terminal_data.visible;
-    let mut format_data = terminal_emulator.format_data();
+    let mut format_data = terminal_emulator.format_data().await;
 
     // Arguably incorrect. Scrollback does end with a newline, and that newline causes a blank
     // space between widgets. Should we strip it here, or in the terminal emulator output?
@@ -579,31 +574,41 @@ impl FreminalTerminalWidget {
         (width_chars, height_chars)
     }
 
-    pub fn show<Io: FreminalTermInputOutput>(
+    pub fn show<Io: FreminalTermInputOutput + Send + Sync>(
         &self,
         ui: &mut Ui,
         terminal_emulator: &TerminalEmulator<Io>,
     ) {
+        let (width_chars, height_chars, title, cursor_pos) = futures::executor::block_on( async {
+                let (width_chars, height_chars) = terminal_emulator.get_win_size().await;
+                let title = terminal_emulator.get_window_title().await;
+                let cursor_pos = terminal_emulator.cursor_pos().await;
+                (width_chars, height_chars, title, cursor_pos)
+            }
+        );
         let character_size = get_char_size(ui.ctx(), self.font_size);
+        let width_chars = f32::value_from(width_chars).unwrap();
+        let height_chars = f32::value_from(height_chars).unwrap();
+
+        ui.set_width((width_chars + 0.5) * character_size.0);
+        ui.set_height((height_chars + 0.5) * character_size.1);
+
+        let output_response = futures::executor::block_on(async {
+                render_terminal_output(ui, terminal_emulator, self.font_size).await
+            }
+        );
 
         let frame_response = egui::Frame::none().show(ui, |ui| {
-            let (width_chars, height_chars) = terminal_emulator.get_win_size();
-            let width_chars = f32::value_from(width_chars).unwrap();
-            let height_chars = f32::value_from(height_chars).unwrap();
-
-            ui.set_width((width_chars + 0.5) * character_size.0);
-            ui.set_height((height_chars + 0.5) * character_size.1);
-
-            if let Some(title) = terminal_emulator.get_window_title() {
+            if let Some(title) = title {
                 ui.ctx()
                     .send_viewport_cmd(egui::ViewportCommand::Title(title));
             }
 
             ui.input(|input_state| {
-                write_input_to_terminal(input_state, terminal_emulator);
+                futures::executor::block_on(write_input_to_terminal(input_state, terminal_emulator));
             });
 
-            let output_response = render_terminal_output(ui, terminal_emulator, self.font_size);
+
             self.debug_renderer
                 .render(ui, output_response.canvas_area, Color32::BLUE);
 
@@ -613,7 +618,7 @@ impl FreminalTerminalWidget {
             paint_cursor(
                 output_response.canvas_area,
                 character_size,
-                &terminal_emulator.cursor_pos(),
+                &cursor_pos,
                 ui,
             );
         });

@@ -4,16 +4,15 @@
 // https://opensource.org/licenses/MIT.
 
 use core::str;
-use crossbeam_channel::{unbounded, Receiver, SendError, Sender};
 use path_clean::PathClean;
 use std::{
     env, fmt,
     fs::File,
     io::Write,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, MutexGuard},
-    thread,
+    sync::Arc,
 };
+use tokio::sync::{mpsc::{self, Receiver, Sender}, Mutex, MutexGuard};
 
 mod ansi;
 mod buffer;
@@ -346,7 +345,7 @@ struct TermininalEmulatorInternalState {
     saved_color_state: Option<(TerminalColor, TerminalColor)>,
 }
 
-pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
+pub struct TerminalEmulator<Io: FreminalTermInputOutput + Send> {
     _io: Arc<Mutex<Io>>,
     tx_sender: Sender<TerminalWriteCommand>,
     internal_state: Arc<Mutex<TermininalEmulatorInternalState>>,
@@ -371,8 +370,8 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
     pub fn new(args: &Args) -> Result<Self> {
         let mut recording = None;
 
-        let (tx_reader, rx_reader) = unbounded::<TerminalRead>();
-        let (tx_writer, rx_writer) = unbounded::<TerminalWriteCommand>();
+        let (tx_reader, mut rx_reader) = mpsc::channel::<TerminalRead>(100);
+        let (tx_writer, mut rx_writer) = mpsc::channel::<TerminalWriteCommand>(100);
         let io = Arc::new(Mutex::new(FreminalPtyInputOutput::new(args)?));
 
         // if recording path is some, open a file for writing
@@ -406,25 +405,27 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
         }));
 
         let io_clone = Arc::clone(&io);
-        thread::spawn(move || {
-            let value = io_clone.lock().unwrap().set_win_size(default_size);
+        tokio::spawn(async move {
+            let value = io_clone.lock().await.set_win_size(default_size);
             if let Err(e) = value {
                 error!("Failed to set initial window size: {}", backtraced_err(&*e));
             }
 
-            io_clone.lock().unwrap().pty_handler(&rx_writer, &tx_reader);
+            io_clone.lock().await.pty_handler(rx_writer, tx_reader);
         });
 
         let internal_internal_state = internal_state.clone();
         let internal_tx = tx_writer.clone();
 
-        thread::spawn(move || {
+        tokio::spawn(async move {
             read_channel(
-                &rx_reader,
+                &mut rx_reader,
                 &internal_internal_state,
                 &internal_tx,
                 &mut recording,
-            );
+            ).await;
+
+            info!("Finished reading from channel");
         });
 
         let ret = Self {
@@ -436,95 +437,90 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
     }
 }
 
-impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
-    pub fn get_win_size(&self) -> (usize, usize) {
+impl<Io: FreminalTermInputOutput + Send> TerminalEmulator<Io> {
+    pub async fn get_win_size(&self) -> (usize, usize) {
         self.internal_state
             .lock()
-            .unwrap()
+            .await
             .terminal_buffer
             .get_win_size()
     }
 
-    pub fn get_window_title(&self) -> Option<String> {
-        self.internal_state.lock().unwrap().window_title.clone()
+    pub async fn get_window_title(&self) -> Option<String> {
+        self.internal_state.lock().await.window_title.clone()
     }
 
     #[allow(dead_code)]
-    pub fn clear_window_title(&self) {
-        self.internal_state.lock().unwrap().window_title = None;
+    pub async fn clear_window_title(&self) {
+        self.internal_state.lock().await.window_title = None;
     }
 
-    pub fn set_win_size(
+    pub async fn set_win_size(
         &self,
         width_chars: usize,
         height_chars: usize,
         font_width: usize,
         font_height: usize,
-    ) -> Result<(), SendError<TerminalWriteCommand>> {
+    ) -> Result<()> {
         let sender = self.tx_sender.clone();
-        return match self.internal_state.lock() {
-            Ok(mut state) => {
-                let cursor_state = state.cursor_state.clone();
+        //let mut state = self.internal_state.lock().await;
+        let cursor_state = self.internal_state.lock().await.cursor_state.clone();
 
-                let response = state.terminal_buffer.set_win_size(
-                    width_chars,
-                    height_chars,
-                    &cursor_state.pos,
-                );
-                state.cursor_state.pos = response.new_cursor_pos;
+        let response =
+        self.internal_state.lock().await
+                .terminal_buffer
+                .set_win_size(width_chars, height_chars, &cursor_state.pos);
+            self.internal_state.lock().await.cursor_state.pos = response.new_cursor_pos;
 
-                if response.changed {
-                    debug!("Resizing terminal to: {width_chars}x{height_chars}");
-                    sender.send(TerminalWriteCommand::Resize(TerminalSize {
-                        cols: width_chars,
-                        rows: height_chars,
-                        pixel_width: font_width,
-                        pixel_height: font_height,
-                    }))
-                } else {
-                    Ok(())
+        if response.changed {
+            debug!("Resizing terminal to: {width_chars}x{height_chars}");
+            match sender
+                .send(TerminalWriteCommand::Resize(TerminalSize {
+                    cols: width_chars,
+                    rows: height_chars,
+                    pixel_width: font_width,
+                    pixel_height: font_height,
+                }))
+                .await
+            {
+                Ok(()) => Ok(()),
+                Err(e) => {
+                    error!("Failed to send resize command: {}", backtraced_err(&e));
+                    Err(e.into())
                 }
             }
-            Err(e) => {
-                error!("Failed to lock io: {}", backtraced_err(&e));
-                Err(SendError(TerminalWriteCommand::Write(Vec::new())))
-            }
-        };
+        } else {
+            Ok(())
+        }
     }
 
-    pub fn write(&self, to_write: &TerminalInput) -> Result<(), SendError<TerminalWriteCommand>> {
-        let internal_state = self.internal_state.lock().unwrap();
+    pub async fn write(&self, to_write: &TerminalInput) -> Result<()> {
+        let internal_state = self.internal_state.lock().await;
 
-        write(&internal_state, &self.tx_sender, to_write)
+        match write(&internal_state, &self.tx_sender, to_write).await {
+            Ok(()) => Ok(()),
+            Err(e) => Err(e),
+        }
     }
 
-    pub fn data(&self) -> TerminalData<Vec<u8>> {
-        let internal_state = match self.internal_state.lock() {
-            Ok(state) => TerminalData {
-                scrollback: state.terminal_buffer.data().scrollback.to_vec(),
-                visible: state.terminal_buffer.data().visible.to_vec(),
-            },
-            Err(e) => {
-                error!("Failed to lock internal state: {}", backtraced_err(&e));
-                return TerminalData {
-                    scrollback: Vec::new(),
-                    visible: Vec::new(),
-                };
-            }
-        };
+    pub async fn data(&self) -> TerminalData<Vec<u8>> {
+        let internal_state = self.internal_state.lock().await;
 
-        internal_state
+        TerminalData {
+            scrollback: internal_state.terminal_buffer.data().scrollback.to_vec(),
+            visible: internal_state.terminal_buffer.data().visible.to_vec(),
+        }
     }
 
-    pub fn format_data(&self) -> TerminalData<Vec<FormatTag>> {
-        let internal_state = self.internal_state.lock().unwrap();
+    pub async fn format_data(&self) -> TerminalData<Vec<FormatTag>> {
+        let internal_state = self.internal_state.lock().await;
 
         let offset = internal_state.terminal_buffer.data().scrollback.len();
         split_format_data_for_scrollback(internal_state.format_tracker.tags(), offset)
     }
 
-    pub fn cursor_pos(&self) -> CursorPos {
-        let internal_state = self.internal_state.lock().unwrap();
+    pub async fn cursor_pos(&self) -> CursorPos {
+        let internal_state = self.internal_state.lock().await;
         internal_state.cursor_state.pos.clone()
     }
 }
@@ -796,7 +792,7 @@ fn reset_mode(internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalStat
     }
 }
 
-fn osc_response(
+async fn osc_response(
     internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>,
     io: &Sender<TerminalWriteCommand>,
     osc: AnsiOscType,
@@ -818,8 +814,7 @@ fn osc_response(
 
                     for byte in output {
                         let message = TerminalWriteCommand::Write(vec![*byte]);
-                        io.send(message)
-                            .expect("Failed to write osc color response");
+                        let _ = io.send(message).await;
                     }
                 }
                 AnsiOscInternalType::Unknown(_) => {
@@ -846,8 +841,7 @@ fn osc_response(
 
                     for byte in output {
                         let message = TerminalWriteCommand::Write(vec![*byte]);
-                        io.send(message)
-                            .expect("Failed to write osc color response");
+                        let _ = io.send(message).await;
                     }
                 }
                 AnsiOscInternalType::Unknown(_) => {
@@ -867,7 +861,7 @@ fn osc_response(
     }
 }
 
-fn report_cursor_position(
+async fn report_cursor_position(
     internal_state: &MutexGuard<'_, TermininalEmulatorInternalState>,
     io: &Sender<TerminalWriteCommand>,
 ) {
@@ -877,8 +871,8 @@ fn report_cursor_position(
     let output = formatted_string.as_bytes();
 
     for byte in output {
-        io.send(TerminalWriteCommand::Write(vec![*byte]))
-            .expect("Failed to write cursor position response");
+        let _ = io.send(TerminalWriteCommand::Write(vec![*byte]))
+            .await;
     }
 }
 
@@ -898,22 +892,28 @@ fn handle_data(internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalSta
     internal_state.cursor_state.pos = response.new_cursor_pos;
 }
 
-fn write(
+async fn write(
     internal_state: &MutexGuard<'_, TermininalEmulatorInternalState>,
     io: &Sender<TerminalWriteCommand>,
     to_write: &TerminalInput,
-) -> Result<(), SendError<TerminalWriteCommand>> {
+) -> Result<()> {
+    info!("Writing: {:?}", to_write);
     match to_write.to_payload(internal_state.modes.cursor_key == Decckm::Application) {
         TerminalInputPayload::Single(c) => {
+            info!("Writing single: {:?}", c);
             let message = TerminalWriteCommand::Write(vec![c]);
-            io.send(message)
+            match io.send(message).await {
+                Ok(()) => Ok(()),
+                Err(e) => Err(e.into()),
+            }
         }
         TerminalInputPayload::Many(to_write) => {
+            info!("Writing many: {:?}", to_write);
             while !to_write.is_empty() {
                 let message = TerminalWriteCommand::Write(to_write.to_vec());
-                match io.send(message) {
+                match io.send(message).await {
                     Ok(()) => (),
-                    Err(e) => return Err(e),
+                    Err(e) => return Err(e.into()),
                 }
             }
 
@@ -922,19 +922,17 @@ fn write(
     }
 }
 
-fn read_channel(
-    rx: &Receiver<TerminalRead>,
+async fn read_channel(
+    rx: &mut Receiver<TerminalRead>,
     guard: &Arc<Mutex<TermininalEmulatorInternalState>>,
     write_channel: &Sender<TerminalWriteCommand>,
     recording: &mut Option<File>,
 ) {
-    while let Ok(TerminalRead {
-        buf,
-        read: read_size,
-    }) = rx.recv()
+    info!("Reading from channel");
+    while let Some(read) = rx.recv().await
     {
-        info!("buffer: {:?}", buf[0..read_size].to_vec());
-        let incoming = &buf[0..read_size];
+        info!("Handling incoming data");
+        let incoming = read.get_buffer();
 
         if let Some(file) = recording {
             let mut output = String::new();
@@ -946,12 +944,15 @@ fn read_channel(
         }
         //debug!("Incoming data: {:?}", std::str::from_utf8(incoming));
 
-        let mut internal_state = guard.lock().unwrap();
-        handle_incoming_data(&mut internal_state, write_channel, incoming);
+        let mut internal_state = guard.lock().await;
+        handle_incoming_data(&mut internal_state, write_channel, incoming).await;
+        info!("done handling incoming data");
     }
+
+    error!("Failed to read from channel");
 }
 
-fn handle_incoming_data(
+async fn handle_incoming_data(
     internal_state: &mut MutexGuard<'_, TermininalEmulatorInternalState>,
     write_channel: &Sender<TerminalWriteCommand>,
     incoming: &[u8],
@@ -985,10 +986,10 @@ fn handle_incoming_data(
             TerminalOutput::InsertSpaces(num_spaces) => insert_spaces(internal_state, num_spaces),
             TerminalOutput::ResetMode(mode) => reset_mode(internal_state, &mode),
             TerminalOutput::OscResponse(osc) => {
-                osc_response(internal_state, &write_channel.clone(), osc);
+                osc_response(internal_state, &write_channel.clone(), osc).await;
             }
             TerminalOutput::CursorReport => {
-                report_cursor_position(internal_state, &write_channel.clone());
+                report_cursor_position(internal_state, &write_channel.clone()).await;
             }
             TerminalOutput::Bell | TerminalOutput::Invalid => {
                 info!("Unhandled terminal output: {segment:?}");
