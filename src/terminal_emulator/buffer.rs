@@ -426,6 +426,7 @@ impl TerminalBufferHolder {
                 if pos.x == self.width {
                     pos.x = 0;
                     pos.y += 1;
+                    pos.x_as_characters = 0;
                 }
                 pos
             });
@@ -912,7 +913,6 @@ mod test {
             response.new_cursor_pos,
             CursorPos {
                 x: 2,
-                y: 2,
                 y: 0,
                 x_as_characters: 2
             }
@@ -925,7 +925,6 @@ mod test {
                 x: 4,
                 y: 1,
                 x_as_characters: 2,
-                x_as_characters: 4,
             },
             1000,
         );
@@ -939,7 +938,7 @@ mod test {
             CursorPos {
                 x: 4,
                 y: 1,
-                x_as_characters: 4
+                x_as_characters: 2
             }
         );
         assert_eq!(canvas.data().visible, b"as        \n1234      12345\n");
