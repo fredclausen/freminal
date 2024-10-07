@@ -3,8 +3,6 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use crate::terminal_emulator::ansi_components::mode::Keypad;
-
 use super::ansi_components::{mode::BracketedPaste, sgr::SelectGraphicRendition};
 use super::{
     ansi::{FreminalAnsiParser, TerminalOutput},
@@ -43,7 +41,6 @@ impl ReplayIo {
                 cursor_key: Decckm::default(),
                 autowrap: Decawm::default(),
                 bracketed_paste: BracketedPaste::default(),
-                keypad: Keypad::default(),
             },
             saved_color_state: None,
         }
@@ -251,10 +248,6 @@ impl ReplayIo {
             Mode::BracketedPaste => {
                 self.modes.bracketed_paste = BracketedPaste::Enabled;
             }
-            Mode::Keypad => {
-                warn!("Decpam not implemented");
-                self.modes.keypad = Keypad::Application;
-            }
             Mode::Unknown(_) => {
                 warn!("unhandled set mode: {mode:?}");
             }
@@ -279,10 +272,6 @@ impl ReplayIo {
             }
             Mode::BracketedPaste => {
                 self.modes.bracketed_paste = BracketedPaste::Disabled;
-            }
-            Mode::Keypad => {
-                warn!("Decpam not implemented");
-                self.modes.keypad = Keypad::Numeric;
             }
             Mode::Unknown(_) => {}
         }
