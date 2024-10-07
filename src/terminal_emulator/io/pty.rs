@@ -3,212 +3,200 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+use nix::{errno::Errno, ioctl_write_ptr_bad, pty::ForkptyResult};
+
+use tempfile::TempDir;
+use thiserror::Error;
+
 use std::{
-    io::{Read, Write}, pin::Pin, sync::{Arc, Mutex}
+    ffi::CStr,
+    os::fd::{AsFd, AsRawFd, OwnedFd},
+    path::Path,
 };
 
-use anyhow::Result;
-use futures::io::BufReader;
-use portable_pty::{native_pty_system, CommandBuilder, PtyPair, PtySize};
-use tokio::{io::AsyncRead, select, sync::mpsc::{self, Receiver, Sender}};
-use tokio::io::{self, AsyncReadExt};
+use super::{FreminalTermInputOutput, ReadResponse, TermIoErr};
 
-use crate::Args;
+ioctl_write_ptr_bad!(
+    set_window_size_ioctl,
+    nix::libc::TIOCSWINSZ,
+    nix::pty::Winsize
+);
 
-use super::{FreminalTermInputOutput, TerminalRead};
-use easy_cast::ConvApprox;
-
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub struct TerminalSize {
-    pub rows: usize,
-    pub cols: usize,
-    pub pixel_width: usize,
-    pub pixel_height: usize,
+#[derive(Debug, Error)]
+enum CreatePtyIoErrorKind {
+    #[error("failed to extract terminfo")]
+    ExtractTerminfo(#[from] ExtractTerminfoError),
+    #[error("failed to spawn shell")]
+    SpawnShell(#[from] SpawnShellError),
+    #[error("failed to set fd as non-blocking")]
+    SetNonblock(#[from] SetNonblockError),
 }
 
-impl std::fmt::Display for TerminalSize {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "TerminalSize {{ rows: {rows}, cols: {cols}, pixel_width: {pixel_width}, pixel_height: {pixel_height} }}",
-            rows = self.rows,
-            cols = self.cols,
-            pixel_width = self.pixel_width,
-            pixel_height = self.pixel_height
-        )
-    }
+#[derive(Debug, Error)]
+#[error(transparent)]
+pub struct CreatePtyIoError(#[from] CreatePtyIoErrorKind);
+
+#[derive(Error, Debug)]
+enum ExtractTerminfoError {
+    #[error("failed to extract")]
+    Extraction(#[source] std::io::Error),
+    #[error("failed to create temp dir")]
+    CreateTempDir(#[source] std::io::Error),
 }
 
-impl From<TerminalSize> for PtySize {
-    fn from(size: TerminalSize) -> Self {
-        Self {
-            rows: u16::conv_approx(size.rows),
-            cols: u16::conv_approx(size.cols),
-            pixel_width: u16::conv_approx(size.pixel_width),
-            pixel_height: u16::conv_approx(size.pixel_height),
+const TERMINFO: &[u8] = include_bytes!(std::concat!(std::env!("OUT_DIR"), "/terminfo.tar"));
+
+fn extract_terminfo() -> Result<TempDir, ExtractTerminfoError> {
+    let mut terminfo_tarball = tar::Archive::new(TERMINFO);
+    let temp_dir = TempDir::new().map_err(ExtractTerminfoError::CreateTempDir)?;
+    terminfo_tarball
+        .unpack(temp_dir.path())
+        .map_err(ExtractTerminfoError::Extraction)?;
+
+    Ok(temp_dir)
+}
+
+#[derive(Error, Debug)]
+enum SpawnShellErrorKind {
+    #[error("failed to fork")]
+    Fork(#[source] Errno),
+    #[error("failed to exec")]
+    Exec(#[source] Errno),
+}
+
+#[derive(Error, Debug)]
+#[error(transparent)]
+struct SpawnShellError(#[from] SpawnShellErrorKind);
+
+/// Spawn a shell in a child process and return the file descriptor used for I/O
+fn spawn_shell(terminfo_dir: &Path) -> Result<OwnedFd, SpawnShellError> {
+    unsafe {
+        let res = nix::pty::forkpty(None, None).map_err(SpawnShellErrorKind::Fork)?;
+        match res {
+            ForkptyResult::Parent {
+                child: _child,
+                master,
+            } => Ok(master),
+            ForkptyResult::Child => {
+                // FIXME: grab the shell from $SHELL
+                let shell_name = c"zsh";
+                let args: &[&[u8]] = &[b"zsh\0"];
+
+                let args: Vec<&'static CStr> = args
+                    .iter()
+                    .map(|v| {
+                        CStr::from_bytes_with_nul(v).expect("Should always have null terminator")
+                    })
+                    .collect::<Vec<_>>();
+
+                // FIXME: Temporary workaround to avoid rendering issues
+                std::env::remove_var("PROMPT_COMMAND");
+                std::env::set_var("TERMINFO", terminfo_dir);
+                std::env::set_var("TERM", "freminal");
+                std::env::set_var("PS1", "$ ");
+                nix::unistd::execvp(shell_name, &args).map_err(SpawnShellErrorKind::Exec)?;
+                // Should never run
+                std::process::exit(1);
+            }
         }
     }
 }
 
-impl Default for TerminalSize {
-    fn default() -> Self {
-        Self {
-            rows: 38,
-            cols: 112,
-            pixel_width: 7,
-            pixel_height: 15,
-        }
-    }
+#[derive(Error, Debug)]
+enum SetNonblockError {
+    #[error("failed to get current fcntl args")]
+    GetCurrent(#[source] Errno),
+    #[error("failed to parse retrieved oflags")]
+    ParseFlags,
+    #[error("failed to set new fcntl args")]
+    SetNew(#[source] Errno),
 }
 
-impl TerminalSize {
-    #[must_use]
-    pub const fn get_rows(&self) -> usize {
-        self.rows
-    }
+fn set_nonblock(fd: &OwnedFd) -> Result<(), SetNonblockError> {
+    let flags = nix::fcntl::fcntl(fd.as_raw_fd(), nix::fcntl::FcntlArg::F_GETFL)
+        .map_err(SetNonblockError::GetCurrent)?;
+    let mut flags = nix::fcntl::OFlag::from_bits(flags & nix::fcntl::OFlag::O_ACCMODE.bits())
+        .ok_or(SetNonblockError::ParseFlags)?;
+    flags.set(nix::fcntl::OFlag::O_NONBLOCK, true);
 
-    #[must_use]
-    pub const fn get_cols(&self) -> usize {
-        self.cols
-    }
+    nix::fcntl::fcntl(fd.as_raw_fd(), nix::fcntl::FcntlArg::F_SETFL(flags))
+        .map_err(SetNonblockError::SetNew)?;
+    Ok(())
+}
+#[derive(Debug, Error)]
+enum SetWindowSizeErrorKind {
+    #[error("height too large")]
+    HeightTooLarge(#[source] std::num::TryFromIntError),
+    #[error("width too large")]
+    WidthTooLarge(#[source] std::num::TryFromIntError),
+    #[error("failed to execute ioctl")]
+    IoctlFailed(#[source] Errno),
 }
 
-#[derive(Debug)]
-pub enum TerminalWriteCommand {
-    Write(Vec<u8>),
-    Resize(TerminalSize),
+#[derive(Debug, Error)]
+enum PtyIoErrKind {
+    #[error("failed to set win size")]
+    SetWinSize(#[from] SetWindowSizeErrorKind),
+    #[error("failed to read from file descriptor")]
+    Read(#[source] Errno),
+    #[error("failed to write to file descriptor")]
+    Write(#[source] Errno),
 }
+
+#[derive(Debug, Error)]
+#[error(transparent)]
+pub struct FreminalPtyIoErr(#[from] PtyIoErrKind);
 
 pub struct FreminalPtyInputOutput {
-    pair: Arc<Mutex<PtyPair>>,
-    writer: Arc<Mutex<Box<dyn Write + Send>>>,
-    terminal_size: Arc<Mutex<TerminalSize>>,
+    fd: OwnedFd,
+    _terminfo_dir: TempDir,
 }
 
 impl FreminalPtyInputOutput {
-    pub fn new(args: &Args) -> Result<Self> {
-        //let terminfo_dir = extract_terminfo().map_err(CreatePtyIoErrorKind::ExtractTerminfo)?;
-        let pty_system = native_pty_system();
-        let pair = pty_system.openpty(TerminalSize::default().into())?;
-
-        let cmd = args
-            .shell
-            .as_ref()
-            .map_or_else(CommandBuilder::new_default_prog, CommandBuilder::new);
-
-        pair.slave.spawn_command(cmd)?;
-        let writer = pair.master.take_writer()?;
-
+    pub fn new() -> Result<Self, CreatePtyIoError> {
+        let terminfo_dir = extract_terminfo().map_err(CreatePtyIoErrorKind::ExtractTerminfo)?;
+        let fd = spawn_shell(terminfo_dir.path()).map_err(CreatePtyIoErrorKind::SpawnShell)?;
+        set_nonblock(&fd).map_err(CreatePtyIoErrorKind::SetNonblock)?;
         Ok(Self {
-            pair: Arc::new(Mutex::new(pair)),
-            writer: Arc::new(Mutex::new(writer)),
-            terminal_size: Arc::new(Mutex::new(TerminalSize::default())),
+            fd,
+            _terminfo_dir: terminfo_dir,
         })
-    }
-
-    pub fn get_reader(&self) -> Pin<Box<dyn AsyncRead>> {
-        Box::pin(BufReader::new(self.pair.lock().unwrap().master.try_clone_reader()))
-    }
-
-    pub fn pty_handler(
-        &mut self,
-        mut write_channel: Receiver<TerminalWriteCommand>,
-        send_channel: Sender<TerminalRead>,
-    ) {
-        let mut reader = self.get_reader();
-
-        tokio::spawn(async move {
-            let mut buf = [0u8; 4096];
-            while let Ok(read) = reader.read(&mut buf).await {
-                let read = TerminalRead {
-                    buf,
-                    read,
-                };
-                info!("Sending read data to channel");
-                if let Err(e) = send_channel.send(read).await {
-                    error!("Failed to send read data to channel: {e}");
-                }
-            }
-        });
-
-        tokio::spawn(async move {
-            while let Some(command) = write_channel.recv().await {
-                match command {
-                    TerminalWriteCommand::Resize(size) => {
-                        // info!("pty_handler Resizing terminal to: {size}");
-                        // if let Err(e) = self.set_win_size(size) {
-                        //     error!("Failed to set win size: {e}");
-                        // }
-                        // info!("Resized termina");
-                    }
-                    TerminalWriteCommand::Write(data) => {
-                        info!("Writing data to pty: {data:?}");
-                        // let mut writer = self.writer.lock().unwrap();
-                        // match writer.write_all(&data) {
-                        //     Ok(()) => {}
-                        //     Err(e) => {
-                        //         error!("Failed to write data to pty: {e}");
-                        //     }
-                        // }
-                    }
-                }
-            }
-        });
-
-        // // loop {
-        //     select! {
-        //         data = write_channel.recv() => {
-        //             info!("Received data from channel: {data:?}");
-        //             match data {
-        //                 Some(data) => {
-        //                     match data {
-        //                         TerminalWriteCommand::Resize(size) => {
-        //                             info!("pty_handler Resizing terminal to: {size}");
-        //                             if let Err(e) = self.set_win_size(size) {
-        //                                 error!("Failed to set win size: {e}");
-        //                             }
-        //                             info!("Resized termina");
-        //                         }
-        //                         TerminalWriteCommand::Write(data) => {
-        //                             info!("Writing data to pty: {data:?}");
-        //                             let mut writer = self.writer.lock().unwrap();
-        //                             match writer.write_all(&data) {
-        //                                 Ok(()) => {}
-        //                                 Err(e) => {
-        //                                     error!("Failed to write data to pty: {e}");
-        //                                 }
-        //                             }
-        //                         }
-        //                     }
-        //                 }
-        //                 None => {
-        //                     error!("Failed to receive data from channel");
-        //                 }
-        //             }
-        //         },
-
-        //         read = rx.recv() => {
-        //             info!("Received read data from channel");
-        //         }
-        //     }
-        // }
     }
 }
 
 impl FreminalTermInputOutput for FreminalPtyInputOutput {
-    fn set_win_size(&mut self, terminal_size: TerminalSize) -> Result<()> {
-        debug!("PTY setting win size to: {terminal_size}");
-        let old_size = self.terminal_size.lock().unwrap().clone();
-        if old_size == terminal_size {
-            return Ok(());
+    fn read(&mut self, buf: &mut [u8]) -> Result<ReadResponse, TermIoErr> {
+        let res = nix::unistd::read(self.fd.as_raw_fd(), buf);
+        match res {
+            Ok(v) => Ok(ReadResponse::Success(v)),
+            Err(Errno::EAGAIN) => Ok(ReadResponse::Empty),
+            Err(e) => Err(Box::new(PtyIoErrKind::Read(e))),
         }
+    }
 
-        self.pair
-            .lock()
-            .unwrap()
-            .master
-            .resize(terminal_size.clone().into())?;
-        self.terminal_size = Arc::new(Mutex::new(terminal_size));
+    fn write(&mut self, buf: &[u8]) -> Result<usize, TermIoErr> {
+        Ok(nix::unistd::write(self.fd.as_fd(), buf).map_err(PtyIoErrKind::Write)?)
+    }
+
+    fn set_win_size(&mut self, width: usize, height: usize) -> Result<(), TermIoErr> {
+        let win_size = nix::pty::Winsize {
+            ws_row: height
+                .try_into()
+                .map_err(SetWindowSizeErrorKind::HeightTooLarge)
+                .map_err(PtyIoErrKind::SetWinSize)?,
+            ws_col: width
+                .try_into()
+                .map_err(SetWindowSizeErrorKind::WidthTooLarge)
+                .map_err(PtyIoErrKind::SetWinSize)?,
+            ws_xpixel: 0,
+            ws_ypixel: 0,
+        };
+
+        unsafe {
+            set_window_size_ioctl(self.fd.as_raw_fd(), &win_size)
+                .map_err(SetWindowSizeErrorKind::IoctlFailed)
+                .map_err(PtyIoErrKind::SetWinSize)?;
+        }
 
         Ok(())
     }

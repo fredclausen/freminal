@@ -46,9 +46,9 @@ fn control_key(key: Key) -> Option<Cow<'static, [TerminalInput]>> {
     None
 }
 
-async fn write_input_to_terminal<Io: FreminalTermInputOutput + Send + Sync>(
+fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     input: &InputState,
-    terminal_emulator: &TerminalEmulator<Io>,
+    terminal_emulator: &mut TerminalEmulator<Io>,
 ) {
     for event in &input.raw.events {
         let inputs: Cow<'static, [TerminalInput]> = match event {
@@ -136,12 +136,17 @@ async fn write_input_to_terminal<Io: FreminalTermInputOutput + Send + Sync>(
         };
 
         for input in inputs.as_ref() {
-            let _ = terminal_emulator.write(input).await;
+            if let Err(e) = terminal_emulator.write(input) {
+                error!(
+                    "Failed to write input to terminal emulator: {}",
+                    backtraced_err(&*e)
+                );
+            }
         }
     }
 }
 
-pub fn get_char_size(ctx: &egui::Context, font_size: f32) -> (f32, f32) {
+fn get_char_size(ctx: &egui::Context, font_size: f32) -> (f32, f32) {
     let font_id = FontId {
         size: font_size,
         family: FontFamily::Name(REGULAR_FONT_NAME.into()),
@@ -466,27 +471,27 @@ struct TerminalOutputRenderResponse {
     canvas_area: Rect,
 }
 
-async fn render_terminal_output<Io: FreminalTermInputOutput + Send + Sync>(
+fn render_terminal_output<Io: FreminalTermInputOutput>(
     ui: &mut egui::Ui,
     terminal_emulator: &TerminalEmulator<Io>,
     font_size: f32,
 ) -> TerminalOutputRenderResponse {
-    let terminal_data = terminal_emulator.data().await;
+    let terminal_data = terminal_emulator.data();
     let mut scrollback_data = terminal_data.scrollback;
     let mut canvas_data = terminal_data.visible;
-    let mut format_data = terminal_emulator.format_data().await;
+    let mut format_data = terminal_emulator.format_data();
 
     // Arguably incorrect. Scrollback does end with a newline, and that newline causes a blank
     // space between widgets. Should we strip it here, or in the terminal emulator output?
     if scrollback_data.ends_with(b"\n") {
-        scrollback_data = scrollback_data[0..scrollback_data.len() - 1].to_vec();
+        scrollback_data = &scrollback_data[0..scrollback_data.len() - 1];
         if let Some(last_tag) = format_data.scrollback.last_mut() {
             last_tag.end = last_tag.end.min(scrollback_data.len());
         }
     }
 
     if canvas_data.ends_with(b"\n") {
-        canvas_data = canvas_data[0..canvas_data.len() - 1].to_vec();
+        canvas_data = &canvas_data[0..canvas_data.len() - 1];
     }
 
     let response = egui::ScrollArea::new([false, true])
@@ -503,13 +508,13 @@ async fn render_terminal_output<Io: FreminalTermInputOutput + Send + Sync>(
                 };
             let scrollback_area = error_logged_rect(add_terminal_data_to_ui(
                 ui,
-                &scrollback_data,
+                scrollback_data,
                 &format_data.scrollback,
                 font_size,
             ));
             let canvas_area = error_logged_rect(add_terminal_data_to_ui(
                 ui,
-                &canvas_data,
+                canvas_data,
                 &format_data.visible,
                 font_size,
             ));
@@ -557,10 +562,6 @@ impl FreminalTerminalWidget {
         }
     }
 
-    pub const fn get_font_size(&self) -> f32 {
-        self.font_size
-    }
-
     pub fn calculate_available_size(&self, ui: &Ui) -> (usize, usize) {
         let character_size = get_char_size(ui.ctx(), self.font_size);
         let width_chars = (ui.available_width() / character_size.0)
@@ -574,41 +575,33 @@ impl FreminalTerminalWidget {
         (width_chars, height_chars)
     }
 
-    pub fn show<Io: FreminalTermInputOutput + Send + Sync>(
+    pub fn show<Io: FreminalTermInputOutput>(
         &self,
         ui: &mut Ui,
-        terminal_emulator: &TerminalEmulator<Io>,
+        terminal_emulator: &mut TerminalEmulator<Io>,
     ) {
-        let (width_chars, height_chars, title, cursor_pos) = futures::executor::block_on( async {
-                let (width_chars, height_chars) = terminal_emulator.get_win_size().await;
-                let title = terminal_emulator.get_window_title().await;
-                let cursor_pos = terminal_emulator.cursor_pos().await;
-                (width_chars, height_chars, title, cursor_pos)
-            }
-        );
         let character_size = get_char_size(ui.ctx(), self.font_size);
-        let width_chars = f32::value_from(width_chars).unwrap();
-        let height_chars = f32::value_from(height_chars).unwrap();
 
-        ui.set_width((width_chars + 0.5) * character_size.0);
-        ui.set_height((height_chars + 0.5) * character_size.1);
-
-        let output_response = futures::executor::block_on(async {
-                render_terminal_output(ui, terminal_emulator, self.font_size).await
-            }
-        );
+        terminal_emulator.read();
 
         let frame_response = egui::Frame::none().show(ui, |ui| {
-            if let Some(title) = title {
+            let (width_chars, height_chars) = terminal_emulator.get_win_size();
+            let width_chars = f32::value_from(width_chars).unwrap();
+            let height_chars = f32::value_from(height_chars).unwrap();
+
+            ui.set_width((width_chars + 0.5) * character_size.0);
+            ui.set_height((height_chars + 0.5) * character_size.1);
+
+            if let Some(title) = terminal_emulator.get_window_title() {
                 ui.ctx()
                     .send_viewport_cmd(egui::ViewportCommand::Title(title));
             }
 
             ui.input(|input_state| {
-                futures::executor::block_on(write_input_to_terminal(input_state, terminal_emulator));
+                write_input_to_terminal(input_state, terminal_emulator);
             });
 
-
+            let output_response = render_terminal_output(ui, terminal_emulator, self.font_size);
             self.debug_renderer
                 .render(ui, output_response.canvas_area, Color32::BLUE);
 
@@ -618,7 +611,7 @@ impl FreminalTerminalWidget {
             paint_cursor(
                 output_response.canvas_area,
                 character_size,
-                &cursor_pos,
+                &terminal_emulator.cursor_pos(),
                 ui,
             );
         });

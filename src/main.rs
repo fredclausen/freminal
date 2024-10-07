@@ -15,7 +15,6 @@
 #[macro_use]
 extern crate tracing;
 
-use anyhow::Result;
 use terminal_emulator::TerminalEmulator;
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -24,10 +23,8 @@ mod error;
 mod gui;
 mod terminal_emulator;
 
-pub struct Args {
+struct Args {
     recording: Option<String>,
-    shell: Option<String>,
-    start_maximized: bool,
 }
 
 impl Args {
@@ -36,8 +33,6 @@ impl Args {
 
         let program_name = it.next();
         let mut recording_path = None;
-        let mut shell = None;
-        let mut start_maximized = false;
 
         while let Some(arg) = it.next() {
             if arg.as_str() == "--recording-path" {
@@ -48,18 +43,6 @@ impl Args {
                     },
                     Some,
                 );
-            } else if arg.as_str() == "--shell" {
-                shell = it.next().map_or_else(
-                    || {
-                        println!("Missing argument for --shell");
-                        Self::help(program_name.as_deref());
-                    },
-                    Some,
-                );
-            } else if arg.as_str() == "--start-maximized" {
-                start_maximized = true;
-            } else if arg.as_str() == "--help" {
-                Self::help(program_name.as_deref());
             } else {
                 println!("Invalid argument {arg}");
                 Self::help(program_name.as_deref())
@@ -68,8 +51,6 @@ impl Args {
 
         Self {
             recording: recording_path,
-            shell,
-            start_maximized,
         }
     }
 
@@ -84,17 +65,13 @@ impl Args {
                  \n\
                  Args:\n\
                  --recording-path: Optional, where to output recordings to
-                 --shell: Optional, the shell to use\n\
-                 --start-maximized: Optional, start maximized\n\
-                 --help: Optional, show this help message\n\
                  "
         );
         std::process::exit(1);
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() {
     // use env for filtering
     // example
     // RUST_LOG=none,spectre_config=debug cargo run
@@ -114,23 +91,23 @@ async fn main() -> Result<()> {
         .compact();
     subscriber.with(fmt_layer).init();
 
+    trace!("Starting freminal");
+    debug!("Testing");
     info!("Starting freminal");
 
-    // spawn a thread to
-
     let args = Args::parse(std::env::args());
-    let res =
-        match TerminalEmulator::<terminal_emulator::io::pty::FreminalPtyInputOutput>::new(&args) {
-            Ok(v) => gui::run(v, args),
-            Err(e) => {
-                error!("Failed to create terminal emulator: {e}",);
-                return Err(e);
-            }
-        };
+    let res = match TerminalEmulator::new(&args.recording) {
+        Ok(v) => gui::run(v),
+        Err(e) => {
+            error!(
+                "Failed to create terminal emulator: {}",
+                error::backtraced_err(&e)
+            );
+            return;
+        }
+    };
 
     if let Err(e) = res {
         error!("Failed to run gui: {}", error::backtraced_err(&*e));
     }
-
-    Ok(())
 }

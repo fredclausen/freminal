@@ -6,18 +6,20 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-eframe = "0.29.1"
-# tar = "0.4.42"
-portable-pty = "0.8.1"
+eframe = "0.29.0"
+tar = "0.4.42"
+nix = { version = "0.29.0", default-features = false, features = [
+    "term",
+    "process",
+    "fs",
+    "ioctl",
+] }
+tempfile = "3.13.0"
 thiserror = "1.0.64"
 conv = "0.3.3"
 anyhow = "1.0.89"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tracing = "0.1.40"
-easy-cast = "0.5.2"
-path-clean = "1.0.1"
-tokio = { version = "1.40.0", features = ["full"] }
-futures = "0.3.31"
 
 [build-dependencies]
 tar = "0.4.42"

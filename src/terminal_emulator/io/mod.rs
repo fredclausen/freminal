@@ -3,24 +3,18 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-pub mod pty;
-use anyhow::Result;
-pub use pty::FreminalPtyInputOutput;
+mod pty;
+pub use pty::{CreatePtyIoError, FreminalPtyInputOutput};
 
-#[derive(Debug)]
-pub struct TerminalRead {
-    pub buf: [u8; 4096],
-    pub read: usize,
-}
+pub type TermIoErr = Box<dyn std::error::Error>;
 
-impl TerminalRead {
-    pub fn get_buffer(&self) -> &[u8] {
-        &self.buf[..self.read]
-    }
+pub enum ReadResponse {
+    Success(usize),
+    Empty,
 }
 
 pub trait FreminalTermInputOutput {
-    //fn read(&mut self);
-    // fn write(&mut self, buf: &[u8]) -> Result<usize, TermIoErr>;
-    fn set_win_size(&mut self, terminal_size: pty::TerminalSize) -> Result<()>;
+    fn read(&mut self, buf: &mut [u8]) -> Result<ReadResponse, TermIoErr>;
+    fn write(&mut self, buf: &[u8]) -> Result<usize, TermIoErr>;
+    fn set_win_size(&mut self, width: usize, height: usize) -> Result<(), TermIoErr>;
 }

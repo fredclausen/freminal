@@ -6,7 +6,6 @@ pub enum Mode {
     // https://vt100.net/docs/vt100-ug/chapter3.html
     Decckm,
     Decawm,
-    Keypad,
     BracketedPaste,
     Unknown(Vec<u8>),
 }
@@ -41,23 +40,10 @@ pub enum BracketedPaste {
     Enabled,
 }
 
-#[derive(Debug, Default)]
-pub enum Keypad {
-    #[default]
-    /// Keypad sends control codes
-    /// DECPAM
-    Numeric,
-    /// Keypad sends application codes
-    /// DECPNM
-    Application,
-}
-
-#[derive(Debug, Default)]
 pub struct TerminalModes {
     pub cursor_key: Decckm,
     pub autowrap: Decawm,
     pub bracketed_paste: BracketedPaste,
-    pub keypad: Keypad,
 }
 
 impl fmt::Debug for Mode {
@@ -65,7 +51,6 @@ impl fmt::Debug for Mode {
         match self {
             Self::Decckm => f.write_str("Decckm"),
             Self::Decawm => f.write_str("Decawm"),
-            Self::Keypad => f.write_str("Keypad"),
             Self::BracketedPaste => f.write_str("BracketedPasteMode"),
             Self::Unknown(params) => {
                 let params_s = std::str::from_utf8(params)
@@ -81,7 +66,6 @@ pub fn terminal_mode_from_params(params: &[u8]) -> Mode {
         // https://vt100.net/docs/vt510-rm/DECCKM.html
         b"?1" => Mode::Decckm,
         b"?7" => Mode::Decawm,
-        b"=" => Mode::Keypad,
         b"?2004" => Mode::BracketedPaste,
         _ => Mode::Unknown(params.to_vec()),
     }
