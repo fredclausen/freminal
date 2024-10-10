@@ -90,10 +90,10 @@ fn spawn_shell(terminfo_dir: &Path) -> Result<OwnedFd, SpawnShellError> {
                     .collect::<Vec<_>>();
 
                 // FIXME: Temporary workaround to avoid rendering issues
-                std::env::remove_var("PROMPT_COMMAND");
-                std::env::set_var("TERMINFO", terminfo_dir);
-                std::env::set_var("TERM", "freminal");
-                std::env::set_var("PS1", "$ ");
+                // std::env::remove_var("PROMPT_COMMAND");
+                // std::env::set_var("TERMINFO", terminfo_dir);
+                // std::env::set_var("TERM", "freminal");
+                // std::env::set_var("PS1", "$ ");
                 nix::unistd::execvp(shell_name, &args).map_err(SpawnShellErrorKind::Exec)?;
                 // Should never run
                 std::process::exit(1);

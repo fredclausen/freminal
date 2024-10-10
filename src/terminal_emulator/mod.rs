@@ -165,7 +165,7 @@ fn split_format_data_for_scrollback(
 pub struct CursorPos {
     pub x: usize,
     pub y: usize,
-    pub x_as_characters: usize,
+    // pub x_as_characters: usize,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
