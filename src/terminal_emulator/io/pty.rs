@@ -69,7 +69,7 @@ enum SpawnShellErrorKind {
 struct SpawnShellError(#[from] SpawnShellErrorKind);
 
 /// Spawn a shell in a child process and return the file descriptor used for I/O
-fn spawn_shell(terminfo_dir: &Path) -> Result<OwnedFd, SpawnShellError> {
+fn spawn_shell(_terminfo_dir: &Path) -> Result<OwnedFd, SpawnShellError> {
     unsafe {
         let res = nix::pty::forkpty(None, None).map_err(SpawnShellErrorKind::Fork)?;
         match res {

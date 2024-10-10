@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use std::{borrow::Cow, ops::Range};
+use std::ops::Range;
 use thiserror::Error;
 
 use super::{CursorPos, TerminalData};
