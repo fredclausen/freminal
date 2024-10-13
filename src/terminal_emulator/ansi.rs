@@ -529,6 +529,60 @@ mod test {
     }
 
     #[test]
+    fn test_set_cursor_pos() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x1b[1;1H");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::SetCursorPos {
+                x: Some(1),
+                y: Some(1)
+            }
+        );
+
+        let output = output_buffer.push(b"\x1b[;1H");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::SetCursorPos {
+                x: Some(1),
+                y: Some(1)
+            }
+        );
+
+        let output = output_buffer.push(b"\x1b[1;H");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::SetCursorPos {
+                x: Some(1),
+                y: Some(1)
+            }
+        );
+
+        let output = output_buffer.push(b"\x1b[H");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::SetCursorPos {
+                x: Some(1),
+                y: Some(1)
+            }
+        );
+
+        let output = output_buffer.push(b"\x1b[;H");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::SetCursorPos {
+                x: Some(1),
+                y: Some(1)
+            }
+        );
+    }
+
+    #[test]
     fn test_rel_move_up_parsing() {
         let mut output_buffer = FreminalAnsiParser::new();
         let output = output_buffer.push(b"\x1b[1A");
