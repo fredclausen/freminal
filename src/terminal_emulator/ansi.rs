@@ -729,4 +729,43 @@ mod test {
         let output = TerminalOutput::CursorReport;
         assert_eq!(format!("{output}"), "CursorReport");
     }
+
+    #[test]
+    fn test_osc_response() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x1b]0;test\x07");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::OscResponse(AnsiOscType::SetTitleBar("test".to_string()))
+        );
+
+        // test the FTCS
+        let output = output_buffer.push(b"\x1b]133;test\x07");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::OscResponse(AnsiOscType::Ftcs("test".to_string()))
+        );
+
+        // test the background color query
+        let output = output_buffer.push(b"\x1b]11;?\x07");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::OscResponse(AnsiOscType::RequestColorQueryBackground(
+                AnsiOscInternalType::Query
+            ))
+        );
+
+        // test the foreground color query
+        let output = output_buffer.push(b"\x1b]10;?\x07");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::OscResponse(AnsiOscType::RequestColorQueryForeground(
+                AnsiOscInternalType::Query
+            ))
+        );
+    }
 }
