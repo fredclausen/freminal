@@ -892,4 +892,20 @@ mod test {
 
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_verify_parser_state_internal_is_csi() {
+        let mut parser = FreminalAnsiParser::new();
+        let output = parser.push(b"\x1b[");
+        assert_eq!(output.len(), 0);
+        assert!(matches!(parser.inner, ParserInner::Csi(_)));
+    }
+
+    #[test]
+    fn test_verify_parser_state_internal_is_osc() {
+        let mut parser = FreminalAnsiParser::new();
+        let output = parser.push(b"\x1b]");
+        assert_eq!(output.len(), 0);
+        assert!(matches!(parser.inner, ParserInner::Osc(_)));
+    }
 }
