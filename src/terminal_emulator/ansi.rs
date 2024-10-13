@@ -873,4 +873,23 @@ mod test {
         assert_eq!(output.len(), 1);
         assert_eq!(output[0], TerminalOutput::InsertSpaces(10));
     }
+
+    #[test]
+    #[should_panic(expected = "parameter should always be valid utf8")]
+    fn test_parse_str_fail_on_invalid_utf8() {
+        // parse_param_as
+
+        // invalid utf8
+        let result: Result<Option<usize>, ()> = parse_param_as(b"\xff");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_str_fail_on_conversion() {
+        // string that should trigger the map_or_else
+
+        let result: Result<Option<bool>, ()> = parse_param_as(b"123");
+
+        assert!(result.is_err());
+    }
 }
