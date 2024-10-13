@@ -61,7 +61,6 @@ pub fn run_terminal(
             if amount_read == 0 {
                 continue;
             }
-            info!("read: {:?}", amount_read);
             let data = buf[..amount_read].to_vec();
 
             // if recording is some, write to the file
@@ -80,12 +79,6 @@ pub fn run_terminal(
     });
 
     {
-        // Obtain the writer.
-        // When the writer is dropped, EOF will be sent to
-        // the program that was spawned.
-        // It is important to take the writer even if you don't
-        // send anything to its stdin so that EOF can be
-        // generated, otherwise you risk deadlocking yourself.
         std::thread::spawn(move || {
             if cfg!(target_os = "macos") {
                 // macOS quirk: the child and reader must be started and
@@ -122,26 +115,6 @@ pub fn run_terminal(
             }
         });
     }
-
-    // // Wait for the child to complete
-    // println!("child status: {:?}", child.wait().unwrap());
-
-    // // Take care to drop the master after our processes are
-    // // done, as some platforms get unhappy if it is dropped
-    // // sooner than that.
-    // drop(pair.master);
-
-    // // Now wait for the output to be read by our reader thread
-    // let output = rx.recv().unwrap();
-
-    // // We print with escapes escaped because the windows conpty
-    // // implementation synthesizes title change escape sequences
-    // // in the output stream and it can be confusing to see those
-    // // printed out raw in another terminal.
-    // print!("output: ");
-    // for c in output.escape_debug() {
-    //     print!("{}", c);
-    // }
 
     Ok(())
 }
