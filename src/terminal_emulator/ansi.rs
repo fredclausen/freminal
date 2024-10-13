@@ -773,6 +773,22 @@ mod test {
     }
 
     #[test]
+    fn test_delete() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x1b[1P");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::Delete(1));
+
+        let output = output_buffer.push(b"\x1b[P");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::Delete(1));
+
+        let output = output_buffer.push(b"\x1b[10P");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::Delete(10));
+    }
+
+    #[test]
     fn test_insert_lines() {
         let mut output_buffer = FreminalAnsiParser::new();
         let output = output_buffer.push(b"\x1b[1L");
