@@ -908,4 +908,20 @@ mod test {
         assert_eq!(output.len(), 0);
         assert!(matches!(parser.inner, ParserInner::Osc(_)));
     }
+
+    #[test]
+    fn test_terminal_output_backspace() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x08");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::Backspace);
+    }
+
+    #[test]
+    fn test_terminal_output_bell() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x07");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::Bell);
+    }
 }
