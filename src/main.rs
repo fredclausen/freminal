@@ -15,11 +15,11 @@
 #[macro_use]
 extern crate tracing;
 
+// use smol_macros::main;
 use terminal_emulator::TerminalEmulator;
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-mod error;
 mod gui;
 mod terminal_emulator;
 
@@ -99,15 +99,12 @@ fn main() {
     let res = match TerminalEmulator::new(&args.recording) {
         Ok(v) => gui::run(v),
         Err(e) => {
-            error!(
-                "Failed to create terminal emulator: {}",
-                error::backtraced_err(&e)
-            );
+            error!("Failed to create terminal emulator: {}", e);
             return;
         }
     };
 
     if let Err(e) = res {
-        error!("Failed to run gui: {}", error::backtraced_err(&*e));
+        error!("Failed to run terminal emulator: {}", e);
     }
 }

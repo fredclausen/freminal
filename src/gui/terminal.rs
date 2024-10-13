@@ -3,7 +3,6 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::error::backtraced_err;
 use crate::terminal_emulator::{
     CursorPos, FontDecorations, FontWeight, FormatTag, FreminalTermInputOutput, TerminalColor,
     TerminalEmulator, TerminalInput,
@@ -48,7 +47,7 @@ fn control_key(key: Key) -> Option<Cow<'static, [TerminalInput]>> {
 
 fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     input: &InputState,
-    terminal_emulator: &mut TerminalEmulator<Io>,
+    terminal_emulator: &TerminalEmulator<Io>,
 ) {
     for event in &input.raw.events {
         let inputs: Cow<'static, [TerminalInput]> = match event {
@@ -137,10 +136,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
 
         for input in inputs.as_ref() {
             if let Err(e) = terminal_emulator.write(input) {
-                error!(
-                    "Failed to write input to terminal emulator: {}",
-                    backtraced_err(&*e)
-                );
+                error!("Failed to write input to terminal emulator: {}", e);
             }
         }
     }
@@ -502,7 +498,7 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                 |response: Result<egui::Response, std::str::Utf8Error>| match response {
                     Ok(v) => v.rect,
                     Err(e) => {
-                        error!("failed to add terminal data to ui: {}", backtraced_err(&e));
+                        error!("failed to add terminal data to ui: {}", e);
                         Rect::NOTHING
                     }
                 };

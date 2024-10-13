@@ -3,13 +3,10 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::{
-    error::backtraced_err,
-    terminal_emulator::{FreminalPtyInputOutput, TerminalEmulator},
-};
+use crate::terminal_emulator::{FreminalPtyInputOutput, TerminalEmulator};
+use anyhow::Result;
 use eframe::egui::{self, CentralPanel};
 use terminal::FreminalTerminalWidget;
-
 pub mod terminal;
 
 fn set_egui_options(ctx: &egui::Context) {
@@ -21,7 +18,7 @@ fn set_egui_options(ctx: &egui::Context) {
         options.zoom_with_keyboard = false;
     });
 
-    ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+    // ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
 }
 struct FreminalGui {
     terminal_emulator: TerminalEmulator<FreminalPtyInputOutput>,
@@ -51,7 +48,7 @@ impl eframe::App for FreminalGui {
                 .terminal_emulator
                 .set_win_size(width_chars, height_chars)
             {
-                error!("failed to set window size {}", backtraced_err(&*e));
+                error!("failed to set window size {e}");
             }
 
             self.terminal_widget.show(ui, &mut self.terminal_emulator);
