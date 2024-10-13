@@ -34,6 +34,8 @@ use format_tracker::FormatTracker;
 pub use io::{FreminalPtyInputOutput, FreminalTermInputOutput};
 use io::{FreminalTerminalSize, PtyRead, PtyWrite};
 
+use crate::Args;
+
 const fn char_to_ctrl_code(c: u8) -> u8 {
     // https://catern.com/posts/terminal_quirks.html
     // man ascii
@@ -341,11 +343,16 @@ pub const TERMINAL_WIDTH: usize = 50;
 pub const TERMINAL_HEIGHT: usize = 16;
 
 impl TerminalEmulator<FreminalPtyInputOutput> {
-    pub fn new(recording_path: &Option<String>) -> Result<Self> {
+    pub fn new(args: &Args) -> Result<Self> {
         let (write_tx, read_rx) = unbounded();
         let (pty_tx, pty_rx) = unbounded();
 
-        let io = FreminalPtyInputOutput::new(read_rx, pty_tx, recording_path.clone())?;
+        let io = FreminalPtyInputOutput::new(
+            read_rx,
+            pty_tx,
+            args.recording.clone(),
+            args.shell.clone(),
+        )?;
 
         if let Err(e) = write_tx.send(PtyWrite::Resize(FreminalTerminalSize {
             width: TERMINAL_WIDTH,
