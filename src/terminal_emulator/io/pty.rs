@@ -16,6 +16,7 @@ pub fn run_terminal(
     write_rx: Receiver<PtyWrite>,
     send_tx: Sender<PtyRead>,
     recording_path: Option<String>,
+    shell: Option<String>,
 ) -> Result<()> {
     info!("running pty");
     let pty_system = NativePtySystem::default();
@@ -29,7 +30,7 @@ pub fn run_terminal(
         })
         .unwrap();
 
-    let cmd = CommandBuilder::new_default_prog();
+    let cmd = shell.map_or_else(CommandBuilder::new_default_prog, CommandBuilder::new);
     let _child = pair.slave.spawn_command(cmd)?;
 
     // Release any handles owned by the slave: we don't need it now
@@ -126,8 +127,9 @@ impl FreminalPtyInputOutput {
         write_rx: Receiver<PtyWrite>,
         send_tx: Sender<PtyRead>,
         recording: Option<String>,
+        shell: Option<String>,
     ) -> Result<Self> {
-        run_terminal(write_rx, send_tx, recording)?;
+        run_terminal(write_rx, send_tx, recording, shell)?;
         info!("pty started");
         Ok(Self)
     }
