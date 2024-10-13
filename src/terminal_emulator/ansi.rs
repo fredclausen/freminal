@@ -771,4 +771,20 @@ mod test {
             ))
         );
     }
+
+    #[test]
+    fn test_insert_spaces() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x1b[1@");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::InsertSpaces(1));
+
+        let output = output_buffer.push(b"\x1b[@");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::InsertSpaces(1));
+
+        let output = output_buffer.push(b"\x1b[10@");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::InsertSpaces(10));
+    }
 }
