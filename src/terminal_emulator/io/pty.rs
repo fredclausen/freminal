@@ -3,73 +3,159 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use anyhow::{anyhow, Result};
-use futures::prelude::*;
-use portable_pty::{native_pty_system, CommandBuilder, PtySize};
+use std::io::Write;
 
-pub fn run_pty() -> Result<()> {
-    smol::block_on(async {
-        let pty_system = native_pty_system();
+use super::{FreminalTermInputOutput, PtyRead, PtyWrite};
+use anyhow::Result;
+use crossbeam_channel::{Receiver, Sender};
+use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
 
-        let pair = pty_system.openpty(PtySize {
+pub struct FreminalPtyInputOutput;
+
+pub fn run_terminal(
+    write_rx: Receiver<PtyWrite>,
+    send_tx: Sender<PtyRead>,
+    recording_path: Option<String>,
+) -> Result<()> {
+    info!("running pty");
+    let pty_system = NativePtySystem::default();
+
+    let pair = pty_system
+        .openpty(PtySize {
             rows: 24,
             cols: 80,
             pixel_width: 0,
             pixel_height: 0,
-        })?;
+        })
+        .unwrap();
 
-        let cmd = CommandBuilder::new("whoami");
+    let cmd = CommandBuilder::new_default_prog();
+    let _child = pair.slave.spawn_command(cmd)?;
 
-        // Move the slave to another thread to block and spawn a
-        // command.
-        // Note that this implicitly drops slave and closes out
-        // file handles which is important to avoid deadlock
-        // when waiting for the child process!
-        let slave = pair.slave;
-        let mut child = smol::unblock(move || slave.spawn_command(cmd)).await?;
+    // Release any handles owned by the slave: we don't need it now
+    // that we've spawned the child.
+    drop(pair.slave);
 
-        {
-            // Obtain the writer.
-            // When the writer is dropped, EOF will be sent to
-            // the program that was spawned.
-            // It is important to take the writer even if you don't
-            // send anything to its stdin so that EOF can be
-            // generated, otherwise you risk deadlocking yourself.
-            let writer = pair.master.take_writer()?;
+    // Read the output in another thread.
+    // This is important because it is easy to encounter a situation
+    // where read/write buffers fill and block either your process
+    // or the spawned process.
+    let mut reader = pair.master.try_clone_reader()?;
 
-            // Explicitly generate EOF
-            drop(writer);
-        }
-
-        println!(
-            "child status: {:?}",
-            smol::unblock(move || child
-                .wait()
-                .map_err(|e| anyhow!("waiting for child: {}", e)))
-            .await?
-        );
-
-        let reader = pair.master.try_clone_reader()?;
-
-        // Take care to drop the master after our processes are
-        // done, as some platforms get unhappy if it is dropped
-        // sooner than that.
-        drop(pair.master);
-
-        let mut lines = smol::io::BufReader::new(smol::Unblock::new(reader)).lines();
-        while let Some(line) = lines.next().await {
-            let line = line.map_err(|e| anyhow!("problem reading line: {}", e))?;
-            // We print with escapes escaped because the windows conpty
-            // implementation synthesizes title change escape sequences
-            // in the output stream and it can be confusing to see those
-            // printed out raw in another terminal.
-            print!("output: len={} ", line.len());
-            for c in line.escape_debug() {
-                print!("{}", c);
+    std::thread::spawn(move || {
+        let buf = &mut [0u8; 4096];
+        let mut recording = None;
+        // if recording path is some, open a file for writing
+        if let Some(path) = &recording_path {
+            recording = match std::fs::File::create(path) {
+                Ok(file) => Some(file),
+                Err(e) => {
+                    error!("Failed to create recording file: {e}");
+                    None
+                }
             }
-            println!();
         }
 
-        Ok(())
-    })
+        // Consume the output from the child
+        while let Ok(amount_read) = reader.read(buf) {
+            if amount_read == 0 {
+                continue;
+            }
+            info!("read: {:?}", amount_read);
+            let data = buf[..amount_read].to_vec();
+
+            // if recording is some, write to the file
+
+            if let Some(file) = &mut recording {
+                file.write_all(&data).unwrap();
+            }
+
+            send_tx
+                .send(PtyRead {
+                    buf: data,
+                    read_amount: amount_read,
+                })
+                .unwrap();
+        }
+    });
+
+    {
+        // Obtain the writer.
+        // When the writer is dropped, EOF will be sent to
+        // the program that was spawned.
+        // It is important to take the writer even if you don't
+        // send anything to its stdin so that EOF can be
+        // generated, otherwise you risk deadlocking yourself.
+        std::thread::spawn(move || {
+            if cfg!(target_os = "macos") {
+                // macOS quirk: the child and reader must be started and
+                // allowed a brief grace period to run before we allow
+                // the writer to drop. Otherwise, the data we send to
+                // the kernel to trigger EOF is interleaved with the
+                // data read by the reader! WTF!?
+                // This appears to be a race condition for very short
+                // lived processes on macOS.
+                // I'd love to find a more deterministic solution to
+                // this than sleeping.
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+
+            let mut writer = pair.master.take_writer().unwrap();
+
+            while let Ok(stuff_to_write) = write_rx.recv() {
+                match stuff_to_write {
+                    PtyWrite::Write(data) => {
+                        writer.write_all(&data).unwrap();
+                    }
+                    PtyWrite::Resize(size) => {
+                        let size: PtySize = match PtySize::try_from(size) {
+                            Ok(size) => size,
+                            Err(e) => {
+                                error!("failed to convert size {e}");
+                                continue;
+                            }
+                        };
+
+                        pair.master.resize(size).unwrap();
+                    }
+                }
+            }
+        });
+    }
+
+    // // Wait for the child to complete
+    // println!("child status: {:?}", child.wait().unwrap());
+
+    // // Take care to drop the master after our processes are
+    // // done, as some platforms get unhappy if it is dropped
+    // // sooner than that.
+    // drop(pair.master);
+
+    // // Now wait for the output to be read by our reader thread
+    // let output = rx.recv().unwrap();
+
+    // // We print with escapes escaped because the windows conpty
+    // // implementation synthesizes title change escape sequences
+    // // in the output stream and it can be confusing to see those
+    // // printed out raw in another terminal.
+    // print!("output: ");
+    // for c in output.escape_debug() {
+    //     print!("{}", c);
+    // }
+
+    Ok(())
+}
+
+impl FreminalTermInputOutput for FreminalPtyInputOutput {}
+
+impl FreminalPtyInputOutput {
+    pub fn new(
+        write_rx: Receiver<PtyWrite>,
+        send_tx: Sender<PtyRead>,
+        recording: Option<String>,
+    ) -> Result<Self> {
+        run_terminal(write_rx, send_tx, recording)?;
+        info!("pty started");
+        Ok(Self)
+    }
 }

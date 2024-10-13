@@ -7,16 +7,13 @@ edition = "2021"
 
 [dependencies]
 eframe = "0.29.1"
-tar = "0.4.42"
 portable-pty = "0.8.1"
 thiserror = "1.0.64"
 conv = "0.3.3"
 anyhow = "1.0.89"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tracing = "0.1.40"
-smol = "2.0.2"
-smol-macros = "0.1.1"
-futures = "0.3.31"
+crossbeam-channel = "0.5.13"
 
 [build-dependencies]
 tar = "0.4.42"

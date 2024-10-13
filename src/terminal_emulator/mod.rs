@@ -4,7 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use core::str;
-use std::{fmt, fs::File, io::Write};
+use std::fmt;
 
 mod ansi;
 mod buffer;
@@ -19,19 +19,20 @@ pub mod ansi_components {
 pub mod error;
 pub mod playback;
 
-use self::io::CreatePtyIoError;
-use crate::{error::backtraced_err, terminal_emulator::io::ReadResponse};
 use ansi::{FreminalAnsiParser, TerminalOutput};
 use ansi_components::{
     mode::{BracketedPaste, Decawm, Decckm, Mode, TerminalModes},
     osc::{AnsiOscInternalType, AnsiOscType},
     sgr::SelectGraphicRendition,
 };
+use anyhow::Result;
 use buffer::TerminalBufferHolder;
+use crossbeam_channel::unbounded;
 use eframe::egui::Color32;
 pub use format_tracker::FormatTag;
 use format_tracker::FormatTracker;
 pub use io::{FreminalPtyInputOutput, FreminalTermInputOutput};
+use io::{FreminalTerminalSize, PtyRead, PtyWrite};
 
 const fn char_to_ctrl_code(c: u8) -> u8 {
     // https://catern.com/posts/terminal_quirks.html
@@ -329,9 +330,10 @@ pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
     format_tracker: FormatTracker,
     cursor_state: CursorState,
     modes: TerminalModes,
-    io: Io,
+    _io: Io,
+    write_tx: crossbeam_channel::Sender<PtyWrite>,
+    pty_rx: crossbeam_channel::Receiver<PtyRead>,
     window_title: Option<String>,
-    recording: Option<File>,
     saved_color_state: Option<(TerminalColor, TerminalColor)>,
 }
 
@@ -339,23 +341,19 @@ pub const TERMINAL_WIDTH: usize = 50;
 pub const TERMINAL_HEIGHT: usize = 16;
 
 impl TerminalEmulator<FreminalPtyInputOutput> {
-    pub fn new(recording_path: &Option<String>) -> Result<Self, CreatePtyIoError> {
-        let mut io = FreminalPtyInputOutput::new()?;
-        let mut recording = None;
+    pub fn new(recording_path: &Option<String>) -> Result<Self> {
+        let (write_tx, read_rx) = unbounded();
+        let (pty_tx, pty_rx) = unbounded();
 
-        if let Err(e) = io.set_win_size(TERMINAL_WIDTH, TERMINAL_HEIGHT) {
-            error!("Failed to set initial window size: {}", backtraced_err(&*e));
-        }
+        let io = FreminalPtyInputOutput::new(read_rx, pty_tx, recording_path.clone())?;
 
-        // if recording path is some, open a file for writing
-        if let Some(path) = &recording_path {
-            recording = match std::fs::File::create(path) {
-                Ok(file) => Some(file),
-                Err(e) => {
-                    error!("Failed to create recording file: {}", backtraced_err(&e));
-                    None
-                }
-            }
+        if let Err(e) = write_tx.send(PtyWrite::Resize(FreminalTerminalSize {
+            width: TERMINAL_WIDTH,
+            height: TERMINAL_HEIGHT,
+            pixel_width: 0,
+            pixel_height: 0,
+        })) {
+            error!("Failed to send resize to pty: {e}");
         }
 
         let ret = Self {
@@ -374,9 +372,10 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
                 color: TerminalColor::Default,
                 background_color: TerminalColor::Black,
             },
-            io,
+            _io: io,
+            write_tx,
+            pty_rx,
             window_title: None,
-            recording,
             saved_color_state: None,
         };
         Ok(ret)
@@ -408,25 +407,25 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         self.cursor_state.pos = response.new_cursor_pos;
 
         if response.changed {
-            self.io.set_win_size(width_chars, height_chars)?;
+            warn!("Window size changed, pixel sizes not handled");
+            self.write_tx.send(PtyWrite::Resize(FreminalTerminalSize {
+                width: width_chars,
+                height: height_chars,
+                pixel_width: 0,
+                pixel_height: 0,
+            }))?;
         }
 
         Ok(())
     }
 
-    pub fn write(&mut self, to_write: &TerminalInput) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn write(&self, to_write: &TerminalInput) -> Result<(), Box<dyn std::error::Error>> {
         match to_write.to_payload(self.modes.cursor_key == Decckm::Application) {
             TerminalInputPayload::Single(c) => {
-                let mut written = 0;
-                while written == 0 {
-                    written = self.io.write(&[c])?;
-                }
+                self.write_tx.send(PtyWrite::Write(vec![c]))?;
             }
-            TerminalInputPayload::Many(mut to_write) => {
-                while !to_write.is_empty() {
-                    let written = self.io.write(to_write)?;
-                    to_write = &to_write[written..];
-                }
+            TerminalInputPayload::Many(to_write) => {
+                self.write_tx.send(PtyWrite::Write(to_write.to_vec()))?;
             }
         };
 
@@ -715,7 +714,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         }
     }
 
-    fn report_cursor_position(&mut self) {
+    fn report_cursor_position(&self) {
         let x = self.cursor_state.pos.x + 1;
         let y = self.cursor_state.pos.y + 1;
         let formatted_string = format!("\x1b[{y};{x}R");
@@ -763,30 +762,26 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     }
 
     pub fn read(&mut self) {
-        let mut buf = vec![0u8; 4096];
-        loop {
-            let read_size = match self.io.read(&mut buf) {
-                Ok(ReadResponse::Empty) => break,
-                Ok(ReadResponse::Success(v)) => v,
-                Err(e) => {
-                    error!("Failed to read from child process: {e}");
-                    break;
-                }
-            };
-
-            let incoming = &buf[0..read_size];
-
-            if let Some(file) = &mut self.recording {
-                let mut output = String::new();
-                // loop over the buffer and convert to a string representation of the number, separated by commas
-                for byte in incoming {
-                    output.push_str(&format!("{byte},"));
-                }
-                let _ = file.write_all(output.as_bytes());
-            }
-            //debug!("Incoming data: {:?}", std::str::from_utf8(incoming));
+        while let Ok(read) = self.pty_rx.try_recv() {
+            let incoming = &read.buf[0..read.read_amount];
             self.handle_incoming_data(incoming);
         }
+        // loop {
+        //     let read = self.pty_rx.try_recv();
+
+        //     let incoming = &buf[0..read_size];
+
+        //     if let Some(file) = &mut self.recording {
+        //         let mut output = String::new();
+        //         // loop over the buffer and convert to a string representation of the number, separated by commas
+        //         for byte in incoming {
+        //             output.push_str(&format!("{byte},"));
+        //         }
+        //         let _ = file.write_all(output.as_bytes());
+        //     }
+        //     //debug!("Incoming data: {:?}", std::str::from_utf8(incoming));
+        //     self.handle_incoming_data(incoming);
+        // }
     }
 
     pub fn data(&self) -> TerminalData<&[u8]> {
