@@ -269,7 +269,10 @@ impl FreminalAnsiParser {
 
 #[cfg(test)]
 mod test {
-    use crate::terminal_emulator::{ansi_components::csi::AnsiCsiParserState, TerminalColor};
+    use crate::terminal_emulator::{
+        ansi_components::{csi::AnsiCsiParserState, osc::AnsiOscInternalType},
+        TerminalColor,
+    };
 
     use super::*;
 
@@ -659,5 +662,71 @@ mod test {
                 x: Some(-10)
             }
         );
+    }
+
+    #[test]
+    fn test_fmt_display_terminal_output() {
+        let output = TerminalOutput::SetCursorPos {
+            x: Some(1),
+            y: Some(1),
+        };
+        assert_eq!(format!("{output}"), "SetCursorPos: x: Some(1), y: Some(1)");
+
+        let output = TerminalOutput::SetCursorPosRel {
+            x: Some(1),
+            y: Some(1),
+        };
+        assert_eq!(
+            format!("{output}"),
+            "SetCursorPosRel: x: Some(1), y: Some(1)"
+        );
+
+        let output = TerminalOutput::ClearForwards;
+        assert_eq!(format!("{output}"), "ClearForwards");
+
+        let output = TerminalOutput::ClearAll;
+        assert_eq!(format!("{output}"), "ClearAll");
+
+        let output = TerminalOutput::CarriageReturn;
+        assert_eq!(format!("{output}"), "CarriageReturn");
+
+        let output = TerminalOutput::ClearLineForwards;
+        assert_eq!(format!("{output}"), "ClearLineForwards");
+
+        let output = TerminalOutput::Newline;
+        assert_eq!(format!("{output}"), "Newline");
+
+        let output = TerminalOutput::Backspace;
+        assert_eq!(format!("{output}"), "Backspace");
+
+        let output = TerminalOutput::Bell;
+        assert_eq!(format!("{output}"), "Bell");
+
+        let output = TerminalOutput::InsertLines(1);
+        assert_eq!(format!("{output}"), "InsertLines(1)");
+
+        let output = TerminalOutput::Delete(1);
+        assert_eq!(format!("{output}"), "Delete(1)");
+
+        let output = TerminalOutput::Sgr(SelectGraphicRendition::Reset);
+        assert_eq!(format!("{output}"), "Sgr(Reset)");
+
+        let output = TerminalOutput::Data(b"test".to_vec());
+        assert_eq!(format!("{output}"), "Data(test)");
+
+        let output = TerminalOutput::SetMode(Mode::Decckm);
+        assert_eq!(format!("{output}"), "SetMode(Decckm)");
+
+        let output = TerminalOutput::ResetMode(Mode::Decckm);
+        assert_eq!(format!("{output}"), "ResetMode(Decckm)");
+
+        let output = TerminalOutput::InsertSpaces(1);
+        assert_eq!(format!("{output}"), "InsertSpaces(1)");
+
+        let output = TerminalOutput::OscResponse(AnsiOscType::SetTitleBar("test".to_string()));
+        assert_eq!(format!("{output}"), "OscResponse(SetTitleBar(\"test\"))");
+
+        let output = TerminalOutput::CursorReport;
+        assert_eq!(format!("{output}"), "CursorReport");
     }
 }
