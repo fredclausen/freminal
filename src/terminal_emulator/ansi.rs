@@ -728,6 +728,9 @@ mod test {
 
         let output = TerminalOutput::CursorReport;
         assert_eq!(format!("{output}"), "CursorReport");
+
+        let output = TerminalOutput::Invalid;
+        assert_eq!(format!("{output}"), "Invalid");
     }
 
     #[test]
