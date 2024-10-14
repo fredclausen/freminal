@@ -924,4 +924,12 @@ mod test {
         assert_eq!(output.len(), 1);
         assert_eq!(output[0], TerminalOutput::Bell);
     }
+
+    #[test]
+    fn test_invalid_inner_escape() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x1b_");
+        assert_eq!(output.len(), 0);
+        assert!(matches!(output_buffer.inner, ParserInner::Empty));
+    }
 }
