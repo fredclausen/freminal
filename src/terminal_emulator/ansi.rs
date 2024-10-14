@@ -37,6 +37,7 @@ pub enum TerminalOutput {
     OscResponse(AnsiOscType),
     CursorReport,
     Invalid,
+    Skipped,
 }
 
 // impl format display for TerminalOutput
@@ -69,6 +70,7 @@ impl std::fmt::Display for TerminalOutput {
             Self::OscResponse(n) => write!(f, "OscResponse({n})"),
             Self::Invalid => write!(f, "Invalid"),
             Self::CursorReport => write!(f, "CursorReport"),
+            Self::Skipped => write!(f, "Skipped"),
         }
     }
 }

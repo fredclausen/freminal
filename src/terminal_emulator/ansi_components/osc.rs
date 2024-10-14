@@ -50,6 +50,7 @@ impl From<Vec<Option<AnsiOscToken>>> for AnsiOscInternalType {
 #[derive(Eq, PartialEq, Debug)]
 enum OscTarget {
     TitleBar,
+    IconName,
     Background,
     Foreground,
     // https://iterm2.com/documentation-escape-codes.html
@@ -61,6 +62,7 @@ impl From<AnsiOscToken> for OscTarget {
     fn from(value: AnsiOscToken) -> Self {
         match value {
             AnsiOscToken::U8(0 | 2) => Self::TitleBar,
+            AnsiOscToken::U8(1) => Self::IconName,
             AnsiOscToken::U8(11) => Self::Background,
             AnsiOscToken::U8(10) => Self::Foreground,
             AnsiOscToken::U8(133) => Self::Ftcs,
@@ -198,6 +200,10 @@ impl AnsiOscParser {
                             output.push(TerminalOutput::OscResponse(AnsiOscType::Ftcs(
                                 osc_internal_type.to_string(),
                             )));
+                        }
+                        OscTarget::IconName => {
+                            warn!("IconName is not supported");
+                            output.push(TerminalOutput::Skipped);
                         }
                     }
                 } else {
