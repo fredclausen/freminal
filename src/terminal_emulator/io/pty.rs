@@ -67,7 +67,9 @@ pub fn run_terminal(
             // if recording is some, write to the file
 
             if let Some(file) = &mut recording {
-                file.write_all(&data).unwrap();
+                for byte in &data {
+                    file.write_all(format!("{byte},").as_bytes()).unwrap();
+                }
             }
 
             send_tx
