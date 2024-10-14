@@ -60,7 +60,7 @@ enum OscTarget {
 impl From<AnsiOscToken> for OscTarget {
     fn from(value: AnsiOscToken) -> Self {
         match value {
-            AnsiOscToken::U8(0) => Self::TitleBar,
+            AnsiOscToken::U8(0 | 2) => Self::TitleBar,
             AnsiOscToken::U8(11) => Self::Background,
             AnsiOscToken::U8(10) => Self::Foreground,
             AnsiOscToken::U8(133) => Self::Ftcs,
@@ -74,6 +74,8 @@ pub enum AnsiOscType {
     RequestColorQueryBackground(AnsiOscInternalType),
     RequestColorQueryForeground(AnsiOscInternalType),
     Ftcs(String),
+    // FIXME: We're handling 0 and 2 as just title bar for now
+    // if we go tabbed, we'll need to handle 2 differently
     SetTitleBar(String),
 }
 
