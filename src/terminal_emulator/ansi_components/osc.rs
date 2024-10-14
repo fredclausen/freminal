@@ -55,6 +55,7 @@ enum OscTarget {
     Foreground,
     // https://iterm2.com/documentation-escape-codes.html
     Ftcs,
+    RemoteHost,
     Unknown,
 }
 
@@ -63,6 +64,7 @@ impl From<AnsiOscToken> for OscTarget {
         match value {
             AnsiOscToken::U8(0 | 2) => Self::TitleBar,
             AnsiOscToken::U8(1) => Self::IconName,
+            AnsiOscToken::U8(7) => Self::RemoteHost,
             AnsiOscToken::U8(11) => Self::Background,
             AnsiOscToken::U8(10) => Self::Foreground,
             AnsiOscToken::U8(133) => Self::Ftcs,
@@ -203,6 +205,10 @@ impl AnsiOscParser {
                         }
                         OscTarget::IconName => {
                             warn!("IconName is not supported");
+                            output.push(TerminalOutput::Skipped);
+                        }
+                        OscTarget::RemoteHost => {
+                            warn!("RemoteHost is not supported");
                             output.push(TerminalOutput::Skipped);
                         }
                     }

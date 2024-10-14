@@ -787,6 +787,9 @@ mod test {
 
         let output = TerminalOutput::Invalid;
         assert_eq!(format!("{output}"), "Invalid");
+
+        let output = TerminalOutput::Skipped;
+        assert_eq!(format!("{output}"), "Skipped");
     }
 
     #[test]
