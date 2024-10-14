@@ -299,7 +299,8 @@ impl ReplayIo {
                 TerminalOutput::Bell
                 | TerminalOutput::Invalid
                 | TerminalOutput::OscResponse(_)
-                | TerminalOutput::CursorReport => (),
+                | TerminalOutput::CursorReport
+                | TerminalOutput::Skipped => (),
             }
         }
     }

@@ -764,6 +764,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 TerminalOutput::ResetMode(mode) => self.reset_mode(&mode),
                 TerminalOutput::OscResponse(osc) => self.osc_response(osc),
                 TerminalOutput::CursorReport => self.report_cursor_position(),
+                TerminalOutput::Skipped => (),
                 TerminalOutput::Bell | TerminalOutput::Invalid => {
                     info!("Unhandled terminal output: {segment:?}");
                 }
