@@ -271,7 +271,10 @@ impl FreminalAnsiParser {
 
 #[cfg(test)]
 mod test {
-    use crate::terminal_emulator::{ansi_components::csi::AnsiCsiParserState, TerminalColor};
+    use crate::terminal_emulator::{
+        ansi_components::{csi::AnsiCsiParserState, osc::AnsiOscInternalType},
+        TerminalColor,
+    };
 
     use super::*;
 
@@ -528,6 +531,60 @@ mod test {
     }
 
     #[test]
+    fn test_set_cursor_pos() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x1b[1;1H");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::SetCursorPos {
+                x: Some(1),
+                y: Some(1)
+            }
+        );
+
+        let output = output_buffer.push(b"\x1b[;1H");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::SetCursorPos {
+                x: Some(1),
+                y: Some(1)
+            }
+        );
+
+        let output = output_buffer.push(b"\x1b[1;H");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::SetCursorPos {
+                x: Some(1),
+                y: Some(1)
+            }
+        );
+
+        let output = output_buffer.push(b"\x1b[H");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::SetCursorPos {
+                x: Some(1),
+                y: Some(1)
+            }
+        );
+
+        let output = output_buffer.push(b"\x1b[;H");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::SetCursorPos {
+                x: Some(1),
+                y: Some(1)
+            }
+        );
+    }
+
+    #[test]
     fn test_rel_move_up_parsing() {
         let mut output_buffer = FreminalAnsiParser::new();
         let output = output_buffer.push(b"\x1b[1A");
@@ -661,5 +718,220 @@ mod test {
                 x: Some(-10)
             }
         );
+    }
+
+    #[test]
+    fn test_fmt_display_terminal_output() {
+        let output = TerminalOutput::SetCursorPos {
+            x: Some(1),
+            y: Some(1),
+        };
+        assert_eq!(format!("{output}"), "SetCursorPos: x: Some(1), y: Some(1)");
+
+        let output = TerminalOutput::SetCursorPosRel {
+            x: Some(1),
+            y: Some(1),
+        };
+        assert_eq!(
+            format!("{output}"),
+            "SetCursorPosRel: x: Some(1), y: Some(1)"
+        );
+
+        let output = TerminalOutput::ClearForwards;
+        assert_eq!(format!("{output}"), "ClearForwards");
+
+        let output = TerminalOutput::ClearAll;
+        assert_eq!(format!("{output}"), "ClearAll");
+
+        let output = TerminalOutput::CarriageReturn;
+        assert_eq!(format!("{output}"), "CarriageReturn");
+
+        let output = TerminalOutput::ClearLineForwards;
+        assert_eq!(format!("{output}"), "ClearLineForwards");
+
+        let output = TerminalOutput::Newline;
+        assert_eq!(format!("{output}"), "Newline");
+
+        let output = TerminalOutput::Backspace;
+        assert_eq!(format!("{output}"), "Backspace");
+
+        let output = TerminalOutput::Bell;
+        assert_eq!(format!("{output}"), "Bell");
+
+        let output = TerminalOutput::InsertLines(1);
+        assert_eq!(format!("{output}"), "InsertLines(1)");
+
+        let output = TerminalOutput::Delete(1);
+        assert_eq!(format!("{output}"), "Delete(1)");
+
+        let output = TerminalOutput::Sgr(SelectGraphicRendition::Reset);
+        assert_eq!(format!("{output}"), "Sgr(Reset)");
+
+        let output = TerminalOutput::Data(b"test".to_vec());
+        assert_eq!(format!("{output}"), "Data(test)");
+
+        let output = TerminalOutput::SetMode(Mode::Decckm);
+        assert_eq!(format!("{output}"), "SetMode(Decckm)");
+
+        let output = TerminalOutput::ResetMode(Mode::Decckm);
+        assert_eq!(format!("{output}"), "ResetMode(Decckm)");
+
+        let output = TerminalOutput::InsertSpaces(1);
+        assert_eq!(format!("{output}"), "InsertSpaces(1)");
+
+        let output = TerminalOutput::OscResponse(AnsiOscType::SetTitleBar("test".to_string()));
+        assert_eq!(format!("{output}"), "OscResponse(SetTitleBar(\"test\"))");
+
+        let output = TerminalOutput::CursorReport;
+        assert_eq!(format!("{output}"), "CursorReport");
+
+        let output = TerminalOutput::Invalid;
+        assert_eq!(format!("{output}"), "Invalid");
+    }
+
+    #[test]
+    fn test_osc_response() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x1b]0;test\x07");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::OscResponse(AnsiOscType::SetTitleBar("test".to_string()))
+        );
+
+        // test the FTCS
+        let output = output_buffer.push(b"\x1b]133;test\x07");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::OscResponse(AnsiOscType::Ftcs("test".to_string()))
+        );
+
+        // test the background color query
+        let output = output_buffer.push(b"\x1b]11;?\x07");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::OscResponse(AnsiOscType::RequestColorQueryBackground(
+                AnsiOscInternalType::Query
+            ))
+        );
+
+        // test the foreground color query
+        let output = output_buffer.push(b"\x1b]10;?\x07");
+        assert_eq!(output.len(), 1);
+        assert_eq!(
+            output[0],
+            TerminalOutput::OscResponse(AnsiOscType::RequestColorQueryForeground(
+                AnsiOscInternalType::Query
+            ))
+        );
+    }
+
+    #[test]
+    fn test_delete() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x1b[1P");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::Delete(1));
+
+        let output = output_buffer.push(b"\x1b[P");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::Delete(1));
+
+        let output = output_buffer.push(b"\x1b[10P");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::Delete(10));
+    }
+
+    #[test]
+    fn test_insert_lines() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x1b[1L");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::InsertLines(1));
+
+        let output = output_buffer.push(b"\x1b[L");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::InsertLines(1));
+
+        let output = output_buffer.push(b"\x1b[10L");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::InsertLines(10));
+    }
+
+    #[test]
+    fn test_insert_spaces() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x1b[1@");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::InsertSpaces(1));
+
+        let output = output_buffer.push(b"\x1b[@");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::InsertSpaces(1));
+
+        let output = output_buffer.push(b"\x1b[10@");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::InsertSpaces(10));
+    }
+
+    #[test]
+    #[should_panic(expected = "parameter should always be valid utf8")]
+    fn test_parse_str_fail_on_invalid_utf8() {
+        // parse_param_as
+
+        // invalid utf8
+        let result: Result<Option<usize>, ()> = parse_param_as(b"\xff");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_str_fail_on_conversion() {
+        // string that should trigger the map_or_else
+
+        let result: Result<Option<bool>, ()> = parse_param_as(b"123");
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_verify_parser_state_internal_is_csi() {
+        let mut parser = FreminalAnsiParser::new();
+        let output = parser.push(b"\x1b[");
+        assert_eq!(output.len(), 0);
+        assert!(matches!(parser.inner, ParserInner::Csi(_)));
+    }
+
+    #[test]
+    fn test_verify_parser_state_internal_is_osc() {
+        let mut parser = FreminalAnsiParser::new();
+        let output = parser.push(b"\x1b]");
+        assert_eq!(output.len(), 0);
+        assert!(matches!(parser.inner, ParserInner::Osc(_)));
+    }
+
+    #[test]
+    fn test_terminal_output_backspace() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x08");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::Backspace);
+    }
+
+    #[test]
+    fn test_terminal_output_bell() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x07");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::Bell);
+    }
+
+    #[test]
+    fn test_invalid_inner_escape() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x1b_");
+        assert_eq!(output.len(), 0);
+        assert!(matches!(output_buffer.inner, ParserInner::Empty));
     }
 }

@@ -516,6 +516,9 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     fn backspace(&mut self) {
         if self.cursor_state.pos.x >= 1 {
             self.cursor_state.pos.x -= 1;
+        } else {
+            // FIXME: this is not correct, we should move to the end of the previous line
+            warn!("FIXME: Backspace at the beginning of the line. Not wrapping");
         }
     }
 

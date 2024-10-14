@@ -16,14 +16,14 @@ jobs:
       RUSTDOCFLAGS: -Cpanic=abort
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4.2.1
+      - uses: actions-rs/toolchain@v1.0.6
         with:
           profile: minimal
           toolchain: nightly
           override: true
       - name: Cache dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v4.1.1
         env:
           cache-name: cache-dependencies
         with:
