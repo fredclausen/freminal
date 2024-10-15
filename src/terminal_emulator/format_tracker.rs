@@ -3,7 +3,9 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use super::{CursorState, FontDecorations, FontWeight, TerminalColor};
+use super::{
+    ansi_components::mode::Decawm, CursorState, FontDecorations, FontWeight, TerminalColor,
+};
 use std::ops::Range;
 
 const fn ranges_overlap(a: Range<usize>, b: Range<usize>) -> bool {
@@ -55,6 +57,7 @@ fn adjust_existing_format_range(
                 background_color: existing_elem.background_color,
                 font_weight: existing_elem.font_weight.clone(),
                 font_decorations: existing_elem.font_decorations.clone(),
+                line_wrap_mode: existing_elem.line_wrap_mode.clone(),
             });
         }
 
@@ -124,6 +127,7 @@ pub struct FormatTag {
     pub background_color: TerminalColor,
     pub font_weight: FontWeight,
     pub font_decorations: Vec<FontDecorations>,
+    pub line_wrap_mode: Decawm,
 }
 
 pub struct FormatTracker {
@@ -140,6 +144,7 @@ impl FormatTracker {
                 background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
+                line_wrap_mode: Decawm::default(),
             }],
         }
     }
@@ -154,6 +159,7 @@ impl FormatTracker {
             background_color: cursor.background_color,
             font_weight: cursor.font_weight.clone(),
             font_decorations: cursor.font_decorations.clone(),
+            line_wrap_mode: cursor.line_wrap_mode.clone(),
         });
 
         // FIXME: Insertion sort
@@ -247,6 +253,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 3,
@@ -255,6 +262,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 10,
@@ -263,6 +271,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
             ]
         );
@@ -280,6 +289,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 3,
@@ -288,6 +298,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 5,
@@ -296,6 +307,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 7,
@@ -304,6 +316,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 10,
@@ -312,6 +325,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
             ]
         );
@@ -329,6 +343,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 3,
@@ -337,6 +352,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 5,
@@ -345,6 +361,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 7,
@@ -353,6 +370,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 9,
@@ -361,6 +379,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 10,
@@ -369,6 +388,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
             ]
         );
@@ -386,6 +406,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 3,
@@ -394,6 +415,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 5,
@@ -402,6 +424,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 6,
@@ -410,6 +433,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Bold,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 11,
@@ -418,6 +442,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
             ]
         );
@@ -466,6 +491,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 8,
@@ -474,6 +500,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 18,
@@ -482,6 +509,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 }
             ]
         );
@@ -498,6 +526,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 6,
@@ -506,6 +535,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 16,
@@ -514,6 +544,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 }
             ]
         );
@@ -530,6 +561,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 4,
@@ -538,6 +570,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 14,
@@ -546,6 +579,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 }
             ]
         );
@@ -562,6 +596,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 2,
@@ -570,6 +605,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 9,
@@ -578,6 +614,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 }
             ]
         );
@@ -615,6 +652,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 5,
@@ -623,6 +661,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 10,
@@ -631,6 +670,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
             ]
         );
@@ -647,6 +687,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 8,
@@ -655,6 +696,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 13,
@@ -663,6 +705,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
             ]
         );
@@ -679,6 +722,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 8,
@@ -687,6 +731,7 @@ mod test {
                     background_color: TerminalColor::DefaultBackground,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 15,
@@ -695,6 +740,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
             ]
         );

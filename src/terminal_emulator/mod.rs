@@ -193,6 +193,7 @@ struct CursorState {
     font_decorations: Vec<FontDecorations>,
     color: TerminalColor,
     background_color: TerminalColor,
+    line_wrap_mode: Decawm,
 }
 
 impl Default for CursorState {
@@ -203,6 +204,7 @@ impl Default for CursorState {
             font_decorations: Vec::new(),
             color: TerminalColor::Default,
             background_color: TerminalColor::DefaultBackground,
+            line_wrap_mode: Decawm::default(),
         }
     }
 }
@@ -369,7 +371,6 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             format_tracker: FormatTracker::new(),
             modes: TerminalModes {
                 cursor_key: Decckm::default(),
-                autowrap: Decawm::default(),
                 bracketed_paste: BracketedPaste::default(),
             },
             cursor_state: CursorState {
@@ -378,6 +379,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
                 font_decorations: Vec::new(),
                 color: TerminalColor::Default,
                 background_color: TerminalColor::Black,
+                line_wrap_mode: Decawm::default(),
             },
             _io: io,
             write_tx,
@@ -623,8 +625,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 self.modes.cursor_key = Decckm::Application;
             }
             Mode::Decawm => {
-                warn!("Decawm Set is not supported");
-                self.modes.autowrap = Decawm::AutoWrap;
+                self.cursor_state.line_wrap_mode = Decawm::AutoWrap;
             }
             Mode::BracketedPaste => {
                 warn!("BracketedPaste Set is not supported");
@@ -650,8 +651,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 self.modes.cursor_key = Decckm::Ansi;
             }
             Mode::Decawm => {
-                warn!("Decawm Reset is not supported");
-                self.modes.autowrap = Decawm::NoAutoWrap;
+                self.cursor_state.line_wrap_mode = Decawm::NoAutoWrap;
             }
             Mode::BracketedPaste => {
                 warn!("BracketedPaste Reset is not supported");
@@ -827,6 +827,7 @@ mod test {
                 background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
+                line_wrap_mode: Decawm::default(),
             },
             FormatTag {
                 start: 5,
@@ -835,6 +836,7 @@ mod test {
                 background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
+                line_wrap_mode: Decawm::default(),
             },
             FormatTag {
                 start: 7,
@@ -843,6 +845,7 @@ mod test {
                 background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
+                line_wrap_mode: Decawm::default(),
             },
             FormatTag {
                 start: 10,
@@ -851,6 +854,7 @@ mod test {
                 background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
+                line_wrap_mode: Decawm::default(),
             },
         ]
     }
@@ -870,6 +874,7 @@ mod test {
                 background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
+                line_wrap_mode: Decawm::default(),
             },]
         );
     }
@@ -890,6 +895,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 5,
@@ -898,6 +904,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 7,
@@ -906,6 +913,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
             ]
         );
@@ -920,6 +928,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 1,
@@ -928,6 +937,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
             ]
         );

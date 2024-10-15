@@ -36,10 +36,10 @@ impl ReplayIo {
                 font_decorations: Vec::new(),
                 color: TerminalColor::Default,
                 background_color: TerminalColor::DefaultBackground,
+                line_wrap_mode: Decawm::default(),
             },
             modes: TerminalModes {
                 cursor_key: Decckm::default(),
-                autowrap: Decawm::default(),
                 bracketed_paste: BracketedPaste::default(),
             },
             saved_color_state: None,
@@ -243,7 +243,7 @@ impl ReplayIo {
                 self.modes.cursor_key = Decckm::Application;
             }
             Mode::Decawm => {
-                self.modes.autowrap = Decawm::AutoWrap;
+                self.cursor_state.line_wrap_mode = Decawm::AutoWrap;
             }
             Mode::BracketedPaste => {
                 self.modes.bracketed_paste = BracketedPaste::Enabled;
@@ -268,7 +268,7 @@ impl ReplayIo {
                 self.modes.cursor_key = Decckm::Ansi;
             }
             Mode::Decawm => {
-                self.modes.autowrap = Decawm::NoAutoWrap;
+                self.cursor_state.line_wrap_mode = Decawm::NoAutoWrap;
             }
             Mode::BracketedPaste => {
                 self.modes.bracketed_paste = BracketedPaste::Disabled;
