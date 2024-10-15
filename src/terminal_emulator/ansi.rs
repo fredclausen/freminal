@@ -26,6 +26,8 @@ pub enum TerminalOutput {
     Newline,
     Backspace,
     Bell,
+    ApplicationKeypadMode,
+    NormalKeypadMode,
     InsertLines(usize),
     Delete(usize),
     Sgr(SelectGraphicRendition),
@@ -71,6 +73,8 @@ impl std::fmt::Display for TerminalOutput {
             Self::Invalid => write!(f, "Invalid"),
             Self::CursorReport => write!(f, "CursorReport"),
             Self::Skipped => write!(f, "Skipped"),
+            Self::ApplicationKeypadMode => write!(f, "ApplicationKeypadMode"),
+            Self::NormalKeypadMode => write!(f, "NormalKeypadMode"),
         }
     }
 }
@@ -181,15 +185,31 @@ impl FreminalAnsiParser {
     ) -> Result<()> {
         push_data_if_non_empty(data_output, output);
 
-        if b == b'[' {
-            self.inner = ParserInner::Csi(AnsiCsiParser::new());
-        } else if b == b']' {
-            self.inner = ParserInner::Osc(AnsiOscParser::new());
-        } else {
-            error!("Unhandled escape sequence {b:x}");
-            self.inner = ParserInner::Empty;
+        match b {
+            b'[' => {
+                self.inner = ParserInner::Csi(AnsiCsiParser::new());
+            }
+            b']' => {
+                self.inner = ParserInner::Osc(AnsiOscParser::new());
+            }
+            b'=' => {
+                self.inner = ParserInner::Empty;
+                output.push(TerminalOutput::ApplicationKeypadMode);
+            }
+            b'>' => {
+                self.inner = ParserInner::Empty;
+                output.push(TerminalOutput::NormalKeypadMode);
+            }
+            _ => {
+                let char_decoded = b as char;
+                error!(
+                    "Unhandled escape sequence {b:x}/{b}/{char_decoded} Internal parser state: {:?}",
+                    self.inner
+                );
+                self.inner = ParserInner::Empty;
 
-            return Err(ParserFailures::UnhandledInnerEscape(format!("{b:x}")).into());
+                return Err(ParserFailures::UnhandledInnerEscape(format!("{b:x}")).into());
+            }
         }
 
         Ok(())
@@ -790,6 +810,12 @@ mod test {
 
         let output = TerminalOutput::Skipped;
         assert_eq!(format!("{output}"), "Skipped");
+
+        let output = TerminalOutput::ApplicationKeypadMode;
+        assert_eq!(format!("{output}"), "ApplicationKeypadMode");
+
+        let output = TerminalOutput::NormalKeypadMode;
+        assert_eq!(format!("{output}"), "NormalKeypadMode");
     }
 
     #[test]
@@ -912,6 +938,22 @@ mod test {
         let output = parser.push(b"\x1b]");
         assert_eq!(output.len(), 0);
         assert!(matches!(parser.inner, ParserInner::Osc(_)));
+    }
+
+    #[test]
+    fn test_application_keypad_support_mode() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x1b=");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::ApplicationKeypadMode);
+    }
+
+    #[test]
+    fn test_normal_keypad_support_mode() {
+        let mut output_buffer = FreminalAnsiParser::new();
+        let output = output_buffer.push(b"\x1b>");
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], TerminalOutput::NormalKeypadMode);
     }
 
     #[test]

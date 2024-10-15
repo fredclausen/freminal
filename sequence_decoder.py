@@ -51,7 +51,6 @@ decoded_characters = []
 for number in sequence:
     decoded_characters.append(chr(number))
 
-
 # join the decoded characters into a string
 decoded_string = "".join(decoded_characters)
 
