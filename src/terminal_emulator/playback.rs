@@ -300,7 +300,9 @@ impl ReplayIo {
                 | TerminalOutput::Invalid
                 | TerminalOutput::OscResponse(_)
                 | TerminalOutput::CursorReport
-                | TerminalOutput::Skipped => (),
+                | TerminalOutput::Skipped
+                | TerminalOutput::ApplicationKeypadMode
+                | TerminalOutput::NormalKeypadMode => (),
             }
         }
     }

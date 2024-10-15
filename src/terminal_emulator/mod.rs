@@ -627,6 +627,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 self.modes.autowrap = Decawm::AutoWrap;
             }
             Mode::BracketedPaste => {
+                warn!("BracketedPaste Set is not supported");
                 self.modes.bracketed_paste = BracketedPaste::Enabled;
             }
             Mode::Unknown(_) => {
@@ -653,6 +654,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 self.modes.autowrap = Decawm::NoAutoWrap;
             }
             Mode::BracketedPaste => {
+                warn!("BracketedPaste Reset is not supported");
                 self.modes.bracketed_paste = BracketedPaste::Disabled;
             }
             Mode::Unknown(_) => {}
@@ -765,7 +767,10 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 TerminalOutput::OscResponse(osc) => self.osc_response(osc),
                 TerminalOutput::CursorReport => self.report_cursor_position(),
                 TerminalOutput::Skipped => (),
-                TerminalOutput::Bell | TerminalOutput::Invalid => {
+                TerminalOutput::Bell
+                | TerminalOutput::Invalid
+                | TerminalOutput::ApplicationKeypadMode
+                | TerminalOutput::NormalKeypadMode => {
                     info!("Unhandled terminal output: {segment:?}");
                 }
             }
