@@ -409,6 +409,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         &mut self,
         width_chars: usize,
         height_chars: usize,
+        font_pixel_width: usize,
+        font_pixel_height: usize,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let response =
             self.terminal_buffer
@@ -420,8 +422,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             self.write_tx.send(PtyWrite::Resize(FreminalTerminalSize {
                 width: width_chars,
                 height: height_chars,
-                pixel_width: 0,
-                pixel_height: 0,
+                pixel_width: font_pixel_width,
+                pixel_height: font_pixel_height,
             }))?;
         }
 

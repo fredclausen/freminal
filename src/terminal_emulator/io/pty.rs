@@ -112,6 +112,8 @@ pub fn run_terminal(
                             }
                         };
 
+                        debug!("resizing pty to {size:?}");
+
                         pair.master.resize(size).unwrap();
                     }
                 }

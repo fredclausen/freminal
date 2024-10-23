@@ -6,7 +6,7 @@
 use crate::terminal_emulator::{FreminalPtyInputOutput, TerminalEmulator};
 use anyhow::Result;
 use eframe::egui::{self, CentralPanel};
-use terminal::FreminalTerminalWidget;
+use terminal::{get_char_size, FreminalTerminalWidget};
 pub mod terminal;
 
 fn set_egui_options(ctx: &egui::Context) {
@@ -43,11 +43,22 @@ impl eframe::App for FreminalGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let panel_response = CentralPanel::default().show(ctx, |ui| {
             let (width_chars, height_chars) = self.terminal_widget.calculate_available_size(ui);
+            let (font_width, font_height) =
+                get_char_size(ui.ctx(), self.terminal_widget.get_font_size());
+            //FIXME: I know the value for font_width and font_height is going to fit within the usize range
+            // Shut up clippy lint for now
+            // but I want to idoimatically convert it to usize
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let font_width = font_width.round() as usize;
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let font_height = font_height.round() as usize;
 
-            if let Err(e) = self
-                .terminal_emulator
-                .set_win_size(width_chars, height_chars)
-            {
+            if let Err(e) = self.terminal_emulator.set_win_size(
+                width_chars,
+                height_chars,
+                font_width,
+                font_height,
+            ) {
                 error!("failed to set window size {e}");
             }
 
