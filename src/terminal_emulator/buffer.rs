@@ -5,8 +5,9 @@
 
 use std::ops::Range;
 use thiserror::Error;
+use unicode_segmentation::UnicodeSegmentation;
 
-use super::{CursorPos, TerminalData};
+use super::{term_char::TChar, CursorPos, TerminalData};
 
 /// Calculate the indexes of the start and end of each line in the buffer given an input width.
 /// Ranges do not include newlines. If a newline appears past the width, it does not result in an
@@ -17,13 +18,13 @@ use super::{CursorPos, TerminalData};
 /// let ranges = calc_line_ranges(b"12\n1234\n12345", 4);
 /// assert_eq!(ranges, [0..2, 3..7, 8..11, 12..13]);
 /// ```
-fn calc_line_ranges(buf: &[u8], width: usize) -> Vec<Range<usize>> {
+fn calc_line_ranges(buf: &[TChar], width: usize) -> Vec<Range<usize>> {
     let mut ret = vec![];
 
     let mut current_start = 0;
 
     for (i, c) in buf.iter().enumerate() {
-        if *c == b'\n' {
+        if *c == TChar::NewLine {
             ret.push(current_start..i);
             current_start = i + 1;
             continue;
@@ -52,7 +53,7 @@ struct InvalidBufPos {
 }
 
 fn buf_to_cursor_pos(
-    buf: &[u8],
+    buf: &[TChar],
     width: usize,
     height: usize,
     buf_pos: usize,
@@ -81,12 +82,12 @@ fn buf_to_cursor_pos(
     })
 }
 
-fn unwrapped_line_end_pos(buf: &[u8], start_pos: usize) -> usize {
+fn unwrapped_line_end_pos(buf: &[TChar], start_pos: usize) -> usize {
     buf.iter()
         .enumerate()
         .skip(start_pos)
         .find_map(|(i, c)| match *c {
-            b'\n' => Some(i),
+            TChar::NewLine => Some(i),
             _ => None,
         })
         .unwrap_or(buf.len())
@@ -114,7 +115,7 @@ struct PadBufferForWriteResponse {
 }
 
 fn pad_buffer_for_write(
-    buf: &mut Vec<u8>,
+    buf: &mut Vec<TChar>,
     width: usize,
     height: usize,
     cursor_pos: &CursorPos,
@@ -141,7 +142,7 @@ fn pad_buffer_for_write(
     }
 
     for _ in 0..vertical_padding_needed {
-        buf.push(b'\n');
+        buf.push(TChar::NewLine);
         let newline_pos = buf.len() - 1;
         visible_line_ranges.push(newline_pos..newline_pos);
     }
@@ -172,7 +173,7 @@ fn pad_buffer_for_write(
     num_inserted_characters += number_of_spaces;
 
     for i in 0..number_of_spaces {
-        buf.insert(actual_end + i, b' ');
+        buf.insert(actual_end + i, TChar::Space);
     }
 
     let start_buf_pos =
@@ -199,7 +200,7 @@ fn cursor_to_buf_pos_from_visible_line_ranges(
 }
 
 fn cursor_to_buf_pos(
-    buf: &[u8],
+    buf: &[TChar],
     cursor_pos: &CursorPos,
     width: usize,
     height: usize,
@@ -236,7 +237,7 @@ pub struct TerminalBufferSetWinSizeResponse {
 
 #[derive(Eq, PartialEq, Debug)]
 pub struct TerminalBufferHolder {
-    buf: Vec<u8>,
+    buf: Vec<TChar>,
     width: usize,
     height: usize,
 }
@@ -255,6 +256,27 @@ impl TerminalBufferHolder {
         cursor_pos: &CursorPos,
         data: &[u8],
     ) -> TerminalBufferInsertResponse {
+        let data_converted_to_string =
+            String::from_utf8(data.to_vec()).expect("data should be valid utf8");
+
+        // loop through all of the characters
+        // if the character is utf8, then we need all of the bytes to be written
+
+        let graphemes = data_converted_to_string
+            .graphemes(true)
+            .collect::<Vec<&str>>();
+
+        let converted_buffer = graphemes
+            .iter()
+            .map(|s| {
+                if s.len() == 1 {
+                    TChar::new_from_single_char(s.as_bytes()[0])
+                } else {
+                    TChar::new_from_many_chars(s.as_bytes().to_vec())
+                }
+            })
+            .collect::<Vec<TChar>>();
+
         let PadBufferForWriteResponse {
             write_idx,
             inserted_padding,
@@ -263,10 +285,12 @@ impl TerminalBufferHolder {
             self.width,
             self.height,
             cursor_pos,
-            data.len(),
+            graphemes.len(),
         );
-        let write_range = write_idx..write_idx + data.len();
-        self.buf[write_range.clone()].copy_from_slice(data);
+        let write_range = write_idx..write_idx + graphemes.len();
+        //self.buf[write_range.clone()].copy_from_slice(data);
+        self.buf
+            .splice(write_range.clone(), converted_buffer.iter().cloned());
         let new_cursor_pos = buf_to_cursor_pos(&self.buf, self.width, self.height, write_range.end)
             .expect("write range should be valid in buf");
         TerminalBufferInsertResponse {
@@ -295,9 +319,11 @@ impl TerminalBufferHolder {
 
             // NOTE: We do the overwrite first so we don't have to worry about adjusting
             // indices for the newly inserted data
-            self.buf[buf_pos..buf_pos + num_overwritten].fill(b' ');
-            self.buf
-                .splice(buf_pos..buf_pos, std::iter::repeat(b' ').take(num_inserted));
+            self.buf[buf_pos..buf_pos + num_overwritten].fill(TChar::Space);
+            self.buf.splice(
+                buf_pos..buf_pos,
+                std::iter::repeat(TChar::Space).take(num_inserted),
+            );
 
             let used_spaces = num_inserted + num_overwritten;
             TerminalBufferInsertResponse {
@@ -362,13 +388,13 @@ impl TerminalBufferHolder {
         // Edge case, if the previous line ended in a line wrap, inserting a new line will not
         // result in an extra line being shown on screen. E.g. with a width of 5, 01234 and 01234\n
         // both look like a line of length 5. In this case we need to add another newline
-        if insertion_pos > 0 && self.buf[insertion_pos - 1] != b'\n' {
+        if insertion_pos > 0 && self.buf[insertion_pos - 1] != TChar::NewLine {
             num_lines += 1;
         }
 
         self.buf.splice(
             insertion_pos..insertion_pos,
-            std::iter::repeat(b'\n').take(num_lines),
+            std::iter::repeat(TChar::NewLine).take(num_lines),
         );
 
         TerminalBufferInsertLineResponse {
@@ -384,7 +410,7 @@ impl TerminalBufferHolder {
         let (buf_pos, _) =
             cursor_to_buf_pos_from_visible_line_ranges(cursor_pos, visible_line_ranges)?;
 
-        let previous_last_char = self.buf[buf_pos];
+        let previous_last_char = self.buf[buf_pos].clone();
         self.buf.truncate(buf_pos);
 
         // If we truncate at the start of a line, and the previous line did not end with a newline,
@@ -395,15 +421,15 @@ impl TerminalBufferHolder {
         // to compensate
         //
         // If we truncated a newline it's the same situation
-        if cursor_pos.x == 0 && buf_pos > 0 && self.buf[buf_pos - 1] != b'\n'
-            || previous_last_char == b'\n'
+        if cursor_pos.x == 0 && buf_pos > 0 && self.buf[buf_pos - 1] != TChar::NewLine
+            || previous_last_char == TChar::NewLine
         {
-            self.buf.push(b'\n');
+            self.buf.push(TChar::NewLine);
         }
 
         for line in visible_line_ranges {
             if line.end > buf_pos {
-                self.buf.push(b'\n');
+                self.buf.push(TChar::NewLine);
             }
         }
 
@@ -448,8 +474,10 @@ impl TerminalBufferHolder {
 
         let mut delete_range = buf_pos..buf_pos + num_chars;
 
-        if delete_range.end > line_range.end && self.buf.get(line_range.end) != Some(&b'\n') {
-            self.buf.insert(line_range.end, b'\n');
+        if delete_range.end > line_range.end
+            && self.buf.get(line_range.end) != Some(&TChar::NewLine)
+        {
+            self.buf.insert(line_range.end, TChar::NewLine);
         }
 
         delete_range.end = line_range.end.min(delete_range.end);
@@ -458,7 +486,7 @@ impl TerminalBufferHolder {
         Some(delete_range)
     }
 
-    pub fn data(&self) -> TerminalData<&[u8]> {
+    pub fn data(&self) -> TerminalData<&[TChar]> {
         let line_ranges = calc_line_ranges(&self.buf, self.width);
         let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, self.height);
         if self.buf.is_empty() {
@@ -467,6 +495,7 @@ impl TerminalBufferHolder {
                 visible: &self.buf,
             };
         }
+
         let start = visible_line_ranges[0].start;
         TerminalData {
             scrollback: &self.buf[0..start],
@@ -538,18 +567,67 @@ mod test {
     }
 
     #[test]
+    fn test_insert_utf8_data() {
+        let mut buffer = TerminalBufferHolder::new(10, 10);
+        let response = buffer.insert_data(&CursorPos { x: 0, y: 0 }, b"asdf");
+        assert_eq!(response.written_range, 0..4);
+        assert_eq!(response.insertion_range, 0..5);
+        assert_eq!(response.new_cursor_pos, CursorPos { x: 4, y: 0 });
+        let expected = vec![
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+        ];
+        assert_eq!(buffer.data().visible, expected);
+
+        let bytes_utf8 = "👍".as_bytes();
+        let response = buffer.insert_data(&response.new_cursor_pos, bytes_utf8);
+        assert_eq!(response.written_range, 4..5);
+        assert_eq!(response.insertion_range, 4..5);
+        let expected = vec![
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::new_from_many_chars(bytes_utf8.to_vec()),
+            TChar::NewLine,
+        ];
+        assert_eq!(response.new_cursor_pos, CursorPos { x: 5, y: 0 });
+
+        // verify the buffer is correct
+        assert_eq!(buffer.data().visible, expected);
+    }
+
+    #[test]
     fn test_calc_line_ranges() {
-        let line_starts = calc_line_ranges(b"asdf\n0123456789\n012345678901", 10);
+        let line_starts = calc_line_ranges(
+            &"asdf\n0123456789\n012345678901"
+                .bytes()
+                .map(TChar::new_from_single_char)
+                .collect::<Vec<TChar>>(),
+            10,
+        );
         assert_eq!(line_starts, &[0..4, 5..15, 16..26, 26..28]);
     }
 
     #[test]
     fn test_buffer_padding() {
-        let mut buf = b"asdf\n1234\nzxyw".to_vec();
+        let mut buf = b"asdf\n1234\nzxyw"
+            .iter()
+            .map(|&b| TChar::new_from_single_char(b))
+            .collect::<Vec<TChar>>();
 
         let cursor_pos = CursorPos { x: 8, y: 0 };
         let response = pad_buffer_for_write(&mut buf, 10, 10, &cursor_pos, 10);
-        assert_eq!(buf, b"asdf              \n1234\nzxyw");
+        assert_eq!(
+            buf,
+            "asdf              \n1234\nzxyw"
+                .bytes()
+                .map(TChar::new_from_single_char)
+                .collect::<Vec<TChar>>()
+        );
         assert_eq!(response.write_idx, 8);
         assert_eq!(response.inserted_padding, 4..18);
     }
@@ -559,34 +637,68 @@ mod test {
         let mut buffer = TerminalBufferHolder::new(5, 5);
         // Push enough data to get some in scrollback
         buffer.insert_data(&CursorPos { x: 0, y: 0 }, b"012343456789\n0123456789\n1234");
+        let expected = vec![
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::NewLine,
+        ];
+        assert_eq!(buffer.data().visible, expected);
 
-        assert_eq!(
-            buffer.data().visible,
-            b"\
-                   34567\
-                   89\n\
-                   01234\
-                   56789\n\
-                   1234\n"
-        );
         buffer.clear_forwards(&CursorPos { x: 1, y: 1 });
+        let expected = vec![
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::NewLine,
+        ];
         // Same amount of lines should be present before and after clear
-        assert_eq!(
-            buffer.data().visible,
-            b"\
-                   34567\
-                   8\n\
-                   \n\
-                   \n\
-                   \n"
-        );
+        assert_eq!(buffer.data().visible, expected);
 
         // A few special cases.
         // 1. Truncating on beginning of line and previous char was not a newline
         let mut buffer = TerminalBufferHolder::new(5, 5);
         buffer.insert_data(&CursorPos { x: 0, y: 0 }, b"012340123401234012340123401234");
         buffer.clear_forwards(&CursorPos { x: 0, y: 1 });
-        assert_eq!(buffer.data().visible, b"01234\n\n\n\n\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::NewLine,
+        ];
+        assert_eq!(buffer.data().visible, expected);
 
         // 2. Truncating on beginning of line and previous char was a newline
         let mut buffer = TerminalBufferHolder::new(5, 5);
@@ -595,13 +707,20 @@ mod test {
             b"01234\n0123401234012340123401234",
         );
         buffer.clear_forwards(&CursorPos { x: 0, y: 1 });
-        assert_eq!(buffer.data().visible, b"01234\n\n\n\n\n");
+        assert_eq!(buffer.data().visible, expected);
 
         // 3. Truncating on a newline
         let mut buffer = TerminalBufferHolder::new(5, 5);
         buffer.insert_data(&CursorPos { x: 0, y: 0 }, b"\n\n\n\n\n\n");
         buffer.clear_forwards(&CursorPos { x: 0, y: 1 });
-        assert_eq!(buffer.data().visible, b"\n\n\n\n\n");
+        let expected = vec![
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::NewLine,
+        ];
+        assert_eq!(buffer.data().visible, expected);
     }
 
     #[test]
@@ -609,31 +728,86 @@ mod test {
         let mut buffer = TerminalBufferHolder::new(5, 5);
         buffer.insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789");
         buffer.clear_all();
-        assert_eq!(buffer.data().visible, &[]);
+        assert_eq!(buffer.data().visible, &[] as &[TChar]);
     }
 
     #[test]
     fn test_terminal_buffer_overwrite_early_newline() {
         let mut buffer = TerminalBufferHolder::new(5, 5);
         buffer.insert_data(&CursorPos { x: 0, y: 0 }, b"012\n3456789");
-        assert_eq!(buffer.data().visible, b"012\n3456789\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::NewLine,
+        ];
+        assert_eq!(buffer.data().visible, expected);
 
         // Cursor pos should be calculated based off wrapping at column 5, but should not result in
         // an extra newline
         buffer.insert_data(&CursorPos { x: 2, y: 1 }, b"test");
-        assert_eq!(buffer.data().visible, b"012\n34test9\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b't'),
+            TChar::new_from_single_char(b'e'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b't'),
+            TChar::new_from_single_char(b'9'),
+            TChar::NewLine,
+        ];
+        assert_eq!(buffer.data().visible, expected);
     }
 
     #[test]
     fn test_terminal_buffer_overwrite_no_newline() {
         let mut buffer = TerminalBufferHolder::new(5, 5);
         buffer.insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789");
-        assert_eq!(buffer.data().visible, b"0123456789\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::NewLine,
+        ];
+        assert_eq!(buffer.data().visible, expected);
 
         // Cursor pos should be calculated based off wrapping at column 5, but should not result in
         // an extra newline
         buffer.insert_data(&CursorPos { x: 2, y: 1 }, b"test");
-        assert_eq!(buffer.data().visible, b"0123456test\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b't'),
+            TChar::new_from_single_char(b'e'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b't'),
+            TChar::NewLine,
+        ];
+        assert_eq!(buffer.data().visible, expected);
     }
 
     #[test]
@@ -642,23 +816,109 @@ mod test {
         // neline between lines 1 and 2
         let mut buffer = TerminalBufferHolder::new(5, 5);
         buffer.insert_data(&CursorPos { x: 0, y: 0 }, b"01234\n56789");
-        assert_eq!(buffer.data().visible, b"01234\n56789\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::NewLine,
+        ];
+        assert_eq!(buffer.data().visible, expected);
 
         buffer.insert_data(&CursorPos { x: 2, y: 1 }, b"test");
-        assert_eq!(buffer.data().visible, b"01234\n56test\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b't'),
+            TChar::new_from_single_char(b'e'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b't'),
+            TChar::NewLine,
+        ];
+        assert_eq!(buffer.data().visible, expected);
     }
 
     #[test]
     fn test_terminal_buffer_insert_unallocated_data() {
         let mut buffer = TerminalBufferHolder::new(10, 10);
         buffer.insert_data(&CursorPos { x: 4, y: 5 }, b"hello world");
-        assert_eq!(buffer.data().visible, b"\n\n\n\n\n    hello world\n");
+        let expected = vec![
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::new_from_single_char(b'h'),
+            TChar::new_from_single_char(b'e'),
+            TChar::new_from_single_char(b'l'),
+            TChar::new_from_single_char(b'l'),
+            TChar::new_from_single_char(b'o'),
+            TChar::Space,
+            TChar::new_from_single_char(b'w'),
+            TChar::new_from_single_char(b'o'),
+            TChar::new_from_single_char(b'r'),
+            TChar::new_from_single_char(b'l'),
+            TChar::new_from_single_char(b'd'),
+            TChar::NewLine,
+        ];
+        assert_eq!(buffer.data().visible, expected);
 
         buffer.insert_data(&CursorPos { x: 3, y: 2 }, b"hello world");
-        assert_eq!(
-            buffer.data().visible,
-            b"\n\n   hello world\n\n\n    hello world\n"
-        );
+        let expected = vec![
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::new_from_single_char(b'h'),
+            TChar::new_from_single_char(b'e'),
+            TChar::new_from_single_char(b'l'),
+            TChar::new_from_single_char(b'l'),
+            TChar::new_from_single_char(b'o'),
+            TChar::Space,
+            TChar::new_from_single_char(b'w'),
+            TChar::new_from_single_char(b'o'),
+            TChar::new_from_single_char(b'r'),
+            TChar::new_from_single_char(b'l'),
+            TChar::new_from_single_char(b'd'),
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::new_from_single_char(b'h'),
+            TChar::new_from_single_char(b'e'),
+            TChar::new_from_single_char(b'l'),
+            TChar::new_from_single_char(b'l'),
+            TChar::new_from_single_char(b'o'),
+            TChar::Space,
+            TChar::new_from_single_char(b'w'),
+            TChar::new_from_single_char(b'o'),
+            TChar::new_from_single_char(b'r'),
+            TChar::new_from_single_char(b'l'),
+            TChar::new_from_single_char(b'd'),
+            TChar::NewLine,
+        ];
+        assert_eq!(buffer.data().visible, expected,);
     }
 
     #[test]
@@ -676,38 +936,124 @@ mod test {
         let mut response = canvas.insert_data(&response.new_cursor_pos, b"5678");
         crlf(&mut response.new_cursor_pos);
 
-        assert_eq!(canvas.data().scrollback, b"asdf\n");
-        assert_eq!(canvas.data().visible, b"xyzw\n1234\n5678\n");
+        let expeceted_scrollback = vec![
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+        ];
+        let expected_visible = vec![
+            TChar::new_from_single_char(b'x'),
+            TChar::new_from_single_char(b'y'),
+            TChar::new_from_single_char(b'z'),
+            TChar::new_from_single_char(b'w'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::NewLine,
+        ];
+        assert_eq!(canvas.data().scrollback, expeceted_scrollback);
+        assert_eq!(canvas.data().visible, expected_visible);
     }
 
     #[test]
     fn test_canvas_delete_forwards() {
         let mut canvas = TerminalBufferHolder::new(10, 5);
+
         canvas.insert_data(&CursorPos { x: 0, y: 0 }, b"asdf\n123456789012345");
 
         // Test normal deletion
         let deleted_range = canvas.delete_forwards(&CursorPos { x: 1, y: 0 }, 1);
 
         assert_eq!(deleted_range, Some(1..2));
-        assert_eq!(canvas.data().visible, b"adf\n123456789012345\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::NewLine,
+        ];
+        assert_eq!(canvas.data().visible, expected);
 
         // Test deletion clamped on newline
         let deleted_range = canvas.delete_forwards(&CursorPos { x: 1, y: 0 }, 10);
         assert_eq!(deleted_range, Some(1..3));
-        assert_eq!(canvas.data().visible, b"a\n123456789012345\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'a'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::NewLine,
+        ];
+        assert_eq!(canvas.data().visible, expected);
 
         // Test deletion clamped on wrap
         let deleted_range = canvas.delete_forwards(&CursorPos { x: 7, y: 1 }, 10);
         assert_eq!(deleted_range, Some(9..12));
-        assert_eq!(canvas.data().visible, b"a\n1234567\n12345\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'a'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::NewLine,
+        ];
+        assert_eq!(canvas.data().visible, expected);
 
         // Test deletion in case where nothing is deleted
         let deleted_range = canvas.delete_forwards(&CursorPos { x: 5, y: 5 }, 10);
         assert_eq!(deleted_range, None);
-        assert_eq!(canvas.data().visible, b"a\n1234567\n12345\n");
+        assert_eq!(canvas.data().visible, expected);
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn test_canvas_insert_spaces() {
         let mut canvas = TerminalBufferHolder::new(10, 5);
         canvas.insert_data(&CursorPos { x: 0, y: 0 }, b"asdf\n123456789012345");
@@ -717,14 +1063,68 @@ mod test {
         assert_eq!(response.written_range, 2..4);
         assert_eq!(response.insertion_range, 2..4);
         assert_eq!(response.new_cursor_pos, CursorPos { x: 2, y: 0 });
-        assert_eq!(canvas.data().visible, b"as  df\n123456789012345\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::Space,
+            TChar::Space,
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::NewLine,
+        ];
+        assert_eq!(canvas.data().visible, expected);
 
         // Truncation at newline
         let response = canvas.insert_spaces(&CursorPos { x: 2, y: 0 }, 1000);
         assert_eq!(response.written_range, 2..10);
         assert_eq!(response.insertion_range, 2..6);
         assert_eq!(response.new_cursor_pos, CursorPos { x: 2, y: 0 });
-        assert_eq!(canvas.data().visible, b"as        \n123456789012345\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::NewLine,
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::NewLine,
+        ];
+        assert_eq!(canvas.data().visible, expected);
 
         // Truncation at line wrap
         let response = canvas.insert_spaces(&CursorPos { x: 4, y: 1 }, 1000);
@@ -734,17 +1134,81 @@ mod test {
             0
         );
         assert_eq!(response.new_cursor_pos, CursorPos { x: 4, y: 1 });
-        assert_eq!(canvas.data().visible, b"as        \n1234      12345\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::NewLine,
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::NewLine,
+        ];
+
+        assert_eq!(canvas.data().visible, expected);
 
         // Insertion at non-existent buffer pos
         let response = canvas.insert_spaces(&CursorPos { x: 2, y: 4 }, 3);
         assert_eq!(response.written_range, 30..33);
         assert_eq!(response.insertion_range, 27..34);
         assert_eq!(response.new_cursor_pos, CursorPos { x: 2, y: 4 });
-        assert_eq!(
-            canvas.data().visible,
-            b"as        \n1234      12345\n\n     \n"
-        );
+        let expected = vec![
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::NewLine,
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::NewLine,
+        ];
+
+        assert_eq!(canvas.data().visible, expected);
     }
 
     #[test]
@@ -755,17 +1219,74 @@ mod test {
         // Nothing do delete
         let response = canvas.clear_line_forwards(&CursorPos { x: 5, y: 5 });
         assert_eq!(response, None);
-        assert_eq!(canvas.data().visible, b"asdf\n123456789012345\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::NewLine,
+        ];
+        assert_eq!(canvas.data().visible, expected);
 
         // Hit a newline
         let response = canvas.clear_line_forwards(&CursorPos { x: 2, y: 0 });
         assert_eq!(response, Some(2..4));
-        assert_eq!(canvas.data().visible, b"as\n123456789012345\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::NewLine,
+        ];
+        assert_eq!(canvas.data().visible, expected);
 
         // Hit a wrap
         let response = canvas.clear_line_forwards(&CursorPos { x: 2, y: 1 });
         assert_eq!(response, Some(5..13));
-        assert_eq!(canvas.data().visible, b"as\n1212345\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::NewLine,
+        ];
+        assert_eq!(canvas.data().visible, expected);
     }
 
     #[test]
@@ -780,7 +1301,20 @@ mod test {
         let response = simulate_resize(&mut canvas, 10, 4, &response.new_cursor_pos);
         let response = simulate_resize(&mut canvas, 10, 3, &response.new_cursor_pos);
         simulate_resize(&mut canvas, 10, 5, &response.new_cursor_pos);
-        assert_eq!(canvas.data().visible, b"$         \n");
+        let expected = vec![
+            TChar::new_from_single_char(b'$'),
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::NewLine,
+        ];
+        assert_eq!(canvas.data().visible, expected);
     }
 
     #[test]
@@ -799,15 +1333,84 @@ mod test {
 
         // Test edge wrapped
         canvas.insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789asdf\nxyzw");
-        assert_eq!(canvas.data().visible, b"0123456789asdf\nxyzw\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'x'),
+            TChar::new_from_single_char(b'y'),
+            TChar::new_from_single_char(b'z'),
+            TChar::new_from_single_char(b'w'),
+            TChar::NewLine,
+        ];
+
+        assert_eq!(canvas.data().visible, expected);
         let response = canvas.insert_lines(&CursorPos { x: 3, y: 2 }, 1);
-        assert_eq!(canvas.data().visible, b"0123456789\n\nasdf\nxyzw\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'x'),
+            TChar::new_from_single_char(b'y'),
+            TChar::new_from_single_char(b'z'),
+            TChar::new_from_single_char(b'w'),
+            TChar::NewLine,
+        ];
+
+        assert_eq!(canvas.data().visible, expected);
         assert_eq!(response.deleted_range.start - response.deleted_range.end, 0);
         assert_eq!(response.inserted_range, 10..12);
 
         // Test newline wrapped + lines pushed off the edge
         let response = canvas.insert_lines(&CursorPos { x: 3, y: 2 }, 1);
-        assert_eq!(canvas.data().visible, b"0123456789\n\n\nasdf\n");
+        let expected = vec![
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::NewLine,
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+        ];
+
+        assert_eq!(canvas.data().visible, expected);
         assert_eq!(response.deleted_range, 17..22);
         assert_eq!(response.inserted_range, 11..12);
     }

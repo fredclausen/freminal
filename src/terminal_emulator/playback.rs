@@ -4,6 +4,7 @@
 #![allow(unused_variables)]
 
 use super::ansi_components::{mode::BracketedPaste, sgr::SelectGraphicRendition};
+use super::term_char::TChar;
 use super::{
     ansi::{FreminalAnsiParser, TerminalOutput},
     buffer::TerminalBufferHolder,
@@ -307,7 +308,7 @@ impl ReplayIo {
         }
     }
 
-    pub fn data(&self) -> TerminalData<&[u8]> {
+    pub fn data(&self) -> TerminalData<&[TChar]> {
         self.terminal_buffer.data()
     }
 
@@ -395,7 +396,11 @@ fn format_tracker_with_data() {
         }
 
         // create a string from the data scrollback
-        let output = String::from_utf8_lossy(&data.scrollback[start_pos..end_pos]);
+        let scrollback_slice: Vec<u8> = data.scrollback[start_pos..end_pos]
+            .iter()
+            .map(super::term_char::TChar::to_u8)
+            .collect();
+        let output = String::from_utf8_lossy(&scrollback_slice);
 
         print!("{output}");
     }
@@ -412,7 +417,11 @@ fn format_tracker_with_data() {
         }
 
         // create a string from the data visible
-        let output = String::from_utf8_lossy(&data.visible[start_pos..end_pos]);
+        let visible_slice: Vec<u8> = data.visible[start_pos..end_pos]
+            .iter()
+            .map(super::term_char::TChar::to_u8)
+            .collect();
+        let output = String::from_utf8_lossy(&visible_slice);
 
         print!("{output}");
     }

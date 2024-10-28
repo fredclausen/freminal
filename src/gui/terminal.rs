@@ -4,8 +4,8 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::terminal_emulator::{
-    CursorPos, FontDecorations, FontWeight, FormatTag, FreminalTermInputOutput, TerminalColor,
-    TerminalEmulator, TerminalInput,
+    term_char::TChar, CursorPos, FontDecorations, FontWeight, FormatTag, FreminalTermInputOutput,
+    TerminalColor, TerminalEmulator, TerminalInput,
 };
 use eframe::egui::{
     self, text::LayoutJob, Color32, Context, DragValue, Event, FontData, FontDefinitions,
@@ -14,6 +14,7 @@ use eframe::egui::{
 
 use conv::{ConvAsUtil, ValueFrom};
 use std::borrow::Cow;
+use tracing_subscriber::fmt::format::Format;
 
 const REGULAR_FONT_NAME: &str = "hack";
 const BOLD_FONT_NAME: &str = "hack-bold";
@@ -379,11 +380,79 @@ const fn cube_component(value: usize, modifier: usize) -> usize {
 fn create_terminal_output_layout_job(
     style: &egui::Style,
     width: f32,
-    data: &[u8],
-) -> Result<(LayoutJob, TextFormat), std::str::Utf8Error> {
+    data: &[TChar],
+    format_data: &[FormatTag],
+) -> Result<(LayoutJob, TextFormat, Vec<FormatTag>), std::str::Utf8Error> {
     let text_style = &style.text_styles[&TextStyle::Monospace];
+    // convert data in to an array of bytes
+    let mut data_converted = vec![];
 
-    let data_utf8 = std::str::from_utf8(data)?;
+    for c in data {
+        match c {
+            TChar::NewLine => data_converted.push(b'\n'),
+            TChar::Space => data_converted.push(b' '),
+            TChar::Ascii(c) => data_converted.push(*c),
+            TChar::Utf8(all) => data_converted.extend_from_slice(all),
+        }
+    }
+
+    let data_utf8 = match std::str::from_utf8(&data_converted) {
+        Ok(v) => v,
+        Err(e) => {
+            error!(
+                "Create output job: Failed to convert terminal data to utf8: {}",
+                e
+            );
+            return Err(e);
+        }
+    };
+
+    // we need to map the format data to the utf8 data
+    // We need to shift the format data for the number of added bytes (uft8) for any Tchar found in the input data
+
+    let mut format_data_shifted = vec![];
+
+    for tag in format_data {
+        // for each tag go through and find all of the utf8 characters that are before the tag
+        // and in the tag range
+        // and shift start by the number of utf8 characters before the tag
+        // and the end by the number of utf8 characters in the tag range + the number of utf8 characters before the tag
+
+        let mut new_start = 0;
+        let mut new_end = 0;
+
+        for (i, c) in data.iter().enumerate() {
+            if i >= tag.start {
+                break;
+            }
+
+            new_start += match c {
+                TChar::NewLine | TChar::Space | TChar::Ascii(_) => 1,
+                TChar::Utf8(v) => v.len(),
+            }
+        }
+
+        for (i, c) in data.iter().enumerate() {
+            if i >= tag.end || tag.end == usize::MAX {
+                break;
+            }
+
+            new_end += match c {
+                TChar::NewLine | TChar::Space | TChar::Ascii(_) => 1,
+                TChar::Utf8(v) => v.len(),
+            }
+        }
+
+        format_data_shifted.push(FormatTag {
+            start: new_start,
+            end: new_end,
+            color: tag.color,
+            background_color: tag.background_color,
+            font_weight: tag.font_weight.clone(),
+            font_decorations: tag.font_decorations.clone(),
+            line_wrap_mode: tag.line_wrap_mode.clone(),
+        });
+    }
 
     let mut job = egui::text::LayoutJob::simple(
         data_utf8.to_string(),
@@ -392,28 +461,26 @@ fn create_terminal_output_layout_job(
         width,
     );
 
-    // FIXME: should this be toggled based on the DECAWM flag?
-    // probably should be false and the formatter should handle it
-    job.wrap.break_anywhere = true;
+    job.wrap.break_anywhere = false;
     let textformat = job.sections[0].format.clone();
     job.sections.clear();
-    Ok((job, textformat))
+    Ok((job, textformat, format_data_shifted))
 }
 
 fn add_terminal_data_to_ui(
     ui: &mut Ui,
-    data: &[u8],
+    data: &[TChar],
     format_data: &[FormatTag],
     font_size: f32,
 ) -> Result<egui::Response, std::str::Utf8Error> {
-    let (mut job, mut textformat) =
-        create_terminal_output_layout_job(ui.style(), ui.available_width(), data)?;
+    let (mut job, mut textformat, adjusted_format_data) =
+        create_terminal_output_layout_job(ui.style(), ui.available_width(), data, format_data)?;
 
     let default_color = textformat.color;
     let default_background = textformat.background;
     let terminal_fonts = TerminalFonts::new();
 
-    for tag in format_data {
+    for tag in adjusted_format_data {
         let mut range = tag.start..tag.end;
         let color = tag.color;
         let background_color = tag.background_color;
@@ -479,14 +546,14 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
 
     // Arguably incorrect. Scrollback does end with a newline, and that newline causes a blank
     // space between widgets. Should we strip it here, or in the terminal emulator output?
-    if scrollback_data.ends_with(b"\n") {
+    if scrollback_data.ends_with(&[TChar::NewLine]) {
         scrollback_data = &scrollback_data[0..scrollback_data.len() - 1];
         if let Some(last_tag) = format_data.scrollback.last_mut() {
             last_tag.end = last_tag.end.min(scrollback_data.len());
         }
     }
 
-    if canvas_data.ends_with(b"\n") {
+    if canvas_data.ends_with(&[TChar::NewLine]) {
         canvas_data = &canvas_data[0..canvas_data.len() - 1];
     }
 

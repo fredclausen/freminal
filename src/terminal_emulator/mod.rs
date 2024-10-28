@@ -18,6 +18,7 @@ pub mod ansi_components {
 }
 pub mod error;
 pub mod playback;
+pub mod term_char;
 
 use ansi::{FreminalAnsiParser, TerminalOutput};
 use ansi_components::{
@@ -33,6 +34,7 @@ pub use format_tracker::FormatTag;
 use format_tracker::FormatTracker;
 pub use io::{FreminalPtyInputOutput, FreminalTermInputOutput};
 use io::{FreminalTerminalSize, PtyRead, PtyWrite};
+use term_char::TChar;
 
 use crate::Args;
 
@@ -418,7 +420,6 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         self.cursor_state.pos = response.new_cursor_pos;
 
         if response.changed {
-            warn!("Window size changed, pixel sizes not handled");
             self.write_tx.send(PtyWrite::Resize(FreminalTerminalSize {
                 width: width_chars,
                 height: height_chars,
@@ -802,7 +803,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         // }
     }
 
-    pub fn data(&self) -> TerminalData<&[u8]> {
+    pub fn data(&self) -> TerminalData<&[TChar]> {
         self.terminal_buffer.data()
     }
 
