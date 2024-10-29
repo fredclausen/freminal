@@ -579,6 +579,9 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             SelectGraphicRendition::Bold => {
                 self.cursor_state.font_weight = FontWeight::Bold;
             }
+            SelectGraphicRendition::Underline => {
+                self.font_decordations_add_if_not_contains(FontDecorations::Underline);
+            }
             SelectGraphicRendition::Italic => {
                 self.font_decordations_add_if_not_contains(FontDecorations::Italic);
             }
@@ -592,10 +595,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 self.font_decorations_remove_if_contains(&FontDecorations::Faint);
             }
             SelectGraphicRendition::NotUnderlined => {
-                // remove FontDecorations::Underline if it's there
-                self.cursor_state.font_decorations.retain(|d| {
-                    *d != FontDecorations::Underline || *d != FontDecorations::DoubleUnderline
-                });
+                self.font_decorations_remove_if_contains(&FontDecorations::Underline);
             }
             SelectGraphicRendition::ReverseVideo => {
                 let foreground = self.cursor_state.color;

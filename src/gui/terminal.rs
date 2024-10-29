@@ -9,12 +9,11 @@ use crate::terminal_emulator::{
 };
 use eframe::egui::{
     self, text::LayoutJob, Color32, Context, DragValue, Event, FontData, FontDefinitions,
-    FontFamily, FontId, InputState, Key, Modifiers, Rect, TextFormat, TextStyle, Ui,
+    FontFamily, FontId, InputState, Key, Modifiers, Rect, Stroke, TextFormat, TextStyle, Ui,
 };
 
 use conv::{ConvAsUtil, ValueFrom};
 use std::borrow::Cow;
-use tracing_subscriber::fmt::format::Format;
 
 const REGULAR_FONT_NAME: &str = "hack";
 const BOLD_FONT_NAME: &str = "hack-bold";
@@ -518,6 +517,11 @@ fn add_terminal_data_to_ui(
             background_color,
             false,
         );
+        if tag.font_decorations.contains(&FontDecorations::Underline) {
+            textformat.underline = Stroke::new(1.0, textformat.color);
+        } else {
+            textformat.underline = Stroke::new(0.0, textformat.color);
+        }
 
         job.sections.push(egui::text::LayoutSection {
             leading_space: 0.0f32,
