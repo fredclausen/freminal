@@ -18,6 +18,7 @@ pub mod ansi_components {
 }
 pub mod error;
 pub mod playback;
+pub mod term_char;
 
 use ansi::{FreminalAnsiParser, TerminalOutput};
 use ansi_components::{
@@ -33,6 +34,7 @@ pub use format_tracker::FormatTag;
 use format_tracker::FormatTracker;
 pub use io::{FreminalPtyInputOutput, FreminalTermInputOutput};
 use io::{FreminalTerminalSize, PtyRead, PtyWrite};
+use term_char::TChar;
 
 use crate::Args;
 
@@ -193,6 +195,7 @@ struct CursorState {
     font_decorations: Vec<FontDecorations>,
     color: TerminalColor,
     background_color: TerminalColor,
+    line_wrap_mode: Decawm,
 }
 
 impl Default for CursorState {
@@ -203,6 +206,7 @@ impl Default for CursorState {
             font_decorations: Vec::new(),
             color: TerminalColor::Default,
             background_color: TerminalColor::DefaultBackground,
+            line_wrap_mode: Decawm::default(),
         }
     }
 }
@@ -369,7 +373,6 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             format_tracker: FormatTracker::new(),
             modes: TerminalModes {
                 cursor_key: Decckm::default(),
-                autowrap: Decawm::default(),
                 bracketed_paste: BracketedPaste::default(),
             },
             cursor_state: CursorState {
@@ -378,6 +381,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
                 font_decorations: Vec::new(),
                 color: TerminalColor::Default,
                 background_color: TerminalColor::Black,
+                line_wrap_mode: Decawm::default(),
             },
             _io: io,
             write_tx,
@@ -407,6 +411,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         &mut self,
         width_chars: usize,
         height_chars: usize,
+        font_pixel_width: usize,
+        font_pixel_height: usize,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let response =
             self.terminal_buffer
@@ -414,12 +420,11 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         self.cursor_state.pos = response.new_cursor_pos;
 
         if response.changed {
-            warn!("Window size changed, pixel sizes not handled");
             self.write_tx.send(PtyWrite::Resize(FreminalTerminalSize {
                 width: width_chars,
                 height: height_chars,
-                pixel_width: 0,
-                pixel_height: 0,
+                pixel_width: font_pixel_width,
+                pixel_height: font_pixel_height,
             }))?;
         }
 
@@ -623,8 +628,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 self.modes.cursor_key = Decckm::Application;
             }
             Mode::Decawm => {
-                warn!("Decawm Set is not supported");
-                self.modes.autowrap = Decawm::AutoWrap;
+                self.cursor_state.line_wrap_mode = Decawm::AutoWrap;
             }
             Mode::BracketedPaste => {
                 warn!("BracketedPaste Set is not supported");
@@ -650,8 +654,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
                 self.modes.cursor_key = Decckm::Ansi;
             }
             Mode::Decawm => {
-                warn!("Decawm Reset is not supported");
-                self.modes.autowrap = Decawm::NoAutoWrap;
+                self.cursor_state.line_wrap_mode = Decawm::NoAutoWrap;
             }
             Mode::BracketedPaste => {
                 warn!("BracketedPaste Reset is not supported");
@@ -800,7 +803,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         // }
     }
 
-    pub fn data(&self) -> TerminalData<&[u8]> {
+    pub fn data(&self) -> TerminalData<&[TChar]> {
         self.terminal_buffer.data()
     }
 
@@ -827,6 +830,7 @@ mod test {
                 background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
+                line_wrap_mode: Decawm::default(),
             },
             FormatTag {
                 start: 5,
@@ -835,6 +839,7 @@ mod test {
                 background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
+                line_wrap_mode: Decawm::default(),
             },
             FormatTag {
                 start: 7,
@@ -843,6 +848,7 @@ mod test {
                 background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
+                line_wrap_mode: Decawm::default(),
             },
             FormatTag {
                 start: 10,
@@ -851,6 +857,7 @@ mod test {
                 background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
+                line_wrap_mode: Decawm::default(),
             },
         ]
     }
@@ -870,6 +877,7 @@ mod test {
                 background_color: TerminalColor::Black,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
+                line_wrap_mode: Decawm::default(),
             },]
         );
     }
@@ -890,6 +898,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 5,
@@ -898,6 +907,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 7,
@@ -906,6 +916,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
             ]
         );
@@ -920,6 +931,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
                 FormatTag {
                     start: 1,
@@ -928,6 +940,7 @@ mod test {
                     background_color: TerminalColor::Black,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
+                    line_wrap_mode: Decawm::default(),
                 },
             ]
         );

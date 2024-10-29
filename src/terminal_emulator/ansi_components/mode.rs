@@ -21,7 +21,7 @@ pub enum Decckm {
 }
 
 /// Autowrap Mode (DECAWM)
-#[derive(Eq, PartialEq, Debug, Default)]
+#[derive(Eq, PartialEq, Debug, Default, Clone)]
 pub enum Decawm {
     #[default]
     /// Cursor does not wrap to the next line
@@ -42,7 +42,6 @@ pub enum BracketedPaste {
 
 pub struct TerminalModes {
     pub cursor_key: Decckm,
-    pub autowrap: Decawm,
     pub bracketed_paste: BracketedPaste,
 }
 

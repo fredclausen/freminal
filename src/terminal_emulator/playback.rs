@@ -4,6 +4,7 @@
 #![allow(unused_variables)]
 
 use super::ansi_components::{mode::BracketedPaste, sgr::SelectGraphicRendition};
+use super::term_char::TChar;
 use super::{
     ansi::{FreminalAnsiParser, TerminalOutput},
     buffer::TerminalBufferHolder,
@@ -36,10 +37,10 @@ impl ReplayIo {
                 font_decorations: Vec::new(),
                 color: TerminalColor::Default,
                 background_color: TerminalColor::DefaultBackground,
+                line_wrap_mode: Decawm::default(),
             },
             modes: TerminalModes {
                 cursor_key: Decckm::default(),
-                autowrap: Decawm::default(),
                 bracketed_paste: BracketedPaste::default(),
             },
             saved_color_state: None,
@@ -243,7 +244,7 @@ impl ReplayIo {
                 self.modes.cursor_key = Decckm::Application;
             }
             Mode::Decawm => {
-                self.modes.autowrap = Decawm::AutoWrap;
+                self.cursor_state.line_wrap_mode = Decawm::AutoWrap;
             }
             Mode::BracketedPaste => {
                 self.modes.bracketed_paste = BracketedPaste::Enabled;
@@ -268,7 +269,7 @@ impl ReplayIo {
                 self.modes.cursor_key = Decckm::Ansi;
             }
             Mode::Decawm => {
-                self.modes.autowrap = Decawm::NoAutoWrap;
+                self.cursor_state.line_wrap_mode = Decawm::NoAutoWrap;
             }
             Mode::BracketedPaste => {
                 self.modes.bracketed_paste = BracketedPaste::Disabled;
@@ -307,7 +308,7 @@ impl ReplayIo {
         }
     }
 
-    pub fn data(&self) -> TerminalData<&[u8]> {
+    pub fn data(&self) -> TerminalData<&[TChar]> {
         self.terminal_buffer.data()
     }
 
@@ -395,7 +396,11 @@ fn format_tracker_with_data() {
         }
 
         // create a string from the data scrollback
-        let output = String::from_utf8_lossy(&data.scrollback[start_pos..end_pos]);
+        let scrollback_slice: Vec<u8> = data.scrollback[start_pos..end_pos]
+            .iter()
+            .map(super::term_char::TChar::to_u8)
+            .collect();
+        let output = String::from_utf8_lossy(&scrollback_slice);
 
         print!("{output}");
     }
@@ -412,7 +417,11 @@ fn format_tracker_with_data() {
         }
 
         // create a string from the data visible
-        let output = String::from_utf8_lossy(&data.visible[start_pos..end_pos]);
+        let visible_slice: Vec<u8> = data.visible[start_pos..end_pos]
+            .iter()
+            .map(super::term_char::TChar::to_u8)
+            .collect();
+        let output = String::from_utf8_lossy(&visible_slice);
 
         print!("{output}");
     }

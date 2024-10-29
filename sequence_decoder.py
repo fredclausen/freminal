@@ -61,7 +61,9 @@ if convert_escape:
 if split_commands:
     # split the string into commands based on the ESC character
     commands = decoded_string.split("ESC")
+    i = 0
     for command in commands:
-        print("ESC " + repr(command))  # Output each command
+        print(f"N{i} ESC " + repr(command))  # Output each command
+        i += 1
 else:
     print(repr(decoded_string))  # Output the decoded string
