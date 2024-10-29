@@ -299,7 +299,7 @@ pub fn internal_color_to_egui(
     color: TerminalColor,
     make_faint: bool,
 ) -> Color32 {
-    let color_before_faimt = match color {
+    let color_before_faint = match color {
         TerminalColor::Default => default_foreground_color,
         TerminalColor::DefaultBackground => default_background_color,
         TerminalColor::Black => Color32::BLACK,
@@ -322,9 +322,9 @@ pub fn internal_color_to_egui(
     };
 
     if make_faint {
-        color_before_faimt.gamma_multiply(0.5)
+        color_before_faint.gamma_multiply(0.5)
     } else {
-        color_before_faimt
+        color_before_faint
     }
 }
 

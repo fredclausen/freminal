@@ -35,7 +35,7 @@ impl SelectGraphicRendition {
             22 => Self::NormalIntensity,
             24 => Self::NotUnderlined,
             27 => Self::ResetReverseVideo,
-            30 | 39 => Self::Foreground(TerminalColor::Black),
+            30 => Self::Foreground(TerminalColor::Black),
             31 => Self::Foreground(TerminalColor::Red),
             32 => Self::Foreground(TerminalColor::Green),
             33 => Self::Foreground(TerminalColor::Yellow),
@@ -44,9 +44,10 @@ impl SelectGraphicRendition {
             36 => Self::Foreground(TerminalColor::Cyan),
             37 => Self::Foreground(TerminalColor::White),
             38 => {
-                error!("This is a custom foreground color. We shouldn't end up here! Setting custom foreground color to black");
-                Self::Foreground(TerminalColor::Black)
+                error!("This is a custom foreground color. We shouldn't end up here! Setting custom foreground color to default");
+                Self::Foreground(TerminalColor::Default)
             }
+            39 => Self::Foreground(TerminalColor::Default),
             40 => Self::Background(TerminalColor::Black),
             41 => Self::Background(TerminalColor::Red),
             42 => Self::Background(TerminalColor::Green),
@@ -56,7 +57,7 @@ impl SelectGraphicRendition {
             46 => Self::Background(TerminalColor::Cyan),
             47 => Self::Background(TerminalColor::White),
             48 => {
-                error!("This is a custom background color. We shouldn't end up here! Setting custom background color to black");
+                error!("This is a custom background color. We shouldn't end up here! Setting custom background color to default");
                 Self::Background(TerminalColor::DefaultBackground)
             }
             49 => Self::Background(TerminalColor::DefaultBackground),
