@@ -515,7 +515,7 @@ fn add_terminal_data_to_ui(
             default_background,
             default_background,
             background_color,
-            false,
+            make_faint,
         );
         if tag.font_decorations.contains(&FontDecorations::Underline) {
             textformat.underline = Stroke::new(1.0, textformat.color);
