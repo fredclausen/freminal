@@ -214,9 +214,17 @@ impl ReplayIo {
                 self.font_decorations_remove_if_contains(&FontDecorations::Underline);
             }
             SelectGraphicRendition::ReverseVideo => {
-                let foreground = self.cursor_state.color;
-                let background = self.cursor_state.background_color;
+                let mut foreground = self.cursor_state.color;
+                let mut background = self.cursor_state.background_color;
                 self.saved_color_state = Some((foreground, background));
+
+                if foreground == TerminalColor::Default {
+                    foreground = TerminalColor::White;
+                }
+
+                if background == TerminalColor::DefaultBackground {
+                    background = TerminalColor::Black;
+                }
 
                 self.cursor_state.color = background;
                 self.cursor_state.background_color = foreground;
