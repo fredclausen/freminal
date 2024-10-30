@@ -460,7 +460,7 @@ fn create_terminal_output_layout_job(
         width,
     );
 
-    job.wrap.break_anywhere = false;
+    job.wrap.break_anywhere = true;
     let textformat = job.sections[0].format.clone();
     job.sections.clear();
     Ok((job, textformat, format_data_shifted))
