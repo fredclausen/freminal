@@ -172,7 +172,11 @@ impl AnsiOscParser {
         match self.state {
             AnsiOscParserState::Finished => {
                 if let Ok(params) = split_params_into_semicolon_delimited_usize(&self.params) {
-                    let type_number = extract_param(0, &params).unwrap();
+                    let Some(type_number) = extract_param(0, &params) else {
+                        warn!("Invalid OSC params: {:?}", self.params);
+                        output.push(TerminalOutput::Invalid);
+                        return Some(ParserInner::Empty);
+                    };
 
                     let osc_target = OscTarget::from(type_number.clone());
                     let osc_internal_type = AnsiOscInternalType::from(params);
