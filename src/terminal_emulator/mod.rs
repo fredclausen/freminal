@@ -184,8 +184,8 @@ pub enum FontWeight {
 pub enum FontDecorations {
     Italic,
     Underline,
-    DoubleUnderline,
     Faint,
+    Strikethrough,
 }
 
 #[derive(Eq, PartialEq, Debug, Clone)]
@@ -195,6 +195,7 @@ struct CursorState {
     font_decorations: Vec<FontDecorations>,
     color: TerminalColor,
     background_color: TerminalColor,
+    underline_color: TerminalColor,
     line_wrap_mode: Decawm,
 }
 
@@ -206,6 +207,7 @@ impl Default for CursorState {
             font_decorations: Vec::new(),
             color: TerminalColor::Default,
             background_color: TerminalColor::DefaultBackground,
+            underline_color: TerminalColor::DefaultUnderlineColor,
             line_wrap_mode: Decawm::default(),
         }
     }
@@ -248,6 +250,7 @@ impl CursorState {
 pub enum TerminalColor {
     Default,
     DefaultBackground,
+    DefaultUnderlineColor,
     Black,
     Red,
     Green,
@@ -271,7 +274,7 @@ impl fmt::Display for TerminalColor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             Self::Default => "default",
-            Self::Black | Self::DefaultBackground => "black",
+            Self::Black => "black",
             Self::Red => "red",
             Self::Green => "green",
             Self::Yellow => "yellow",
@@ -287,6 +290,8 @@ impl fmt::Display for TerminalColor {
             Self::BrightMagenta => "bright magenta",
             Self::BrightCyan => "bright cyan",
             Self::BrightWhite => "bright white",
+            Self::DefaultUnderlineColor => "default underline color",
+            Self::DefaultBackground => "default background",
             Self::Custom(r, g, b) => {
                 return write!(f, "rgb({r}, {g}, {b})");
             }
@@ -303,6 +308,7 @@ impl std::str::FromStr for TerminalColor {
         let ret = match s {
             "default" => Self::Default,
             "default_background" => Self::DefaultBackground,
+            "default_underline_color" => Self::DefaultUnderlineColor,
             "black" => Self::Black,
             "red" => Self::Red,
             "green" => Self::Green,
@@ -340,7 +346,7 @@ pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
     write_tx: crossbeam_channel::Sender<PtyWrite>,
     pty_rx: crossbeam_channel::Receiver<PtyRead>,
     window_title: Option<String>,
-    saved_color_state: Option<(TerminalColor, TerminalColor)>,
+    saved_color_state: Option<(TerminalColor, TerminalColor, TerminalColor)>,
 }
 
 pub const TERMINAL_WIDTH: usize = 50;
@@ -381,6 +387,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
                 font_decorations: Vec::new(),
                 color: TerminalColor::Default,
                 background_color: TerminalColor::Black,
+                underline_color: TerminalColor::DefaultUnderlineColor,
                 line_wrap_mode: Decawm::default(),
             },
             _io: io,
@@ -548,6 +555,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     fn reset(&mut self) {
         self.cursor_state.color = TerminalColor::Default;
         self.cursor_state.background_color = TerminalColor::DefaultBackground;
+        self.cursor_state.underline_color = TerminalColor::DefaultUnderlineColor;
         self.cursor_state.font_weight = FontWeight::Normal;
         self.cursor_state.font_decorations.clear();
         self.saved_color_state = None;
@@ -573,6 +581,10 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         self.cursor_state.background_color = color;
     }
 
+    fn set_underline_color(&mut self, color: TerminalColor) {
+        self.cursor_state.underline_color = color;
+    }
+
     fn sgr(&mut self, sgr: SelectGraphicRendition) {
         match sgr {
             SelectGraphicRendition::Reset => self.reset(),
@@ -584,6 +596,9 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             }
             SelectGraphicRendition::Italic => {
                 self.font_decordations_add_if_not_contains(FontDecorations::Italic);
+            }
+            SelectGraphicRendition::NotItalic => {
+                self.font_decorations_remove_if_contains(&FontDecorations::Italic);
             }
             SelectGraphicRendition::Faint => {
                 self.font_decordations_add_if_not_contains(FontDecorations::Faint);
@@ -597,13 +612,25 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             SelectGraphicRendition::NotUnderlined => {
                 self.font_decorations_remove_if_contains(&FontDecorations::Underline);
             }
+            SelectGraphicRendition::Strikethrough => {
+                self.font_decordations_add_if_not_contains(FontDecorations::Strikethrough);
+            }
+            SelectGraphicRendition::NotStrikethrough => {
+                self.font_decorations_remove_if_contains(&FontDecorations::Strikethrough);
+            }
             SelectGraphicRendition::ReverseVideo => {
                 let mut foreground = self.cursor_state.color;
                 let mut background = self.cursor_state.background_color;
-                self.saved_color_state = Some((foreground, background));
+                let mut underline = self.cursor_state.underline_color;
+
+                self.saved_color_state = Some((foreground, background, underline));
 
                 if foreground == TerminalColor::Default {
                     foreground = TerminalColor::White;
+                }
+
+                if underline == TerminalColor::DefaultUnderlineColor {
+                    underline = foreground;
                 }
 
                 if background == TerminalColor::DefaultBackground {
@@ -612,20 +639,56 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
 
                 self.cursor_state.color = background;
                 self.cursor_state.background_color = foreground;
+                self.cursor_state.underline_color = underline;
             }
             SelectGraphicRendition::ResetReverseVideo => {
-                if let Some((foreground, background)) = self.saved_color_state {
+                if let Some((foreground, background, underline)) = self.saved_color_state {
                     self.cursor_state.color = foreground;
                     self.cursor_state.background_color = background;
+                    self.cursor_state.underline_color = underline;
 
                     self.saved_color_state = None;
                 }
             }
             SelectGraphicRendition::Foreground(color) => self.set_foreground(color),
             SelectGraphicRendition::Background(color) => self.set_background(color),
-            SelectGraphicRendition::FastBlink | SelectGraphicRendition::SlowBlink => (),
-            SelectGraphicRendition::Unknown(_) => {
+            SelectGraphicRendition::UnderlineColor(color) => self.set_underline_color(color),
+            SelectGraphicRendition::FastBlink
+            | SelectGraphicRendition::SlowBlink
+            | SelectGraphicRendition::NotBlinking
+            | SelectGraphicRendition::Conceal
+            | SelectGraphicRendition::PrimaryFont
+            | SelectGraphicRendition::AlternativeFont1
+            | SelectGraphicRendition::AlternativeFont2
+            | SelectGraphicRendition::AlternativeFont3
+            | SelectGraphicRendition::AlternativeFont4
+            | SelectGraphicRendition::AlternativeFont5
+            | SelectGraphicRendition::AlternativeFont6
+            | SelectGraphicRendition::AlternativeFont7
+            | SelectGraphicRendition::AlternativeFont8
+            | SelectGraphicRendition::AlternativeFont9
+            | SelectGraphicRendition::FontFranktur
+            | SelectGraphicRendition::ProportionnalSpacing
+            | SelectGraphicRendition::DisableProportionnalSpacing
+            | SelectGraphicRendition::Framed
+            | SelectGraphicRendition::Encircled
+            | SelectGraphicRendition::Overlined
+            | SelectGraphicRendition::NotOverlined
+            | SelectGraphicRendition::NotFramedOrEncircled
+            | SelectGraphicRendition::IdeogramUnderline
+            | SelectGraphicRendition::IdeogramDoubleUnderline
+            | SelectGraphicRendition::IdeogramOverline
+            | SelectGraphicRendition::IdeogramDoubleOverline
+            | SelectGraphicRendition::IdeogramStress
+            | SelectGraphicRendition::IdeogramAttributes
+            | SelectGraphicRendition::Superscript
+            | SelectGraphicRendition::Subscript
+            | SelectGraphicRendition::NeitherSuperscriptNorSubscript
+            | SelectGraphicRendition::Revealed => {
                 warn!("Unhandled sgr: {:?}", sgr);
+            }
+            SelectGraphicRendition::Unknown(_) => {
+                warn!("Unknown sgr: {:?}", sgr);
             }
         }
     }
@@ -836,6 +899,7 @@ mod test {
                 end: 5,
                 color: TerminalColor::Blue,
                 background_color: TerminalColor::Black,
+                underline_color: TerminalColor::DefaultUnderlineColor,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -845,6 +909,7 @@ mod test {
                 end: 7,
                 color: TerminalColor::Red,
                 background_color: TerminalColor::Black,
+                underline_color: TerminalColor::DefaultUnderlineColor,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -854,6 +919,7 @@ mod test {
                 end: 10,
                 color: TerminalColor::Blue,
                 background_color: TerminalColor::Black,
+                underline_color: TerminalColor::DefaultUnderlineColor,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -863,6 +929,7 @@ mod test {
                 end: usize::MAX,
                 color: TerminalColor::Red,
                 background_color: TerminalColor::Black,
+                underline_color: TerminalColor::DefaultUnderlineColor,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -883,6 +950,7 @@ mod test {
                 end: usize::MAX,
                 color: TerminalColor::Red,
                 background_color: TerminalColor::Black,
+                underline_color: TerminalColor::DefaultUnderlineColor,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -904,6 +972,7 @@ mod test {
                     end: 5,
                     color: TerminalColor::Blue,
                     background_color: TerminalColor::Black,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
                     line_wrap_mode: Decawm::default(),
@@ -913,6 +982,7 @@ mod test {
                     end: 7,
                     color: TerminalColor::Red,
                     background_color: TerminalColor::Black,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
                     line_wrap_mode: Decawm::default(),
@@ -922,6 +992,7 @@ mod test {
                     end: 9,
                     color: TerminalColor::Blue,
                     background_color: TerminalColor::Black,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
                     line_wrap_mode: Decawm::default(),
@@ -937,6 +1008,7 @@ mod test {
                     end: 1,
                     color: TerminalColor::Blue,
                     background_color: TerminalColor::Black,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
                     line_wrap_mode: Decawm::default(),
@@ -946,6 +1018,7 @@ mod test {
                     end: usize::MAX,
                     color: TerminalColor::Red,
                     background_color: TerminalColor::Black,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
                     font_weight: FontWeight::Normal,
                     font_decorations: Vec::new(),
                     line_wrap_mode: Decawm::default(),

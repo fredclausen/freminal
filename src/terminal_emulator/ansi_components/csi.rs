@@ -341,6 +341,7 @@ impl AnsiCsiParser {
         Ok(Some(ParserInner::Empty))
     }
 
+    #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
     fn ansi_parser_inner_csi_finished_sgr(
         &self,
         output: &mut Vec<TerminalOutput>,
@@ -372,7 +373,7 @@ impl AnsiCsiParser {
             // if control code is 38 or 48, we need to read the next param
             // otherwise, store the param as is
 
-            if param == 38 || param == 48 {
+            if param == 38 || param == 48 || param == 58 {
                 let custom_color_control_code = param;
                 let custom_color_r: usize;
                 let custom_color_g: usize;
@@ -391,9 +392,13 @@ impl AnsiCsiParser {
                         TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
                             TerminalColor::Default,
                         ))
-                    } else {
+                    } else if custom_color_control_code == 48 {
                         TerminalOutput::Sgr(SelectGraphicRendition::Background(
                             TerminalColor::DefaultBackground,
+                        ))
+                    } else {
+                        TerminalOutput::Sgr(SelectGraphicRendition::UnderlineColor(
+                            TerminalColor::DefaultUnderlineColor,
                         ))
                     });
                     continue;

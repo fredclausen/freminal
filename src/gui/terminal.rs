@@ -282,8 +282,6 @@ impl TerminalFonts {
     }
 
     fn get_family(&self, font_decs: &[FontDecorations], weight: &FontWeight) -> FontFamily {
-        // FIXME: We need to support a faint weight
-        // FIXME: We probably need to support underline here too
         match (weight, font_decs.contains(&FontDecorations::Italic)) {
             (FontWeight::Bold, false) => self.bold.clone(),
             (FontWeight::Normal, false) => self.regular.clone(),
@@ -300,7 +298,7 @@ pub fn internal_color_to_egui(
     make_faint: bool,
 ) -> Color32 {
     let color_before_faint = match color {
-        TerminalColor::Default => default_foreground_color,
+        TerminalColor::Default | TerminalColor::DefaultUnderlineColor => default_foreground_color,
         TerminalColor::DefaultBackground => default_background_color,
         TerminalColor::Black => Color32::BLACK,
         TerminalColor::Red => Color32::RED,
@@ -447,6 +445,7 @@ fn create_terminal_output_layout_job(
             end: new_end,
             color: tag.color,
             background_color: tag.background_color,
+            underline_color: tag.underline_color,
             font_weight: tag.font_weight.clone(),
             font_decorations: tag.font_decorations.clone(),
             line_wrap_mode: tag.line_wrap_mode.clone(),
@@ -483,6 +482,7 @@ fn add_terminal_data_to_ui(
         let mut range = tag.start..tag.end;
         let color = tag.color;
         let background_color = tag.background_color;
+        let underline_color = tag.underline_color;
 
         if range.end == usize::MAX {
             range.end = data.len();
@@ -518,9 +518,25 @@ fn add_terminal_data_to_ui(
             make_faint,
         );
         if tag.font_decorations.contains(&FontDecorations::Underline) {
-            textformat.underline = Stroke::new(1.0, textformat.color);
+            let underline_color_converted = internal_color_to_egui(
+                textformat.color,
+                default_background,
+                underline_color,
+                make_faint,
+            );
+
+            textformat.underline = Stroke::new(1.0, underline_color_converted);
         } else {
             textformat.underline = Stroke::new(0.0, textformat.color);
+        }
+
+        if tag
+            .font_decorations
+            .contains(&FontDecorations::Strikethrough)
+        {
+            textformat.strikethrough = Stroke::new(1.0, textformat.color);
+        } else {
+            textformat.strikethrough = Stroke::new(0.0, textformat.color);
         }
 
         job.sections.push(egui::text::LayoutSection {

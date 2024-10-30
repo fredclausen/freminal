@@ -22,7 +22,7 @@ pub struct ReplayIo {
     format_tracker: FormatTracker,
     cursor_state: CursorState,
     modes: TerminalModes,
-    saved_color_state: Option<(TerminalColor, TerminalColor)>,
+    saved_color_state: Option<(TerminalColor, TerminalColor, TerminalColor)>,
 }
 
 impl ReplayIo {
@@ -37,6 +37,7 @@ impl ReplayIo {
                 font_decorations: Vec::new(),
                 color: TerminalColor::Default,
                 background_color: TerminalColor::DefaultBackground,
+                underline_color: TerminalColor::DefaultUnderlineColor,
                 line_wrap_mode: Decawm::default(),
             },
             modes: TerminalModes {
@@ -184,6 +185,10 @@ impl ReplayIo {
         self.cursor_state.background_color = color;
     }
 
+    fn set_underline_color(&mut self, color: TerminalColor) {
+        self.cursor_state.underline_color = color;
+    }
+
     fn sgr(&mut self, sgr: SelectGraphicRendition) {
         // if let Some(color) = TerminalColor::from_sgr(sgr) {
         //     self.cursor_state.color = color;
@@ -197,6 +202,9 @@ impl ReplayIo {
             }
             SelectGraphicRendition::Italic => {
                 self.font_decordations_add_if_not_contains(FontDecorations::Italic);
+            }
+            SelectGraphicRendition::NotItalic => {
+                self.font_decorations_remove_if_contains(&FontDecorations::Italic);
             }
             SelectGraphicRendition::Faint => {
                 self.font_decordations_add_if_not_contains(FontDecorations::Faint);
@@ -213,13 +221,24 @@ impl ReplayIo {
             SelectGraphicRendition::NotUnderlined => {
                 self.font_decorations_remove_if_contains(&FontDecorations::Underline);
             }
+            SelectGraphicRendition::Strikethrough => {
+                self.font_decordations_add_if_not_contains(FontDecorations::Strikethrough);
+            }
+            SelectGraphicRendition::NotStrikethrough => {
+                self.font_decorations_remove_if_contains(&FontDecorations::Strikethrough);
+            }
             SelectGraphicRendition::ReverseVideo => {
                 let mut foreground = self.cursor_state.color;
                 let mut background = self.cursor_state.background_color;
-                self.saved_color_state = Some((foreground, background));
+                let mut underline = self.cursor_state.underline_color;
+                self.saved_color_state = Some((foreground, background, underline));
 
                 if foreground == TerminalColor::Default {
                     foreground = TerminalColor::White;
+                }
+
+                if underline == TerminalColor::DefaultUnderlineColor {
+                    underline = foreground;
                 }
 
                 if background == TerminalColor::DefaultBackground {
@@ -228,20 +247,56 @@ impl ReplayIo {
 
                 self.cursor_state.color = background;
                 self.cursor_state.background_color = foreground;
+                self.cursor_state.underline_color = underline;
             }
             SelectGraphicRendition::ResetReverseVideo => {
-                if let Some((foreground, background)) = self.saved_color_state {
+                if let Some((foreground, background, underline)) = self.saved_color_state {
                     self.cursor_state.color = foreground;
                     self.cursor_state.background_color = background;
+                    self.cursor_state.underline_color = underline;
 
                     self.saved_color_state = None;
                 }
             }
             SelectGraphicRendition::Foreground(color) => self.set_foreground(color),
             SelectGraphicRendition::Background(color) => self.set_background(color),
-            SelectGraphicRendition::FastBlink | SelectGraphicRendition::SlowBlink => (),
-            SelectGraphicRendition::Unknown(_) => {
+            SelectGraphicRendition::UnderlineColor(color) => self.set_underline_color(color),
+            SelectGraphicRendition::FastBlink
+            | SelectGraphicRendition::SlowBlink
+            | SelectGraphicRendition::NotBlinking
+            | SelectGraphicRendition::Conceal
+            | SelectGraphicRendition::PrimaryFont
+            | SelectGraphicRendition::AlternativeFont1
+            | SelectGraphicRendition::AlternativeFont2
+            | SelectGraphicRendition::AlternativeFont3
+            | SelectGraphicRendition::AlternativeFont4
+            | SelectGraphicRendition::AlternativeFont5
+            | SelectGraphicRendition::AlternativeFont6
+            | SelectGraphicRendition::AlternativeFont7
+            | SelectGraphicRendition::AlternativeFont8
+            | SelectGraphicRendition::AlternativeFont9
+            | SelectGraphicRendition::FontFranktur
+            | SelectGraphicRendition::ProportionnalSpacing
+            | SelectGraphicRendition::DisableProportionnalSpacing
+            | SelectGraphicRendition::Framed
+            | SelectGraphicRendition::Encircled
+            | SelectGraphicRendition::Overlined
+            | SelectGraphicRendition::NotOverlined
+            | SelectGraphicRendition::NotFramedOrEncircled
+            | SelectGraphicRendition::IdeogramUnderline
+            | SelectGraphicRendition::IdeogramDoubleUnderline
+            | SelectGraphicRendition::IdeogramOverline
+            | SelectGraphicRendition::IdeogramDoubleOverline
+            | SelectGraphicRendition::IdeogramStress
+            | SelectGraphicRendition::IdeogramAttributes
+            | SelectGraphicRendition::Superscript
+            | SelectGraphicRendition::Subscript
+            | SelectGraphicRendition::NeitherSuperscriptNorSubscript
+            | SelectGraphicRendition::Revealed => {
                 warn!("Unhandled sgr: {:?}", sgr);
+            }
+            SelectGraphicRendition::Unknown(_) => {
+                warn!("Unknown sgr: {:?}", sgr);
             }
         }
     }
