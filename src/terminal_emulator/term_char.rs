@@ -27,6 +27,8 @@ impl TChar {
         Self::Utf8(v)
     }
 
+    // FIXME: this is fake news, it is used but clippy is not smart enough to see it
+    #[allow(dead_code)]
     pub const fn to_u8(&self) -> u8 {
         match self {
             Self::Ascii(c) => *c,
