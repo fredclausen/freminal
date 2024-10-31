@@ -18,7 +18,6 @@ pub fn run_terminal(
     recording_path: Option<String>,
     shell: Option<String>,
 ) -> Result<()> {
-    info!("running pty");
     let pty_system = NativePtySystem::default();
 
     let pair = pty_system
@@ -134,7 +133,6 @@ impl FreminalPtyInputOutput {
         shell: Option<String>,
     ) -> Result<Self> {
         run_terminal(write_rx, send_tx, recording, shell)?;
-        info!("pty started");
         Ok(Self)
     }
 }
