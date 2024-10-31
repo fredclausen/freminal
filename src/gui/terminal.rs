@@ -4,8 +4,8 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::terminal_emulator::{
-    term_char::TChar, CursorPos, FontDecorations, FormatTag, FreminalTermInputOutput,
-    TerminalEmulator, TerminalInput,
+    state::{cursor::CursorPos, fonts::FontDecorations, term_char::TChar},
+    FormatTag, FreminalTermInputOutput, TerminalEmulator, TerminalInput,
 };
 use eframe::egui::{
     self, text::LayoutJob, Color32, Context, DragValue, Event, InputState, Key, Modifiers, Rect,
