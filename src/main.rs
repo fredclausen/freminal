@@ -119,8 +119,6 @@ fn main() {
     subscriber.with(fmt_layer).init();
 
     trace!("Starting freminal");
-    debug!("Testing");
-    info!("Starting freminal");
 
     let args = Args::parse(std::env::args()).unwrap_or_else(|_| {
         process::exit(1);
