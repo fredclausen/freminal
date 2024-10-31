@@ -486,20 +486,20 @@ impl TerminalBufferHolder {
         Some(delete_range)
     }
 
-    pub fn data(&self) -> TerminalSections<&[TChar]> {
+    pub fn data(&self) -> TerminalSections<Vec<TChar>> {
         let line_ranges = calc_line_ranges(&self.buf, self.width);
         let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, self.height);
         if self.buf.is_empty() {
             return TerminalSections {
-                scrollback: &[],
-                visible: &self.buf,
+                scrollback: vec![],
+                visible: self.buf.clone(),
             };
         }
 
         let start = visible_line_ranges[0].start;
         TerminalSections {
-            scrollback: &self.buf[0..start],
-            visible: &self.buf[start..],
+            scrollback: self.buf[..start].to_vec(),
+            visible: self.buf[start..].to_vec(),
         }
     }
 

@@ -65,7 +65,7 @@ impl eframe::App for FreminalGui {
                 error!("failed to set window size {e}");
             }
 
-            self.terminal_widget.show(ui, &mut self.terminal_emulator);
+            self.terminal_widget.show(ui, &self.terminal_emulator);
         });
 
         panel_response.response.context_menu(|ui| {

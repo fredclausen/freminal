@@ -125,7 +125,18 @@ fn main() {
     });
 
     let res = match TerminalEmulator::new(&args) {
-        Ok(v) => gui::run(v),
+        Ok((terminal, rx)) => {
+            let internal = terminal.internal.clone();
+
+            let _ = std::thread::spawn(move || loop {
+                if let Ok(read) = rx.recv() {
+                    let incoming = &read.buf[0..read.read_amount];
+                    internal.lock().unwrap().handle_incoming_data(incoming);
+                }
+            });
+
+            gui::run(terminal)
+        }
         Err(e) => {
             error!("Failed to create terminal emulator: {}", e);
             return;

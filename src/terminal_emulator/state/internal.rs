@@ -68,7 +68,7 @@ impl TerminalState {
         self.window_title.clone()
     }
 
-    pub(crate) fn data(&self) -> TerminalSections<&[TChar]> {
+    pub(crate) fn data(&self) -> TerminalSections<Vec<TChar>> {
         self.terminal_buffer.data()
     }
 

@@ -373,7 +373,7 @@ impl ReplayIo {
         }
     }
 
-    pub fn data(&self) -> TerminalSections<&[TChar]> {
+    pub fn data(&self) -> TerminalSections<Vec<TChar>> {
         self.terminal_buffer.data()
     }
 

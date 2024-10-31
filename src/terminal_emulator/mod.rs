@@ -23,9 +23,11 @@ pub mod state {
     pub mod term_char;
 }
 
+use std::{sync::Arc, sync::Mutex};
+
 use ansi_components::mode::{Decawm, Decckm, Mode, TerminalModes};
 use anyhow::Result;
-use crossbeam_channel::unbounded;
+use crossbeam_channel::{unbounded, Receiver};
 pub use format_tracker::FormatTag;
 pub use io::{FreminalPtyInputOutput, FreminalTermInputOutput};
 use io::{FreminalTerminalSize, PtyRead, PtyWrite};
@@ -167,14 +169,13 @@ fn split_format_data_for_scrollback(
 }
 
 pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
-    internal: TerminalState,
+    pub internal: Arc<Mutex<TerminalState>>,
     _io: Io,
     write_tx: crossbeam_channel::Sender<PtyWrite>,
-    pty_rx: crossbeam_channel::Receiver<PtyRead>,
 }
 
 impl TerminalEmulator<FreminalPtyInputOutput> {
-    pub fn new(args: &Args) -> Result<Self> {
+    pub fn new(args: &Args) -> Result<(Self, Receiver<PtyRead>)> {
         let (write_tx, read_rx) = unbounded();
         let (pty_tx, pty_rx) = unbounded();
 
@@ -195,37 +196,40 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
         }
 
         let ret = Self {
-            internal: TerminalState::new(write_tx.clone()),
+            internal: Mutex::new(TerminalState::new(write_tx.clone())).into(),
             _io: io,
             write_tx,
-            pty_rx,
         };
-        Ok(ret)
+        Ok((ret, pty_rx))
     }
 }
 
 impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
-    pub const fn get_win_size(&self) -> (usize, usize) {
-        self.internal.get_win_size()
+    pub fn get_win_size(&self) -> (usize, usize) {
+        self.internal.lock().unwrap().get_win_size()
     }
 
     pub fn get_window_title(&self) -> Option<String> {
-        self.internal.get_window_title()
+        self.internal.lock().unwrap().get_window_title()
     }
 
     #[allow(dead_code)]
-    pub fn clear_window_title(&mut self) {
-        self.internal.clear_window_title();
+    pub fn clear_window_title(&self) {
+        self.internal.lock().unwrap().clear_window_title();
     }
 
     pub fn set_win_size(
-        &mut self,
+        &self,
         width_chars: usize,
         height_chars: usize,
         font_pixel_width: usize,
         font_pixel_height: usize,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let response = self.internal.set_win_size(width_chars, height_chars);
+        let response = self
+            .internal
+            .lock()
+            .unwrap()
+            .set_win_size(width_chars, height_chars);
 
         if response.changed {
             self.write_tx.send(PtyWrite::Resize(FreminalTerminalSize {
@@ -239,33 +243,35 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         Ok(())
     }
 
-    fn handle_incoming_data(&mut self, incoming: &[u8]) {
-        self.internal.handle_incoming_data(incoming);
-    }
-
-    pub fn read(&mut self) {
-        while let Ok(read) = self.pty_rx.try_recv() {
-            let incoming = &read.buf[0..read.read_amount];
-            self.handle_incoming_data(incoming);
-        }
-    }
+    // fn handle_incoming_data(&self, incoming: &[u8]) {
+    //     self.internal.lock().unwrap().handle_incoming_data(incoming);
+    // }
 
     pub fn write(&self, to_write: &TerminalInput) -> Result<(), Box<dyn std::error::Error>> {
-        self.internal.write(to_write)
+        self.internal.lock().unwrap().write(to_write)
     }
 
-    pub fn data(&self) -> TerminalSections<&[TChar]> {
-        self.internal.data()
+    pub fn data(&self) -> TerminalSections<Vec<TChar>> {
+        let result = self.internal.lock().unwrap().data();
+
+        result
     }
 
     pub fn format_data(&self) -> TerminalSections<Vec<FormatTag>> {
-        self.internal.format_data()
+        self.internal.lock().unwrap().format_data()
     }
 
     pub fn cursor_pos(&self) -> CursorPos {
-        self.internal.cursor_pos()
+        self.internal.lock().unwrap().cursor_pos()
     }
 }
+
+// pub fn read(internal_state: &Rc<Mutex<TerminalState>>, pty_rx: &crossbeam_channel::Receiver<PtyRead>) {
+//     while let Ok(read) = pty_rx.recv() {
+//         let incoming = &read.buf[0..read.read_amount];
+//         internal_state.lock().unwrap().handle_incoming_data(incoming);
+//     }
+// }
 
 #[cfg(test)]
 mod test {
