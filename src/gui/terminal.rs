@@ -4,23 +4,21 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::terminal_emulator::{
-    term_char::TChar, CursorPos, FontDecorations, FontWeight, FormatTag, FreminalTermInputOutput,
+    term_char::TChar, CursorPos, FontDecorations, FormatTag, FreminalTermInputOutput,
     TerminalEmulator, TerminalInput,
 };
 use eframe::egui::{
-    self, text::LayoutJob, Color32, Context, DragValue, Event, FontData, FontDefinitions,
-    FontFamily, FontId, InputState, Key, Modifiers, Rect, Stroke, TextFormat, TextStyle, Ui,
+    self, text::LayoutJob, Color32, Context, DragValue, Event, InputState, Key, Modifiers, Rect,
+    Stroke, TextFormat, TextStyle, Ui,
 };
 
 use conv::{ConvAsUtil, ValueFrom};
 use std::borrow::Cow;
 
-use super::colors::internal_color_to_egui;
-
-const REGULAR_FONT_NAME: &str = "hack";
-const BOLD_FONT_NAME: &str = "hack-bold";
-const ITALIC_FONT_NAME: &str = "hack-italic";
-const BOLD_ITALIC_FONT_NAME: &str = "hack-bold-italic";
+use super::{
+    colors::internal_color_to_egui,
+    fonts::{get_char_size, setup_font_files, TerminalFont},
+};
 
 fn collect_text(text: &String) -> Cow<'static, [TerminalInput]> {
     text.as_bytes()
@@ -144,48 +142,6 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     }
 }
 
-pub fn get_char_size(ctx: &egui::Context, font_size: f32) -> (f32, f32) {
-    let font_id = FontId {
-        size: font_size,
-        family: FontFamily::Name(REGULAR_FONT_NAME.into()),
-    };
-
-    // NOTE: Using glyph width and row height do not give accurate results. Even using the mesh
-    // bounds of a single character is not reasonable. Instead we layout 16 rows and 16 cols and
-    // divide by 16. This seems to work better at all font scales
-    ctx.fonts(move |fonts| {
-        let rect = fonts
-            .layout(
-                "asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf"
-                    .to_string(),
-                font_id,
-                Color32::WHITE,
-                f32::INFINITY,
-            )
-            .rect;
-
-        let width = rect.width() / 16.0;
-        let height = rect.height() / 16.0;
-
-        (width, height)
-    })
-}
-
 fn paint_cursor(label_rect: Rect, character_size: (f32, f32), cursor_pos: &CursorPos, ui: &Ui) {
     let painter = ui.painter();
 
@@ -208,89 +164,6 @@ fn setup_bg_fill(ctx: &egui::Context) {
         style.visuals.window_fill = egui::Color32::BLACK;
         style.visuals.panel_fill = egui::Color32::BLACK;
     });
-}
-
-fn setup_fonts(ctx: &egui::Context) {
-    let mut fonts = FontDefinitions::default();
-
-    fonts.font_data.insert(
-        REGULAR_FONT_NAME.to_owned(),
-        FontData::from_static(include_bytes!("../../res/MesloLGSNerdFontMono-Regular.ttf")),
-    );
-
-    fonts.font_data.insert(
-        BOLD_FONT_NAME.to_owned(),
-        FontData::from_static(include_bytes!("../../res/MesloLGSNerdFontMono-Bold.ttf")),
-    );
-
-    fonts.font_data.insert(
-        ITALIC_FONT_NAME.to_owned(),
-        FontData::from_static(include_bytes!("../../res/MesloLGSNerdFontMono-Italic.ttf")),
-    );
-
-    fonts.font_data.insert(
-        BOLD_ITALIC_FONT_NAME.to_owned(),
-        FontData::from_static(include_bytes!(
-            "../../res/MesloLGSNerdFontMono-BoldItalic.ttf"
-        )),
-    );
-
-    fonts
-        .families
-        .get_mut(&FontFamily::Monospace)
-        .expect("egui should provide a monospace font")
-        .insert(0, REGULAR_FONT_NAME.to_owned());
-
-    fonts.families.insert(
-        FontFamily::Name(REGULAR_FONT_NAME.to_string().into()),
-        vec![REGULAR_FONT_NAME.to_string()],
-    );
-    fonts.families.insert(
-        FontFamily::Name(BOLD_FONT_NAME.to_string().into()),
-        vec![BOLD_FONT_NAME.to_string()],
-    );
-    fonts.families.insert(
-        FontFamily::Name(ITALIC_FONT_NAME.to_string().into()),
-        vec![ITALIC_FONT_NAME.to_string()],
-    );
-    fonts.families.insert(
-        FontFamily::Name(BOLD_ITALIC_FONT_NAME.to_string().into()),
-        vec![BOLD_ITALIC_FONT_NAME.to_string()],
-    );
-
-    ctx.set_fonts(fonts);
-}
-
-struct TerminalFonts {
-    regular: FontFamily,
-    bold: FontFamily,
-    italic: FontFamily,
-    bold_italic: FontFamily,
-}
-
-impl TerminalFonts {
-    fn new() -> Self {
-        let bold = FontFamily::Name(BOLD_FONT_NAME.to_string().into());
-        let regular = FontFamily::Name(REGULAR_FONT_NAME.to_string().into());
-        let italic = FontFamily::Name(ITALIC_FONT_NAME.to_string().into());
-        let bold_italic = FontFamily::Name(BOLD_ITALIC_FONT_NAME.to_string().into());
-
-        Self {
-            regular,
-            bold,
-            italic,
-            bold_italic,
-        }
-    }
-
-    fn get_family(&self, font_decs: &[FontDecorations], weight: &FontWeight) -> FontFamily {
-        match (weight, font_decs.contains(&FontDecorations::Italic)) {
-            (FontWeight::Bold, false) => self.bold.clone(),
-            (FontWeight::Normal, false) => self.regular.clone(),
-            (FontWeight::Normal, true) => self.italic.clone(),
-            (FontWeight::Bold, true) => self.bold_italic.clone(),
-        }
-    }
 }
 
 fn create_terminal_output_layout_job(
@@ -395,7 +268,7 @@ fn add_terminal_data_to_ui(
 
     let default_color = textformat.color;
     let default_background = textformat.background;
-    let terminal_fonts = TerminalFonts::new();
+    let terminal_fonts = TerminalFont::new();
 
     for tag in adjusted_format_data {
         let mut range = tag.start..tag.end;
@@ -555,7 +428,7 @@ pub struct FreminalTerminalWidget {
 
 impl FreminalTerminalWidget {
     pub fn new(ctx: &Context) -> Self {
-        setup_fonts(ctx);
+        setup_font_files(ctx);
         setup_bg_fill(ctx);
 
         Self {
