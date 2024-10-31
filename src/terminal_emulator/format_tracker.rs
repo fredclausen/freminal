@@ -3,9 +3,9 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use super::{
-    ansi_components::mode::Decawm, CursorState, FontDecorations, FontWeight, TerminalColor,
-};
+use crate::gui::colors::TerminalColor;
+
+use super::{ansi_components::mode::Decawm, CursorState, FontDecorations, FontWeight};
 use std::ops::Range;
 
 const fn ranges_overlap(a: Range<usize>, b: Range<usize>) -> bool {

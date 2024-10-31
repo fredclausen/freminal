@@ -7,6 +7,7 @@ use crate::terminal_emulator::{FreminalPtyInputOutput, TerminalEmulator};
 use anyhow::Result;
 use eframe::egui::{self, CentralPanel};
 use terminal::{get_char_size, FreminalTerminalWidget};
+pub mod colors;
 pub mod terminal;
 
 fn set_egui_options(ctx: &egui::Context) {

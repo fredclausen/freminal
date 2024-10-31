@@ -5,7 +5,7 @@
 
 use crate::terminal_emulator::{
     term_char::TChar, CursorPos, FontDecorations, FontWeight, FormatTag, FreminalTermInputOutput,
-    TerminalColor, TerminalEmulator, TerminalInput,
+    TerminalEmulator, TerminalInput,
 };
 use eframe::egui::{
     self, text::LayoutJob, Color32, Context, DragValue, Event, FontData, FontDefinitions,
@@ -14,6 +14,8 @@ use eframe::egui::{
 
 use conv::{ConvAsUtil, ValueFrom};
 use std::borrow::Cow;
+
+use super::colors::internal_color_to_egui;
 
 const REGULAR_FONT_NAME: &str = "hack";
 const BOLD_FONT_NAME: &str = "hack-bold";
@@ -288,89 +290,6 @@ impl TerminalFonts {
             (FontWeight::Normal, true) => self.italic.clone(),
             (FontWeight::Bold, true) => self.bold_italic.clone(),
         }
-    }
-}
-
-pub fn internal_color_to_egui(
-    default_foreground_color: Color32,
-    default_background_color: Color32,
-    color: TerminalColor,
-    make_faint: bool,
-) -> Color32 {
-    let color_before_faint = match color {
-        TerminalColor::Default | TerminalColor::DefaultUnderlineColor => default_foreground_color,
-        TerminalColor::DefaultBackground => default_background_color,
-        TerminalColor::Black => Color32::from_rgb(0, 0, 0),
-        TerminalColor::Red => Color32::from_rgb(205, 0, 0),
-        TerminalColor::Green => Color32::from_rgb(0, 205, 0),
-        TerminalColor::Yellow => Color32::from_rgb(205, 205, 0),
-        TerminalColor::Blue => Color32::from_rgb(0, 0, 238),
-        TerminalColor::Magenta => Color32::from_rgb(205, 0, 205),
-        TerminalColor::Cyan => Color32::from_rgb(0, 205, 205),
-        TerminalColor::White => Color32::from_rgb(229, 229, 229),
-        TerminalColor::BrightYellow => Color32::from_rgb(255, 255, 0),
-        TerminalColor::BrightRed => Color32::from_rgb(255, 0, 0),
-        TerminalColor::BrightGreen => Color32::from_rgb(0, 255, 0),
-        TerminalColor::BrightBlue => Color32::from_rgb(92, 92, 255),
-        TerminalColor::BrightMagenta => Color32::from_rgb(255, 0, 255),
-        TerminalColor::BrightCyan => Color32::from_rgb(0, 255, 255),
-        TerminalColor::BrightWhite => Color32::from_rgb(255, 255, 255),
-        TerminalColor::BrightBlack => Color32::from_rgb(127, 127, 127),
-        TerminalColor::Custom(r, g, b) => Color32::from_rgb(r, g, b),
-    };
-
-    if make_faint {
-        color_before_faint.gamma_multiply(0.5)
-    } else {
-        color_before_faint
-    }
-}
-
-pub const fn lookup_256_color_by_index(index: usize) -> (usize, usize, usize) {
-    // https://stackoverflow.com/questions/69138165/how-to-get-the-rgb-values-of-a-256-color-palette-terminal-color
-    match index {
-        // standard colors 0 -15, as well as their bright counterparts 8-15
-        // And the other values that map to them further up the color table
-        1 => (128, 0, 0),
-        2 => (0, 128, 0),
-        3 => (128, 128, 0),
-        4 => (0, 0, 128),
-        5 => (128, 0, 128),
-        6 => (0, 128, 128),
-        7 => (192, 192, 192),
-        8 | 244 => (128, 128, 128),
-        9 | 196 => (255, 0, 0),
-        10 | 46 => (0, 255, 0),
-        11 | 226 => (255, 255, 0),
-        12 | 21 => (0, 0, 255),
-        13 | 201 => (255, 0, 255),
-        14 | 51 => (0, 255, 255),
-        15 | 231 => (255, 255, 255),
-        // gray scale
-        232..=255 => {
-            let value = (2056 + 2570 * (index - 232)) / 256;
-
-            (value, value, value)
-        }
-        // the blacks
-        0 | 16 | 256.. => (0, 0, 0),
-        // programtic colors
-        _ => {
-            let r = cube_component(index, 36);
-            let g = cube_component(index, 6);
-            let b = cube_component(index, 1);
-            (r, g, b)
-        }
-    }
-}
-
-const fn cube_component(value: usize, modifier: usize) -> usize {
-    let i = ((value - 16) / modifier) % 6;
-
-    if i == 0 {
-        0
-    } else {
-        (14135 + 10280 * i) / 256
     }
 }
 

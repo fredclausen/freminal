@@ -4,7 +4,6 @@
 // https://opensource.org/licenses/MIT.
 
 use core::str;
-use std::fmt;
 
 mod ansi;
 mod buffer;
@@ -36,7 +35,7 @@ pub use io::{FreminalPtyInputOutput, FreminalTermInputOutput};
 use io::{FreminalTerminalSize, PtyRead, PtyWrite};
 use term_char::TChar;
 
-use crate::Args;
+use crate::{gui::colors::TerminalColor, Args};
 
 const fn char_to_ctrl_code(c: u8) -> u8 {
     // https://catern.com/posts/terminal_quirks.html
@@ -243,91 +242,6 @@ impl CursorState {
     const fn with_pos(mut self, pos: CursorPos) -> Self {
         self.pos = pos;
         self
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum TerminalColor {
-    Default,
-    DefaultBackground,
-    DefaultUnderlineColor,
-    Black,
-    Red,
-    Green,
-    Yellow,
-    Blue,
-    Magenta,
-    Cyan,
-    White,
-    BrightYellow,
-    BrightBlack,
-    BrightRed,
-    BrightGreen,
-    BrightBlue,
-    BrightMagenta,
-    BrightCyan,
-    BrightWhite,
-    Custom(u8, u8, u8),
-}
-
-impl fmt::Display for TerminalColor {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Self::Default => "default",
-            Self::Black => "black",
-            Self::Red => "red",
-            Self::Green => "green",
-            Self::Yellow => "yellow",
-            Self::Blue => "blue",
-            Self::Magenta => "magenta",
-            Self::Cyan => "cyan",
-            Self::White => "white",
-            Self::BrightYellow => "bright yellow",
-            Self::BrightBlack => "bright black",
-            Self::BrightRed => "bright red",
-            Self::BrightGreen => "bright green",
-            Self::BrightBlue => "bright blue",
-            Self::BrightMagenta => "bright magenta",
-            Self::BrightCyan => "bright cyan",
-            Self::BrightWhite => "bright white",
-            Self::DefaultUnderlineColor => "default underline color",
-            Self::DefaultBackground => "default background",
-            Self::Custom(r, g, b) => {
-                return write!(f, "rgb({r}, {g}, {b})");
-            }
-        };
-
-        f.write_str(s)
-    }
-}
-
-impl std::str::FromStr for TerminalColor {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let ret = match s {
-            "default" => Self::Default,
-            "default_background" => Self::DefaultBackground,
-            "default_underline_color" => Self::DefaultUnderlineColor,
-            "black" => Self::Black,
-            "red" => Self::Red,
-            "green" => Self::Green,
-            "yellow" => Self::Yellow,
-            "blue" => Self::Blue,
-            "magenta" => Self::Magenta,
-            "cyan" => Self::Cyan,
-            "white" => Self::White,
-            "bright yellow" => Self::BrightYellow,
-            "bright black" => Self::BrightBlack,
-            "bright red" => Self::BrightRed,
-            "bright green" => Self::BrightGreen,
-            "bright blue" => Self::BrightBlue,
-            "bright magenta" => Self::BrightMagenta,
-            "bright cyan" => Self::BrightCyan,
-            "bright white" => Self::BrightWhite,
-            _ => return Err(()),
-        };
-        Ok(ret)
     }
 }
 

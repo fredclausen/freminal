@@ -291,9 +291,9 @@ impl FreminalAnsiParser {
 
 #[cfg(test)]
 mod test {
-    use crate::terminal_emulator::{
-        ansi_components::{csi::AnsiCsiParserState, osc::AnsiOscInternalType},
-        TerminalColor,
+    use crate::{
+        gui::colors::TerminalColor,
+        terminal_emulator::ansi_components::{csi::AnsiCsiParserState, osc::AnsiOscInternalType},
     };
 
     use super::*;
