@@ -243,10 +243,6 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         Ok(())
     }
 
-    // fn handle_incoming_data(&self, incoming: &[u8]) {
-    //     self.internal.lock().unwrap().handle_incoming_data(incoming);
-    // }
-
     pub fn write(&self, to_write: &TerminalInput) -> Result<(), Box<dyn std::error::Error>> {
         self.internal.lock().unwrap().write(to_write)
     }
@@ -265,13 +261,6 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         self.internal.lock().unwrap().cursor_pos()
     }
 }
-
-// pub fn read(internal_state: &Rc<Mutex<TerminalState>>, pty_rx: &crossbeam_channel::Receiver<PtyRead>) {
-//     while let Ok(read) = pty_rx.recv() {
-//         let incoming = &read.buf[0..read.read_amount];
-//         internal_state.lock().unwrap().handle_incoming_data(incoming);
-//     }
-// }
 
 #[cfg(test)]
 mod test {
