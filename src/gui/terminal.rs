@@ -47,8 +47,14 @@ fn control_key(key: Key) -> Option<Cow<'static, [TerminalInput]>> {
 
 fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     input: &InputState,
-    terminal_emulator: &TerminalEmulator<Io>,
+    terminal_emulator: &mut TerminalEmulator<Io>,
 ) {
+    if input.raw.events.is_empty() {
+        return;
+    }
+
+    terminal_emulator.set_previous_pass_invalid();
+
     for event in &input.raw.events {
         let inputs: Cow<'static, [TerminalInput]> = match event {
             Event::Text(text) => collect_text(text),
@@ -167,22 +173,34 @@ fn setup_bg_fill(ctx: &egui::Context) {
 }
 
 fn create_terminal_output_layout_job(
-    style: &egui::Style,
-    width: f32,
     data: &[TChar],
     format_data: &[FormatTag],
-) -> Result<(LayoutJob, TextFormat, Vec<FormatTag>), std::str::Utf8Error> {
-    let text_style = &style.text_styles[&TextStyle::Monospace];
-    // convert data in to an array of bytes
-    let mut data_converted = vec![];
+) -> Result<(String, Vec<FormatTag>), std::str::Utf8Error> {
+    let mut offset = Vec::with_capacity(data.len());
 
+    // Convert data into an array of bytes
+    let mut data_converted = Vec::with_capacity(data.len());
     for c in data {
-        match c {
-            TChar::NewLine => data_converted.push(b'\n'),
-            TChar::Space => data_converted.push(b' '),
-            TChar::Ascii(c) => data_converted.push(*c),
-            TChar::Utf8(all) => data_converted.extend_from_slice(all),
-        }
+        let offset_amount = match c {
+            TChar::NewLine => {
+                data_converted.push(b'\n');
+                1
+            }
+            TChar::Space => {
+                data_converted.push(b' ');
+                1
+            }
+            TChar::Ascii(c) => {
+                data_converted.push(*c);
+                1
+            }
+            TChar::Utf8(all) => {
+                data_converted.extend_from_slice(all);
+                all.len()
+            }
+        };
+
+        offset.push(data_converted.len() - offset_amount);
     }
 
     let data_utf8 = match std::str::from_utf8(&data_converted) {
@@ -196,53 +214,30 @@ fn create_terminal_output_layout_job(
         }
     };
 
-    // we need to map the format data to the utf8 data
-    // We need to shift the format data for the number of added bytes (uft8) for any Tchar found in the input data
+    // Map the format data to the utf8 data
+    // Shift the format data for the number of added bytes (utf8) for any TChar found in the input data
 
-    let mut format_data_shifted = vec![];
-
+    let mut format_data_shifted = Vec::with_capacity(format_data.len());
     for tag in format_data {
-        // for each tag go through and find all of the utf8 characters that are before the tag
-        // and in the tag range
-        // and shift start by the number of utf8 characters before the tag
-        // and the end by the number of utf8 characters in the tag range + the number of utf8 characters before the tag
+        // Adjust byte_offset based on the length of utf8 characters
 
-        let mut new_start = 0;
-        let mut new_end = 0;
+        let start = if tag.start < offset.len() {
+            offset[tag.start]
+        } else {
+            data_converted.len() - 1
+        };
 
-        for (i, c) in data.iter().enumerate() {
-            if i >= tag.start {
-                break;
-            }
-
-            new_start += match c {
-                TChar::NewLine | TChar::Space | TChar::Ascii(_) => 1,
-                TChar::Utf8(v) => v.len(),
-            }
-        }
-
-        for (i, c) in data.iter().enumerate() {
-            if i >= tag.end || tag.end == usize::MAX {
-                if tag.end == usize::MAX {
-                    new_end = tag.end;
-                }
-                break;
-            }
-
-            new_end += match c {
-                TChar::NewLine | TChar::Space | TChar::Ascii(_) => 1,
-                TChar::Utf8(v) => v.len(),
-            }
-        }
-
-        assert!(
-            new_start <= new_end,
-            "new_start: {new_start}, new_end: {new_end}, tag: {tag:?}"
-        );
+        let end = if tag.end == usize::MAX {
+            data_converted.len() - 1
+        } else if tag.end >= offset.len() {
+            offset.last().unwrap().to_owned()
+        } else {
+            offset[tag.end]
+        };
 
         format_data_shifted.push(FormatTag {
-            start: new_start,
-            end: new_end,
+            start,
+            end,
             color: tag.color,
             background_color: tag.background_color,
             underline_color: tag.underline_color,
@@ -252,28 +247,52 @@ fn create_terminal_output_layout_job(
         });
     }
 
+    Ok((data_utf8.to_string(), format_data_shifted))
+}
+
+#[derive(Default, Clone, Debug)]
+pub struct UiJobAction {
+    text: String,
+    adjusted_format_data: Vec<FormatTag>,
+}
+
+#[derive(Debug)]
+pub struct NewJobAction<'a> {
+    text: &'a [TChar],
+    format_data: Vec<FormatTag>,
+}
+
+#[derive(Debug)]
+pub enum UiData<'a> {
+    NewPass(&'a NewJobAction<'a>),
+    PreviousPass(UiJobAction),
+}
+
+fn setup_job(ui: &Ui, data_utf8: &str) -> (egui::text::LayoutJob, egui::TextFormat) {
+    let width = ui.available_width();
+    let style = ui.style();
+    let text_style = &style.text_styles[&TextStyle::Monospace];
+
     let mut job = egui::text::LayoutJob::simple(
         data_utf8.to_string(),
         text_style.clone(),
         style.visuals.text_color(),
         width,
     );
-
     job.wrap.break_anywhere = true;
     let textformat = job.sections[0].format.clone();
     job.sections.clear();
-    Ok((job, textformat, format_data_shifted))
+
+    (job, textformat)
 }
 
-fn add_terminal_data_to_ui(
-    ui: &mut Ui,
-    data: &[TChar],
-    format_data: &[FormatTag],
+fn process_tags(
+    adjusted_format_data: &Vec<FormatTag>,
+    data_len: usize,
+    textformat: &mut TextFormat,
     font_size: f32,
-) -> Result<egui::Response, std::str::Utf8Error> {
-    let (mut job, mut textformat, adjusted_format_data) =
-        create_terminal_output_layout_job(ui.style(), ui.available_width(), data, format_data)?;
-
+    job: &mut LayoutJob,
+) {
     let default_color = textformat.color;
     let default_background = textformat.background;
     let terminal_fonts = TerminalFont::new();
@@ -285,10 +304,10 @@ fn add_terminal_data_to_ui(
         let underline_color = tag.underline_color;
 
         if range.end == usize::MAX {
-            range.end = data.len();
+            range.end = data_len;
         }
 
-        match range.start.cmp(&data.len()) {
+        match range.start.cmp(&data_len) {
             std::cmp::Ordering::Greater => {
                 debug!("Skipping unusable format data");
                 continue;
@@ -299,9 +318,9 @@ fn add_terminal_data_to_ui(
             std::cmp::Ordering::Less => (),
         }
 
-        if range.end > data.len() {
+        if range.end > data_len {
             debug!("Truncating format data end");
-            range.end = data.len();
+            range.end = data_len;
         }
 
         textformat.font_id.family =
@@ -345,65 +364,141 @@ fn add_terminal_data_to_ui(
             format: textformat.clone(),
         });
     }
-
-    Ok(ui.label(job))
 }
 
+fn add_terminal_data_to_ui(
+    ui: &mut Ui,
+    data: &UiData,
+    font_size: f32,
+) -> Result<(egui::Response, Option<UiJobAction>), std::str::Utf8Error> {
+    let data_utf8: String;
+    let adjusted_format_data: Vec<FormatTag>;
+    let data_len: usize;
+
+    match data {
+        UiData::NewPass(data) => {
+            let (data_utf8_new, adjusted_format_data_new) =
+                create_terminal_output_layout_job(data.text, &data.format_data)?;
+            data_len = data_utf8_new.len();
+            data_utf8 = data_utf8_new;
+            adjusted_format_data = adjusted_format_data_new;
+        }
+        UiData::PreviousPass(data) => {
+            data_utf8 = data.text.clone();
+            adjusted_format_data = data.adjusted_format_data.clone();
+            data_len = data_utf8.len();
+        }
+    }
+    // let (data_utf8, adjusted_format_data) =
+    //     create_terminal_output_layout_job(data, format_data)?;
+
+    let (mut job, mut textformat) = setup_job(ui, &data_utf8);
+    process_tags(
+        &adjusted_format_data,
+        data_len,
+        &mut textformat,
+        font_size,
+        &mut job,
+    );
+
+    match data {
+        UiData::NewPass(_) => {
+            let response = UiJobAction {
+                text: data_utf8,
+                adjusted_format_data,
+            };
+            Ok((ui.label(job), Some(response)))
+        }
+        UiData::PreviousPass(_) => Ok((ui.label(job), None)),
+    }
+}
+
+#[derive(Clone)]
 struct TerminalOutputRenderResponse {
     scrollback_area: Rect,
     canvas_area: Rect,
+    scrollback: UiJobAction,
+    canvas: UiJobAction,
 }
 
 fn render_terminal_output<Io: FreminalTermInputOutput>(
     ui: &mut egui::Ui,
     terminal_emulator: &TerminalEmulator<Io>,
     font_size: f32,
+    previous_pass: Option<&TerminalOutputRenderResponse>,
 ) -> TerminalOutputRenderResponse {
-    let terminal_data = terminal_emulator.data();
-    let mut scrollback_data = terminal_data.scrollback;
-    let mut canvas_data = terminal_data.visible;
-    let mut format_data = terminal_emulator.format_data();
-
-    // Arguably incorrect. Scrollback does end with a newline, and that newline causes a blank
-    // space between widgets. Should we strip it here, or in the terminal emulator output?
-    if scrollback_data.ends_with(&[TChar::NewLine]) {
-        scrollback_data = scrollback_data[0..scrollback_data.len() - 1].to_vec();
-        if let Some(last_tag) = format_data.scrollback.last_mut() {
-            last_tag.end = last_tag.end.min(scrollback_data.len());
-        }
-    }
-
-    if canvas_data.ends_with(&[TChar::NewLine]) {
-        canvas_data = canvas_data[0..canvas_data.len() - 1].to_vec();
-    }
-
     let response = egui::ScrollArea::new([false, true])
         .auto_shrink([false, false])
         .stick_to_bottom(true)
         .show(ui, |ui| {
-            let error_logged_rect =
-                |response: Result<egui::Response, std::str::Utf8Error>| match response {
-                    Ok(v) => v.rect,
-                    Err(e) => {
-                        error!("failed to add terminal data to ui: {}", e);
-                        Rect::NOTHING
+            let error_logged_rect = |response: Result<
+                (egui::Response, Option<UiJobAction>),
+                std::str::Utf8Error,
+            >| match response {
+                Ok((v, action)) => (v.rect, action),
+                Err(e) => {
+                    error!("failed to add terminal data to ui: {}", e);
+                    (Rect::NOTHING, None)
+                }
+            };
+
+            let scrollback_response: (Rect, Option<UiJobAction>);
+            let canvas_response: (Rect, Option<UiJobAction>);
+
+            if let Some(previous_pass) = previous_pass {
+                _ = error_logged_rect(add_terminal_data_to_ui(
+                    ui,
+                    &UiData::PreviousPass(previous_pass.scrollback.clone()),
+                    font_size,
+                ));
+                _ = error_logged_rect(add_terminal_data_to_ui(
+                    ui,
+                    &UiData::PreviousPass(previous_pass.canvas.clone()),
+                    font_size,
+                ));
+
+                (*previous_pass).clone()
+            } else {
+                let terminal_data = terminal_emulator.data();
+                let mut scrollback_data = terminal_data.scrollback;
+                let mut canvas_data = terminal_data.visible;
+                let mut format_data = terminal_emulator.format_data();
+
+                // Arguably incorrect. Scrollback does end with a newline, and that newline causes a blank
+                // space between widgets. Should we strip it here, or in the terminal emulator output?
+                if scrollback_data.ends_with(&[TChar::NewLine]) {
+                    scrollback_data = scrollback_data[0..scrollback_data.len() - 1].to_vec();
+                    if let Some(last_tag) = format_data.scrollback.last_mut() {
+                        last_tag.end = last_tag.end.min(scrollback_data.len());
                     }
-                };
-            let scrollback_area = error_logged_rect(add_terminal_data_to_ui(
-                ui,
-                &scrollback_data,
-                &format_data.scrollback,
-                font_size,
-            ));
-            let canvas_area = error_logged_rect(add_terminal_data_to_ui(
-                ui,
-                &canvas_data,
-                &format_data.visible,
-                font_size,
-            ));
-            TerminalOutputRenderResponse {
-                scrollback_area,
-                canvas_area,
+                }
+
+                if canvas_data.ends_with(&[TChar::NewLine]) {
+                    canvas_data = canvas_data[0..canvas_data.len() - 1].to_vec();
+                }
+                scrollback_response = error_logged_rect(add_terminal_data_to_ui(
+                    ui,
+                    &UiData::NewPass(&NewJobAction {
+                        text: &scrollback_data,
+                        format_data: format_data.scrollback.clone(),
+                    }),
+                    font_size,
+                ));
+                canvas_response = error_logged_rect(add_terminal_data_to_ui(
+                    ui,
+                    &UiData::NewPass(&NewJobAction {
+                        text: &canvas_data,
+                        format_data: format_data.visible.clone(),
+                    }),
+                    font_size,
+                ));
+
+                TerminalOutputRenderResponse {
+                    scrollback_area: scrollback_response.0,
+                    canvas_area: canvas_response.0,
+                    scrollback: scrollback_response.1.unwrap(),
+                    canvas: canvas_response.1.unwrap(),
+                }
             }
         });
 
@@ -432,6 +527,7 @@ impl DebugRenderer {
 pub struct FreminalTerminalWidget {
     font_size: f32,
     debug_renderer: DebugRenderer,
+    previous_pass: TerminalOutputRenderResponse,
 }
 
 impl FreminalTerminalWidget {
@@ -442,6 +538,12 @@ impl FreminalTerminalWidget {
         Self {
             font_size: 12.0,
             debug_renderer: DebugRenderer::new(),
+            previous_pass: TerminalOutputRenderResponse {
+                scrollback_area: Rect::NOTHING,
+                canvas_area: Rect::NOTHING,
+                scrollback: UiJobAction::default(),
+                canvas: UiJobAction::default(),
+            },
         }
     }
 
@@ -463,9 +565,9 @@ impl FreminalTerminalWidget {
     }
 
     pub fn show<Io: FreminalTermInputOutput>(
-        &self,
+        &mut self,
         ui: &mut Ui,
-        terminal_emulator: &TerminalEmulator<Io>,
+        terminal_emulator: &mut TerminalEmulator<Io>,
     ) {
         let character_size = get_char_size(ui.ctx(), self.font_size);
 
@@ -486,20 +588,35 @@ impl FreminalTerminalWidget {
                 write_input_to_terminal(input_state, terminal_emulator);
             });
 
-            let output_response = render_terminal_output(ui, terminal_emulator, self.font_size);
-            self.debug_renderer
-                .render(ui, output_response.canvas_area, Color32::BLUE);
+            if terminal_emulator.needs_redraw() {
+                debug!("Redrawing terminal output");
+                self.previous_pass =
+                    render_terminal_output(ui, terminal_emulator, self.font_size, None);
+            } else {
+                debug!("Reusing previous terminal output");
+                let _response = render_terminal_output(
+                    ui,
+                    terminal_emulator,
+                    self.font_size,
+                    Some(&self.previous_pass),
+                );
+            }
 
             self.debug_renderer
-                .render(ui, output_response.scrollback_area, Color32::YELLOW);
+                .render(ui, self.previous_pass.canvas_area, Color32::BLUE);
+
+            self.debug_renderer
+                .render(ui, self.previous_pass.scrollback_area, Color32::YELLOW);
 
             paint_cursor(
-                output_response.canvas_area,
+                self.previous_pass.canvas_area,
                 character_size,
                 &terminal_emulator.cursor_pos(),
                 ui,
             );
         });
+
+        terminal_emulator.set_previous_pass_valid();
 
         self.debug_renderer
             .render(ui, frame_response.response.rect, Color32::RED);

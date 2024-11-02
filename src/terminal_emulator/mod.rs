@@ -172,6 +172,7 @@ pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
     pub internal: Arc<Mutex<TerminalState>>,
     _io: Io,
     write_tx: crossbeam_channel::Sender<PtyWrite>,
+    previous_pass_valid: bool,
 }
 
 impl TerminalEmulator<FreminalPtyInputOutput> {
@@ -199,12 +200,28 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             internal: Mutex::new(TerminalState::new(write_tx.clone())).into(),
             _io: io,
             write_tx,
+            previous_pass_valid: false,
         };
         Ok((ret, pty_rx))
     }
 }
 
 impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
+    pub fn set_previous_pass_invalid(&mut self) {
+        self.previous_pass_valid = false;
+    }
+    pub fn set_previous_pass_valid(&mut self) {
+        self.previous_pass_valid = true;
+    }
+    pub fn needs_redraw(&self) -> bool {
+        let internal = self.internal.lock().unwrap().is_changed();
+
+        if internal {
+            self.internal.lock().unwrap().clear_changed();
+        }
+
+        !self.previous_pass_valid || internal
+    }
     pub fn get_win_size(&self) -> (usize, usize) {
         self.internal.lock().unwrap().get_win_size()
     }
@@ -219,7 +236,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     }
 
     pub fn set_win_size(
-        &self,
+        &mut self,
         width_chars: usize,
         height_chars: usize,
         font_pixel_width: usize,
@@ -232,6 +249,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             .set_win_size(width_chars, height_chars);
 
         if response.changed {
+            self.set_previous_pass_invalid();
             self.write_tx.send(PtyWrite::Resize(FreminalTerminalSize {
                 width: width_chars,
                 height: height_chars,
@@ -248,9 +266,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     }
 
     pub fn data(&self) -> TerminalSections<Vec<TChar>> {
-        let result = self.internal.lock().unwrap().data();
-
-        result
+        self.internal.lock().unwrap().data()
     }
 
     pub fn format_data(&self) -> TerminalSections<Vec<FormatTag>> {

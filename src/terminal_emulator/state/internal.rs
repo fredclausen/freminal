@@ -42,6 +42,7 @@ pub struct TerminalState {
     saved_color_state: Option<(TerminalColor, TerminalColor, TerminalColor)>,
     window_title: Option<String>,
     write_tx: crossbeam_channel::Sender<PtyWrite>,
+    changed: bool,
 }
 
 impl TerminalState {
@@ -58,8 +59,22 @@ impl TerminalState {
             saved_color_state: None,
             window_title: None,
             write_tx,
+            changed: false,
         }
     }
+
+    pub(crate) const fn is_changed(&self) -> bool {
+        self.changed
+    }
+
+    fn set_state_changed(&mut self) {
+        self.changed = true;
+    }
+
+    pub(crate) fn clear_changed(&mut self) {
+        self.changed = false;
+    }
+
     pub(crate) const fn get_win_size(&self) -> (usize, usize) {
         self.terminal_buffer.get_win_size()
     }
@@ -111,6 +126,7 @@ impl TerminalState {
         self.format_tracker
             .push_range(&self.cursor_state, response.written_range);
         self.cursor_state.pos = response.new_cursor_pos;
+        self.set_state_changed();
     }
 
     pub(crate) fn set_cursor_pos(&mut self, x: Option<usize>, y: Option<usize>) {
