@@ -7,7 +7,7 @@ use std::ops::Range;
 use thiserror::Error;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{term_char::TChar, CursorPos, TerminalData};
+use super::{cursor::CursorPos, data::TerminalSections, term_char::TChar};
 
 /// Calculate the indexes of the start and end of each line in the buffer given an input width.
 /// Ranges do not include newlines. If a newline appears past the width, it does not result in an
@@ -486,20 +486,20 @@ impl TerminalBufferHolder {
         Some(delete_range)
     }
 
-    pub fn data(&self) -> TerminalData<&[TChar]> {
+    pub fn data(&self) -> TerminalSections<Vec<TChar>> {
         let line_ranges = calc_line_ranges(&self.buf, self.width);
         let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, self.height);
         if self.buf.is_empty() {
-            return TerminalData {
-                scrollback: &[],
-                visible: &self.buf,
+            return TerminalSections {
+                scrollback: vec![],
+                visible: self.buf.clone(),
             };
         }
 
         let start = visible_line_ranges[0].start;
-        TerminalData {
-            scrollback: &self.buf[0..start],
-            visible: &self.buf[start..],
+        TerminalSections {
+            scrollback: self.buf[..start].to_vec(),
+            visible: self.buf[start..].to_vec(),
         }
     }
 

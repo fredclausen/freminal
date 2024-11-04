@@ -1,67 +1,123 @@
-// WIP for replaying terminal data
+// Copyright (C) 2024 Fred Clausen
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file or at
+// https://opensource.org/licenses/MIT.
 
-#![allow(dead_code)]
-#![allow(unused_variables)]
+use core::str;
 
-use super::ansi_components::{mode::BracketedPaste, sgr::SelectGraphicRendition};
-use super::state::buffer::TerminalBufferHolder;
-use super::state::cursor::CursorState;
-use super::state::fonts::{FontDecorations, FontWeight};
-use super::state::term_char::TChar;
-use super::{
-    ansi::{FreminalAnsiParser, TerminalOutput},
-    format_tracker::FormatTracker,
-    split_format_data_for_scrollback, CursorPos, Decawm, Decckm, FormatTag, Mode, TerminalColor,
-    TerminalModes, TerminalSections,
+use eframe::egui::Color32;
+
+use crate::{
+    gui::colors::TerminalColor,
+    terminal_emulator::{
+        ansi::{FreminalAnsiParser, TerminalOutput},
+        ansi_components::{
+            mode::{BracketedPaste, Decawm, Decckm, Mode, TerminalModes},
+            osc::{AnsiOscInternalType, AnsiOscType},
+            sgr::SelectGraphicRendition,
+        },
+        format_tracker::FormatTracker,
+        io::PtyWrite,
+        split_format_data_for_scrollback, FormatTag, TerminalInput, TerminalInputPayload,
+    },
 };
 
-pub const TERMINAL_WIDTH: usize = 112;
-pub const TERMINAL_HEIGHT: usize = 38;
+use super::{
+    buffer::{TerminalBufferHolder, TerminalBufferSetWinSizeResponse},
+    cursor::{CursorPos, CursorState},
+    data::TerminalSections,
+    fonts::{FontDecorations, FontWeight},
+    term_char::TChar,
+};
 
-pub struct ReplayIo {
+pub const TERMINAL_WIDTH: usize = 50;
+pub const TERMINAL_HEIGHT: usize = 16;
+
+pub struct TerminalState {
     parser: FreminalAnsiParser,
     terminal_buffer: TerminalBufferHolder,
     format_tracker: FormatTracker,
     cursor_state: CursorState,
     modes: TerminalModes,
     saved_color_state: Option<(TerminalColor, TerminalColor, TerminalColor)>,
+    window_title: Option<String>,
+    write_tx: crossbeam_channel::Sender<PtyWrite>,
+    changed: bool,
 }
 
-impl ReplayIo {
-    pub fn new() -> Self {
+impl TerminalState {
+    pub fn new(write_tx: crossbeam_channel::Sender<PtyWrite>) -> Self {
         Self {
             parser: FreminalAnsiParser::new(),
             terminal_buffer: TerminalBufferHolder::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
             format_tracker: FormatTracker::new(),
-            cursor_state: CursorState {
-                pos: CursorPos::default(),
-                font_weight: FontWeight::Normal,
-                font_decorations: Vec::new(),
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
-                line_wrap_mode: Decawm::default(),
-            },
             modes: TerminalModes {
                 cursor_key: Decckm::default(),
                 bracketed_paste: BracketedPaste::default(),
             },
+            cursor_state: CursorState::default(),
             saved_color_state: None,
+            window_title: None,
+            write_tx,
+            changed: false,
         }
     }
 
-    pub const fn get_win_size(&self) -> (usize, usize) {
+    pub(crate) const fn is_changed(&self) -> bool {
+        self.changed
+    }
+
+    fn set_state_changed(&mut self) {
+        self.changed = true;
+    }
+
+    pub(crate) fn clear_changed(&mut self) {
+        self.changed = false;
+    }
+
+    pub(crate) const fn get_win_size(&self) -> (usize, usize) {
         self.terminal_buffer.get_win_size()
     }
 
-    pub fn set_win_size(&mut self, width_chars: usize, height_chars: usize) {
-        let response =
-            self.terminal_buffer
-                .set_win_size(width_chars, height_chars, &self.cursor_state.pos);
-        self.cursor_state.pos = response.new_cursor_pos;
+    pub(crate) fn get_window_title(&self) -> Option<String> {
+        self.window_title.clone()
     }
 
-    fn handle_data(&mut self, data: &[u8]) {
+    pub(crate) fn data(&self) -> TerminalSections<Vec<TChar>> {
+        self.terminal_buffer.data()
+    }
+
+    pub(crate) fn format_data(&self) -> TerminalSections<Vec<FormatTag>> {
+        let offset = self.terminal_buffer.data().scrollback.len();
+        split_format_data_for_scrollback(self.format_tracker.tags(), offset)
+    }
+
+    pub(crate) fn cursor_pos(&self) -> CursorPos {
+        self.cursor_state.pos.clone()
+    }
+
+    pub(crate) fn clear_window_title(&mut self) {
+        self.window_title = None;
+    }
+
+    pub(crate) fn set_win_size(
+        &mut self,
+        width: usize,
+        height: usize,
+    ) -> TerminalBufferSetWinSizeResponse {
+        let response = self
+            .terminal_buffer
+            .set_win_size(width, height, &self.cursor_state.pos);
+        self.cursor_state.pos = response.new_cursor_pos.clone();
+
+        response
+    }
+
+    pub(crate) fn get_cursor_key_mode(&self) -> Decckm {
+        self.modes.cursor_key.clone()
+    }
+
+    pub(crate) fn handle_data(&mut self, data: &[u8]) {
         let response = self
             .terminal_buffer
             .insert_data(&self.cursor_state.pos, data);
@@ -70,9 +126,10 @@ impl ReplayIo {
         self.format_tracker
             .push_range(&self.cursor_state, response.written_range);
         self.cursor_state.pos = response.new_cursor_pos;
+        self.set_state_changed();
     }
 
-    fn set_cursor_pos(&mut self, x: Option<usize>, y: Option<usize>) {
+    pub(crate) fn set_cursor_pos(&mut self, x: Option<usize>, y: Option<usize>) {
         if let Some(x) = x {
             self.cursor_state.pos.x = x - 1;
         }
@@ -81,7 +138,7 @@ impl ReplayIo {
         }
     }
 
-    fn set_cursor_pos_rel(&mut self, x: Option<i32>, y: Option<i32>) {
+    pub(crate) fn set_cursor_pos_rel(&mut self, x: Option<i32>, y: Option<i32>) {
         if let Some(x) = x {
             let x: i64 = x.into();
             let current_x: i64 = self
@@ -105,20 +162,20 @@ impl ReplayIo {
         }
     }
 
-    fn clear_forwards(&mut self) {
+    pub(crate) fn clear_forwards(&mut self) {
         if let Some(buf_pos) = self.terminal_buffer.clear_forwards(&self.cursor_state.pos) {
             self.format_tracker
                 .push_range(&self.cursor_state, buf_pos..usize::MAX);
         }
     }
 
-    fn clear_all(&mut self) {
+    pub(crate) fn clear_all(&mut self) {
         self.format_tracker
             .push_range(&self.cursor_state, 0..usize::MAX);
         self.terminal_buffer.clear_all();
     }
 
-    fn clear_line_forwards(&mut self) {
+    pub(crate) fn clear_line_forwards(&mut self) {
         if let Some(range) = self
             .terminal_buffer
             .clear_line_forwards(&self.cursor_state.pos)
@@ -127,21 +184,24 @@ impl ReplayIo {
         }
     }
 
-    fn carriage_return(&mut self) {
+    pub(crate) fn carriage_return(&mut self) {
         self.cursor_state.pos.x = 0;
     }
 
-    fn new_line(&mut self) {
+    pub(crate) fn new_line(&mut self) {
         self.cursor_state.pos.y += 1;
     }
 
-    fn backspace(&mut self) {
+    pub(crate) fn backspace(&mut self) {
         if self.cursor_state.pos.x >= 1 {
             self.cursor_state.pos.x -= 1;
+        } else {
+            // FIXME: this is not correct, we should move to the end of the previous line
+            warn!("FIXME: Backspace at the beginning of the line. Not wrapping");
         }
     }
 
-    fn insert_lines(&mut self, num_lines: usize) {
+    pub(crate) fn insert_lines(&mut self, num_lines: usize) {
         let response = self
             .terminal_buffer
             .insert_lines(&self.cursor_state.pos, num_lines);
@@ -150,7 +210,7 @@ impl ReplayIo {
             .push_range_adjustment(response.inserted_range);
     }
 
-    fn delete(&mut self, num_chars: usize) {
+    pub(crate) fn delete(&mut self, num_chars: usize) {
         let deleted_buf_range = self
             .terminal_buffer
             .delete_forwards(&self.cursor_state.pos, num_chars);
@@ -159,48 +219,47 @@ impl ReplayIo {
         }
     }
 
-    fn reset(&mut self) {
+    pub(crate) fn reset(&mut self) {
         self.cursor_state.color = TerminalColor::Default;
-        self.cursor_state.background_color = TerminalColor::Black;
+        self.cursor_state.background_color = TerminalColor::DefaultBackground;
+        self.cursor_state.underline_color = TerminalColor::DefaultUnderlineColor;
         self.cursor_state.font_weight = FontWeight::Normal;
         self.cursor_state.font_decorations.clear();
         self.saved_color_state = None;
     }
 
-    fn font_decordations_add_if_not_contains(&mut self, decoration: FontDecorations) {
+    pub(crate) fn font_decordations_add_if_not_contains(&mut self, decoration: FontDecorations) {
         if !self.cursor_state.font_decorations.contains(&decoration) {
             self.cursor_state.font_decorations.push(decoration);
         }
     }
 
-    fn font_decorations_remove_if_contains(&mut self, decoration: &FontDecorations) {
+    pub(crate) fn font_decorations_remove_if_contains(&mut self, decoration: &FontDecorations) {
         self.cursor_state
             .font_decorations
             .retain(|d| *d != *decoration);
     }
 
-    fn set_foreground(&mut self, color: TerminalColor) {
+    pub(crate) fn set_foreground(&mut self, color: TerminalColor) {
         self.cursor_state.color = color;
     }
 
-    fn set_background(&mut self, color: TerminalColor) {
+    pub(crate) fn set_background(&mut self, color: TerminalColor) {
         self.cursor_state.background_color = color;
     }
 
-    fn set_underline_color(&mut self, color: TerminalColor) {
+    pub(crate) fn set_underline_color(&mut self, color: TerminalColor) {
         self.cursor_state.underline_color = color;
     }
 
-    fn sgr(&mut self, sgr: SelectGraphicRendition) {
-        // if let Some(color) = TerminalColor::from_sgr(sgr) {
-        //     self.cursor_state.color = color;
-        //     return;
-        // }
-
+    pub(crate) fn sgr(&mut self, sgr: SelectGraphicRendition) {
         match sgr {
             SelectGraphicRendition::Reset => self.reset(),
             SelectGraphicRendition::Bold => {
                 self.cursor_state.font_weight = FontWeight::Bold;
+            }
+            SelectGraphicRendition::Underline => {
+                self.font_decordations_add_if_not_contains(FontDecorations::Underline);
             }
             SelectGraphicRendition::Italic => {
                 self.font_decordations_add_if_not_contains(FontDecorations::Italic);
@@ -210,9 +269,6 @@ impl ReplayIo {
             }
             SelectGraphicRendition::Faint => {
                 self.font_decordations_add_if_not_contains(FontDecorations::Faint);
-            }
-            SelectGraphicRendition::Underline => {
-                self.font_decordations_add_if_not_contains(FontDecorations::Underline);
             }
             SelectGraphicRendition::ResetBold => {
                 self.cursor_state.font_weight = FontWeight::Normal;
@@ -233,6 +289,7 @@ impl ReplayIo {
                 let mut foreground = self.cursor_state.color;
                 let mut background = self.cursor_state.background_color;
                 let mut underline = self.cursor_state.underline_color;
+
                 self.saved_color_state = Some((foreground, background, underline));
 
                 if foreground == TerminalColor::Default {
@@ -303,7 +360,7 @@ impl ReplayIo {
         }
     }
 
-    fn set_mode(&mut self, mode: &Mode) {
+    pub(crate) fn set_mode(&mut self, mode: &Mode) {
         match mode {
             Mode::Decckm => {
                 self.modes.cursor_key = Decckm::Application;
@@ -312,6 +369,7 @@ impl ReplayIo {
                 self.cursor_state.line_wrap_mode = Decawm::AutoWrap;
             }
             Mode::BracketedPaste => {
+                warn!("BracketedPaste Set is not supported");
                 self.modes.bracketed_paste = BracketedPaste::Enabled;
             }
             Mode::Unknown(_) => {
@@ -320,7 +378,7 @@ impl ReplayIo {
         }
     }
 
-    fn insert_spaces(&mut self, num_spaces: usize) {
+    pub(crate) fn insert_spaces(&mut self, num_spaces: usize) {
         let response = self
             .terminal_buffer
             .insert_spaces(&self.cursor_state.pos, num_spaces);
@@ -328,7 +386,7 @@ impl ReplayIo {
             .push_range_adjustment(response.insertion_range);
     }
 
-    fn reset_mode(&mut self, mode: &Mode) {
+    pub(crate) fn reset_mode(&mut self, mode: &Mode) {
         match mode {
             Mode::Decckm => {
                 self.modes.cursor_key = Decckm::Ansi;
@@ -337,15 +395,100 @@ impl ReplayIo {
                 self.cursor_state.line_wrap_mode = Decawm::NoAutoWrap;
             }
             Mode::BracketedPaste => {
+                warn!("BracketedPaste Reset is not supported");
                 self.modes.bracketed_paste = BracketedPaste::Disabled;
             }
             Mode::Unknown(_) => {}
         }
     }
 
-    pub fn handle_incoming_data(&mut self, incoming: &[u8]) {
+    pub(crate) fn osc_response(&mut self, osc: AnsiOscType) {
+        match osc {
+            AnsiOscType::RequestColorQueryBackground(color) => {
+                match color {
+                    // OscInternalType::SetColor(_) => {
+                    //     warn!("RequestColorQueryBackground: Set is not supported");
+                    // }
+                    AnsiOscInternalType::Query => {
+                        // lets get the color as a hex string
+
+                        let (r, g, b, a) = Color32::BLACK.to_tuple();
+
+                        let formatted_string =
+                            format!("\x1b]11;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\");
+                        let output = formatted_string.as_bytes();
+
+                        for byte in output {
+                            self.write(&TerminalInput::Ascii(*byte))
+                                .expect("Failed to write osc color response");
+                        }
+                    }
+                    AnsiOscInternalType::Unknown(_) => {
+                        warn!("OSC Unknown is not supported");
+                    }
+                    AnsiOscInternalType::String(_) => {
+                        warn!("OSC Type {color:?} Skipped");
+                    }
+                }
+            }
+            AnsiOscType::RequestColorQueryForeground(color) => {
+                match color {
+                    // OscInternalType::SetColor(_) => {
+                    //     warn!("RequestColorQueryForeground: Set is not supported");
+                    // }
+                    AnsiOscInternalType::Query => {
+                        // lets get the color as a hex string
+                        let (r, g, b, a) = Color32::WHITE.to_tuple();
+
+                        let formatted_string =
+                            format!("\x1b]10;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\");
+
+                        let output = formatted_string.as_bytes();
+
+                        for byte in output {
+                            self.write(&TerminalInput::Ascii(*byte))
+                                .expect("Failed to write osc color response");
+                        }
+                    }
+                    AnsiOscInternalType::Unknown(_) => {
+                        warn!("OSC Unknown is not supported");
+                    }
+                    AnsiOscInternalType::String(_) => {
+                        warn!("OSC Type {color:?} Skipped");
+                    }
+                }
+            }
+            AnsiOscType::SetTitleBar(title) => {
+                self.window_title = Some(title);
+            }
+            AnsiOscType::Ftcs(value) => {
+                warn!("Ftcs is not supported: {value}");
+            }
+        }
+    }
+
+    pub(crate) fn report_cursor_position(&self) {
+        let x = self.cursor_state.pos.x + 1;
+        let y = self.cursor_state.pos.y + 1;
+        let formatted_string = format!("\x1b[{y};{x}R");
+        let output = formatted_string.as_bytes();
+
+        for byte in output {
+            self.write(&TerminalInput::Ascii(*byte))
+                .expect("Failed to write cursor position report");
+        }
+    }
+
+    pub(crate) fn handle_incoming_data(&mut self, incoming: &[u8]) {
         let parsed = self.parser.push(incoming);
         for segment in parsed {
+            // if segment is not data, we want to print out the segment
+            if let TerminalOutput::Data(data) = &segment {
+                debug!("Incoming data: {:?}", str::from_utf8(data).unwrap());
+            } else {
+                debug!("Incoming segment: {:?}", segment);
+            }
+
             match segment {
                 TerminalOutput::Data(data) => self.handle_data(&data),
                 TerminalOutput::SetCursorPos { x, y } => self.set_cursor_pos(x, y),
@@ -362,133 +505,29 @@ impl ReplayIo {
                 TerminalOutput::SetMode(mode) => self.set_mode(&mode),
                 TerminalOutput::InsertSpaces(num_spaces) => self.insert_spaces(num_spaces),
                 TerminalOutput::ResetMode(mode) => self.reset_mode(&mode),
+                TerminalOutput::OscResponse(osc) => self.osc_response(osc),
+                TerminalOutput::CursorReport => self.report_cursor_position(),
+                TerminalOutput::Skipped => (),
                 TerminalOutput::Bell
                 | TerminalOutput::Invalid
-                | TerminalOutput::OscResponse(_)
-                | TerminalOutput::CursorReport
-                | TerminalOutput::Skipped
                 | TerminalOutput::ApplicationKeypadMode
-                | TerminalOutput::NormalKeypadMode => (),
+                | TerminalOutput::NormalKeypadMode => {
+                    info!("Unhandled terminal output: {segment:?}");
+                }
             }
         }
     }
 
-    pub fn data(&self) -> TerminalSections<Vec<TChar>> {
-        self.terminal_buffer.data()
+    pub fn write(&self, to_write: &TerminalInput) -> Result<(), Box<dyn std::error::Error>> {
+        match to_write.to_payload(self.get_cursor_key_mode() == Decckm::Application) {
+            TerminalInputPayload::Single(c) => {
+                self.write_tx.send(PtyWrite::Write(vec![c]))?;
+            }
+            TerminalInputPayload::Many(to_write) => {
+                self.write_tx.send(PtyWrite::Write(to_write.to_vec()))?;
+            }
+        };
+
+        Ok(())
     }
-
-    pub fn format_data(&self) -> TerminalSections<Vec<FormatTag>> {
-        let offset = self.terminal_buffer.data().scrollback.len();
-        split_format_data_for_scrollback(self.format_tracker.tags(), offset)
-    }
-
-    pub fn cursor_pos(&self) -> CursorPos {
-        self.cursor_state.pos.clone()
-    }
-}
-
-#[test]
-
-fn format_tracker_with_data() {
-    let mut terminal_io = ReplayIo::new();
-
-    let data: [u8; 1023] = [
-        27, 91, 49, 109, 27, 91, 51, 50, 109, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
-        32, 32, 32, 32, 32, 32, 32, 32, 27, 91, 51, 50, 109, 46, 46, 39, 13, 10, 32, 32, 32, 32,
-        32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 44, 120, 78, 77, 77, 46, 13, 10, 32,
-        32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 46, 79, 77, 77, 77, 77, 111, 13,
-        10, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 108, 77, 77, 34, 13, 10,
-        32, 32, 32, 32, 32, 46, 59, 108, 111, 100, 100, 111, 58, 46, 32, 32, 46, 111, 108, 108,
-        111, 100, 100, 111, 108, 59, 46, 13, 10, 32, 32, 32, 99, 75, 77, 77, 77, 77, 77, 77, 77,
-        77, 77, 77, 78, 87, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 48, 58, 13, 10, 32, 27, 91, 51,
-        51, 109, 46, 75, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        77, 77, 77, 77, 77, 87, 100, 46, 13, 10, 32, 88, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 88, 46, 13, 10, 27, 91, 51, 49, 109,
-        59, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        77, 77, 58, 13, 10, 58, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        77, 77, 77, 77, 77, 77, 77, 58, 13, 10, 46, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 88, 46, 13, 10, 32, 107, 77, 77, 77, 77,
-        77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 87, 100,
-        46, 13, 10, 32, 27, 91, 51, 53, 109, 39, 88, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 107, 13, 10, 32, 32, 39, 88,
-        77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-        77, 75, 46, 13, 10, 32, 32, 32, 32, 27, 91, 51, 52, 109, 107, 77, 77, 77, 77, 77, 77, 77,
-        77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 100, 13, 10, 32, 32, 32, 32,
-        32, 59, 75, 77, 77, 77, 77, 77, 77, 77, 87, 88, 88, 87, 77, 77, 77, 77, 77, 77, 77, 107,
-        46, 13, 10, 32, 32, 32, 32, 32, 32, 32, 34, 99, 111, 111, 99, 42, 34, 32, 32, 32, 32, 34,
-        42, 99, 111, 111, 39, 34, 27, 91, 109, 27, 91, 49, 71, 27, 91, 49, 54, 65, 27, 91, 109, 27,
-        91, 63, 55, 108, 27, 91, 51, 52, 67, 27, 91, 109, 27, 91, 49, 109, 27, 91, 51, 50, 109,
-        102, 114, 101, 100, 27, 91, 109, 64, 27, 91, 49, 109, 27, 91, 51, 50, 109, 70, 114, 101,
-        100, 115, 45, 77, 97, 99, 45, 83, 116, 117, 100, 105, 111, 27, 91, 109, 13, 10, 27, 91, 51,
-        52, 67, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45,
-        13, 10, 27, 91, 51, 52, 67, 27, 91, 109, 27, 91, 49, 109, 27, 91, 51, 51, 109, 79, 83, 27,
-        91, 109, 58, 32, 27, 91, 109, 109, 97, 99, 79, 83, 32, 83, 101, 113, 117, 111, 105, 97, 32,
-        49, 53, 46, 49, 32, 97, 114, 109, 54, 52, 13, 10, 27, 91, 51, 52, 67, 27, 91, 109, 27, 91,
-        49, 109, 27, 91, 51, 51, 109, 72, 111, 115, 116, 27, 91, 109, 58, 32, 27, 91, 109, 77, 97,
-        99, 32, 83, 116, 117, 100, 105, 111, 32, 40, 77, 49, 32, 77, 97, 120, 44, 32, 50, 48, 50,
-        50, 44, 32, 84, 119, 111, 32, 85, 83, 66, 45, 67, 32, 102, 114, 111, 110, 116, 32, 112,
-        111, 114, 116, 115, 41, 27, 91, 109, 13, 10, 27, 91, 51, 52, 67, 27, 91, 109, 27, 91, 49,
-        109, 27, 91, 51, 51, 109, 75, 101, 114, 110, 101, 108, 27, 91, 109, 58, 32, 27, 91, 109,
-        68, 97, 114, 119, 105, 110, 32, 50, 52, 46, 49, 46, 48, 13, 10, 27, 91, 51, 52, 67, 27, 91,
-        109, 27, 91, 49, 109, 27, 91, 51, 51, 109, 85, 112, 116, 105, 109, 101, 27, 91, 109, 58,
-        32, 27, 91, 109, 49, 52, 32, 100, 97, 121, 115, 44, 32, 53, 53, 32, 109, 105, 110, 115, 13,
-        10, 27, 91, 51, 52, 67, 13, 10, 27, 91, 51, 52, 67, 27, 91, 109, 27, 91, 49, 109, 27, 91,
-        51, 51, 109, 80, 97, 99, 107, 97, 103, 101, 115, 27, 91, 109, 58, 32, 27, 91, 109, 49, 51,
-        55, 32, 40, 98, 114, 101, 119, 41, 44, 32, 51, 48, 32, 40, 98, 114, 101, 119, 45, 99, 97,
-        115, 107, 41, 13, 10, 27, 91, 51, 52, 67, 27, 91, 109, 27, 91, 49, 109, 27, 91, 51, 51,
-        109, 83, 104, 101, 108, 108, 27, 91, 109, 58, 32, 27, 91, 109, 122, 115, 104, 32, 53, 46,
-        57, 13, 10, 27, 91, 51, 52, 67, 27, 91, 109, 27, 91, 49, 109, 27, 91, 51, 51, 109, 68, 105,
-        115, 112, 108, 97, 121, 32, 40, 83, 99, 101, 112, 116, 114, 101, 32, 67, 51, 53, 41, 27,
-        91, 109, 58, 32, 27, 91, 109, 51, 52, 52, 48, 120, 49, 52, 52, 48, 32, 64, 32, 54, 48, 32,
-        72, 122, 32, 105, 110, 32, 51, 53,
-    ];
-
-    //,226128,179,32,91,69,120,116,101,114,110,97,108,93,32,42,13,10,27,91,51,52,67,27,91,109,27,91,49,109,27,91,51,51,109,68,105,115,112,108,97,121,32,40,82,50,52,48,72,89,41,27,91,109,58,32,27,91,109,49,57,50,48,120,49,48,56,48,32,64,32,54,48,32,72,122,32,105,110,32,50,52,226,128,179,32,91,69,120,116,101,114,110,97,108,93,13,10,27,91,51,52,67,27,91,109,27,91,49,109,27,91,51,51,109,68,105,115,112,108,97,121,32,40,82,50,52,48,72,89,41,27,91,109,58,32,27,91,109,49,57,50,48,120,49,48,56,48,32,64,32,54,48,32,72,122,32,105,110,32,50,52,226,128,179,32,91,69,120,116,101,114,110,97,108,93,13,1027,91,51,52,67,27,91,109,27,91,49,109,27,91,51,51,109,84,101,114,109,105,110,97,108,27,91,109,58,32,27,91,109,102,114,101,109,105,110,97,108,13,10,27,91,51,52,67,13,1027,91,51,52,67,27,91,109,27,91,49,109,27,91,51,51,109,67,80,85,27,91,109,58,32,27,91,109,65,112,112,108,101,32,77,49,32,77,97,120,32,40,49,48,41,32,64,32,51,46,50,51,32,71,72,122,13,10];
-
-    terminal_io.handle_incoming_data(&data);
-    let data = terminal_io.data();
-    let format_tags = terminal_io.format_data();
-
-    println!("Scrollback:");
-    for tag in &format_tags.scrollback {
-        let start_pos = tag.start;
-        let mut end_pos = tag.end;
-
-        assert!(start_pos < end_pos);
-
-        if end_pos > data.scrollback.len() {
-            end_pos = data.scrollback.len();
-        }
-
-        // create a string from the data scrollback
-        let scrollback_slice: Vec<u8> = data.scrollback[start_pos..end_pos]
-            .iter()
-            .map(TChar::to_u8)
-            .collect();
-        let output = String::from_utf8_lossy(&scrollback_slice);
-
-        print!("{output}");
-    }
-
-    println!("Visible:");
-    for tag in &format_tags.visible {
-        let start_pos = tag.start;
-        let mut end_pos = tag.end;
-
-        assert!(start_pos < end_pos);
-
-        if end_pos > data.visible.len() {
-            end_pos = data.visible.len();
-        }
-
-        // create a string from the data visible
-        let visible_slice: Vec<u8> = data.visible[start_pos..end_pos]
-            .iter()
-            .map(TChar::to_u8)
-            .collect();
-        let output = String::from_utf8_lossy(&visible_slice);
-
-        print!("{output}");
-    }
-    // assert!(0 == 1);
 }

@@ -5,7 +5,7 @@
 
 use eframe::egui::{self, Color32, FontData, FontDefinitions, FontFamily, FontId};
 
-use crate::terminal_emulator::{FontDecorations, FontWeight};
+use crate::terminal_emulator::state::fonts::{FontDecorations, FontWeight};
 
 const REGULAR_FONT_NAME: &str = "hack";
 const BOLD_FONT_NAME: &str = "hack-bold";

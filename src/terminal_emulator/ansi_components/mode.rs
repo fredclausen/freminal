@@ -11,7 +11,7 @@ pub enum Mode {
 }
 
 /// Cursor Key Mode (DECCKM)
-#[derive(Eq, PartialEq, Debug, Default)]
+#[derive(Eq, PartialEq, Debug, Default, Clone)]
 pub enum Decckm {
     #[default]
     /// Cursor keys send ANSI control codes

@@ -5,7 +5,13 @@
 
 use crate::gui::colors::TerminalColor;
 
-use super::{ansi_components::mode::Decawm, CursorState, FontDecorations, FontWeight};
+use super::{
+    ansi_components::mode::Decawm,
+    state::{
+        cursor::CursorState,
+        fonts::{FontDecorations, FontWeight},
+    },
+};
 use std::ops::Range;
 
 const fn ranges_overlap(a: Range<usize>, b: Range<usize>) -> bool {
@@ -241,7 +247,6 @@ impl FormatTracker {
 
 #[cfg(test)]
 mod test {
-    use super::super::CursorState;
     use super::*;
 
     fn basic_color_test_one(format_tracker: &FormatTracker) {
