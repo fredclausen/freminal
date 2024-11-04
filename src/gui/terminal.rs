@@ -582,6 +582,7 @@ impl FreminalTerminalWidget {
             if let Some(title) = terminal_emulator.get_window_title() {
                 ui.ctx()
                     .send_viewport_cmd(egui::ViewportCommand::Title(title));
+                terminal_emulator.clear_window_title();
             }
 
             ui.input(|input_state| {
