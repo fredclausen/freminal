@@ -237,8 +237,6 @@ fn create_terminal_output_layout_job(
             offset[tag.end]
         };
 
-        //
-
         assert!(
             start <= end,
             "Start is greater than end. Start: {start}, End: {end}, tag: {tag:?}"
