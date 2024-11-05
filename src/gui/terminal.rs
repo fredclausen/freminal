@@ -227,13 +227,22 @@ fn create_terminal_output_layout_job(
             data_converted.len() - 1
         };
 
-        let end = if tag.end == usize::MAX {
+        let end = if tag.start == tag.end {
+            start
+        } else if tag.end == usize::MAX {
             data_converted.len() - 1
         } else if tag.end >= offset.len() {
             offset.last().unwrap().to_owned()
         } else {
             offset[tag.end]
         };
+
+        //
+
+        assert!(
+            start <= end,
+            "Start is greater than end. Start: {start}, End: {end}, tag: {tag:?}"
+        );
 
         format_data_shifted.push(FormatTag {
             start,
