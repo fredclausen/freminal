@@ -176,6 +176,9 @@ fn create_terminal_output_layout_job(
     data: &[TChar],
     format_data: &[FormatTag],
 ) -> Result<(String, Vec<FormatTag>), std::str::Utf8Error> {
+    if data.is_empty() {
+        return Ok((String::new(), Vec::new()));
+    }
     let mut offset = Vec::with_capacity(data.len());
 
     // Convert data into an array of bytes

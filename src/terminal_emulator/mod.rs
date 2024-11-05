@@ -217,8 +217,9 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         }
     }
 
-    pub fn request_redraw(&self) {
+    pub fn request_redraw(&mut self) {
         debug!("Terminal Emulator: Requesting redraw");
+        self.previous_pass_valid = false;
         if let Some(ctx) = &self.ctx {
             ctx.request_repaint();
         }
@@ -254,7 +255,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     }
 
     pub fn set_win_size(
-        &self,
+        &mut self,
         width_chars: usize,
         height_chars: usize,
         font_pixel_width: usize,

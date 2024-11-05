@@ -85,7 +85,8 @@ impl TerminalState {
         self.ctx = Some(ctx);
     }
 
-    fn request_redraw(&self) {
+    fn request_redraw(&mut self) {
+        self.changed = true;
         if let Some(ctx) = &self.ctx {
             debug!("Internal State: Requesting repaint");
             ctx.request_repaint();

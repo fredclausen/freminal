@@ -52,34 +52,32 @@ struct InvalidBufPos {
     buf_len: usize,
 }
 
-fn buf_to_cursor_pos(
-    buf: &[TChar],
-    width: usize,
-    height: usize,
-    buf_pos: usize,
-) -> Result<CursorPos, InvalidBufPos> {
+fn buf_to_cursor_pos(buf: &[TChar], width: usize, height: usize, buf_pos: usize) -> CursorPos {
     let new_line_ranges = calc_line_ranges(buf, width);
     let new_visible_line_ranges = line_ranges_to_visible_line_ranges(&new_line_ranges, height);
-    let (new_cursor_y, new_cursor_line) = new_visible_line_ranges
+
+    let (new_cursor_y, new_cursor_line) = if let Some((i, r)) = new_visible_line_ranges
         .iter()
         .enumerate()
         .find(|(_i, r)| r.end >= buf_pos)
-        .ok_or(InvalidBufPos {
-            buf_pos,
-            buf_len: buf.len(),
-        })?;
+    {
+        (i, r.clone())
+    } else {
+        info!("Buffer position not on screen");
+        return CursorPos::default();
+    };
 
     if buf_pos < new_cursor_line.start {
         info!("Old cursor position no longer on screen");
-        return Ok(CursorPos::default());
+        return CursorPos::default();
     };
 
     let new_cursor_x = buf_pos - new_cursor_line.start;
 
-    Ok(CursorPos {
+    CursorPos {
         x: new_cursor_x,
         y: new_cursor_y,
-    })
+    }
 }
 
 fn unwrapped_line_end_pos(buf: &[TChar], start_pos: usize) -> usize {
@@ -104,6 +102,7 @@ fn line_ranges_to_visible_line_ranges(
     }
     let num_lines = line_ranges.len();
     let first_visible_line = num_lines.saturating_sub(height);
+
     &line_ranges[first_visible_line..]
 }
 
@@ -291,8 +290,7 @@ impl TerminalBufferHolder {
         //self.buf[write_range.clone()].copy_from_slice(data);
         self.buf
             .splice(write_range.clone(), converted_buffer.iter().cloned());
-        let new_cursor_pos = buf_to_cursor_pos(&self.buf, self.width, self.height, write_range.end)
-            .expect("write range should be valid in buf");
+        let new_cursor_pos = buf_to_cursor_pos(&self.buf, self.width, self.height, write_range.end);
         TerminalBufferInsertResponse {
             written_range: write_range,
             insertion_range: inserted_padding,
@@ -433,20 +431,18 @@ impl TerminalBufferHolder {
             }
         }
 
-        let new_cursor_pos =
-            buf_to_cursor_pos(&self.buf, self.width, self.height, buf_pos).map(|mut pos| {
-                // NOTE: buf to cursor pos may put the cursor one past the end of the line. In this
-                // case it's ok because there are two valid cursor positions and we only care about one
-                // of them
-                if pos.x == self.width {
-                    pos.x = 0;
-                    pos.y += 1;
-                    //pos.x_as_characters = 0;
-                }
-                pos
-            });
+        let mut pos = buf_to_cursor_pos(&self.buf, self.width, self.height, buf_pos);
+        // NOTE: buf to cursor pos may put the cursor one past the end of the line. In this
+        // case it's ok because there are two valid cursor positions and we only care about one
+        // of them
+        if pos.x == self.width {
+            pos.x = 0;
+            pos.y += 1;
+            //pos.x_as_characters = 0;
+        }
+        let new_cursor_pos = pos;
 
-        assert_eq!(new_cursor_pos, Ok(cursor_pos.clone()));
+        assert_eq!(new_cursor_pos, cursor_pos.clone());
         Some(buf_pos)
     }
 
@@ -496,6 +492,13 @@ impl TerminalBufferHolder {
             };
         }
 
+        if visible_line_ranges.is_empty() {
+            return TerminalSections {
+                scrollback: self.buf.clone(),
+                visible: vec![],
+            };
+        }
+
         let start = visible_line_ranges[0].start;
         TerminalSections {
             scrollback: self.buf[..start].to_vec(),
@@ -529,8 +532,7 @@ impl TerminalBufferHolder {
             pad_buffer_for_write(&mut self.buf, self.width, self.height, cursor_pos, 0);
         let buf_pos = pad_response.write_idx;
         let inserted_padding = pad_response.inserted_padding;
-        let new_cursor_pos = buf_to_cursor_pos(&self.buf, width, height, buf_pos)
-            .expect("buf pos should exist in buffer");
+        let new_cursor_pos = buf_to_cursor_pos(&self.buf, width, height, buf_pos);
 
         self.width = width;
         self.height = height;
