@@ -5,7 +5,7 @@
 
 use core::str;
 
-use eframe::egui::Color32;
+use eframe::egui::{Color32, Context};
 
 use crate::{
     gui::colors::TerminalColor,
@@ -43,6 +43,7 @@ pub struct TerminalState {
     window_title: Option<String>,
     write_tx: crossbeam_channel::Sender<PtyWrite>,
     changed: bool,
+    ctx: Option<Context>,
 }
 
 impl TerminalState {
@@ -60,6 +61,7 @@ impl TerminalState {
             window_title: None,
             write_tx,
             changed: false,
+            ctx: None,
         }
     }
 
@@ -73,6 +75,21 @@ impl TerminalState {
 
     pub(crate) fn clear_changed(&mut self) {
         self.changed = false;
+    }
+
+    pub fn set_ctx(&mut self, ctx: Context) {
+        if self.ctx.is_some() {
+            return;
+        }
+
+        self.ctx = Some(ctx);
+    }
+
+    fn request_redraw(&self) {
+        if let Some(ctx) = &self.ctx {
+            debug!("Internal State: Requesting repaint");
+            ctx.request_repaint();
+        }
     }
 
     pub(crate) const fn get_win_size(&self) -> (usize, usize) {
@@ -127,6 +144,7 @@ impl TerminalState {
             .push_range(&self.cursor_state, response.written_range);
         self.cursor_state.pos = response.new_cursor_pos;
         self.set_state_changed();
+        self.request_redraw();
     }
 
     pub(crate) fn set_cursor_pos(&mut self, x: Option<usize>, y: Option<usize>) {

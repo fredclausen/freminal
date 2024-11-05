@@ -528,6 +528,7 @@ pub struct FreminalTerminalWidget {
     font_size: f32,
     debug_renderer: DebugRenderer,
     previous_pass: TerminalOutputRenderResponse,
+    ctx: Context,
 }
 
 impl FreminalTerminalWidget {
@@ -544,6 +545,7 @@ impl FreminalTerminalWidget {
                 scrollback: UiJobAction::default(),
                 canvas: UiJobAction::default(),
             },
+            ctx: ctx.clone(),
         }
     }
 
@@ -570,6 +572,7 @@ impl FreminalTerminalWidget {
         terminal_emulator: &mut TerminalEmulator<Io>,
     ) {
         let character_size = get_char_size(ui.ctx(), self.font_size);
+        terminal_emulator.set_egui_ctx_if_missing(self.ctx.clone());
 
         let frame_response = egui::Frame::none().show(ui, |ui| {
             let (width_chars, height_chars) = terminal_emulator.get_win_size();

@@ -28,6 +28,7 @@ use std::{sync::Arc, sync::Mutex};
 use ansi_components::mode::{Decawm, Decckm, Mode, TerminalModes};
 use anyhow::Result;
 use crossbeam_channel::{unbounded, Receiver};
+use eframe::egui;
 pub use format_tracker::FormatTag;
 pub use io::{FreminalPtyInputOutput, FreminalTermInputOutput};
 use io::{FreminalTerminalSize, PtyRead, PtyWrite};
@@ -172,6 +173,7 @@ pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
     pub internal: Arc<Mutex<TerminalState>>,
     _io: Io,
     write_tx: crossbeam_channel::Sender<PtyWrite>,
+    ctx: Option<egui::Context>,
     previous_pass_valid: bool,
 }
 
@@ -200,6 +202,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             internal: Mutex::new(TerminalState::new(write_tx.clone())).into(),
             _io: io,
             write_tx,
+            ctx: None,
             previous_pass_valid: false,
         };
         Ok((ret, pty_rx))
@@ -207,6 +210,20 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
 }
 
 impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
+    pub fn set_egui_ctx_if_missing(&mut self, ctx: egui::Context) {
+        if self.ctx.is_none() {
+            self.ctx = Some(ctx.clone());
+            self.internal.lock().unwrap().set_ctx(ctx);
+        }
+    }
+
+    pub fn request_redraw(&self) {
+        debug!("Terminal Emulator: Requesting redraw");
+        if let Some(ctx) = &self.ctx {
+            ctx.request_repaint();
+        }
+    }
+
     pub fn set_previous_pass_invalid(&mut self) {
         self.previous_pass_valid = false;
     }
@@ -222,6 +239,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
 
         !self.previous_pass_valid || internal
     }
+
     pub fn get_win_size(&self) -> (usize, usize) {
         self.internal.lock().unwrap().get_win_size()
     }
@@ -236,7 +254,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     }
 
     pub fn set_win_size(
-        &mut self,
+        &self,
         width_chars: usize,
         height_chars: usize,
         font_pixel_width: usize,
@@ -249,13 +267,14 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             .set_win_size(width_chars, height_chars);
 
         if response.changed {
-            self.set_previous_pass_invalid();
             self.write_tx.send(PtyWrite::Resize(FreminalTerminalSize {
                 width: width_chars,
                 height: height_chars,
                 pixel_width: font_pixel_width,
                 pixel_height: font_pixel_height,
             }))?;
+
+            self.request_redraw();
         }
 
         Ok(())
