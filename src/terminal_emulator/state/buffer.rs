@@ -4,7 +4,6 @@
 // https://opensource.org/licenses/MIT.
 
 use std::ops::Range;
-use thiserror::Error;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{cursor::CursorPos, data::TerminalSections, term_char::TChar};
@@ -43,13 +42,6 @@ fn calc_line_ranges(buf: &[TChar], width: usize) -> Vec<Range<usize>> {
         ret.push(current_start..buf.len());
     }
     ret
-}
-
-#[derive(Debug, Error, Eq, PartialEq)]
-#[error("invalid buffer position {buf_pos} for buffer of len {buf_len}")]
-struct InvalidBufPos {
-    buf_pos: usize,
-    buf_len: usize,
 }
 
 fn buf_to_cursor_pos(buf: &[TChar], width: usize, height: usize, buf_pos: usize) -> CursorPos {
