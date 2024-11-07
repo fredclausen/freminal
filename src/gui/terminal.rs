@@ -472,18 +472,9 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                 (*previous_pass).clone()
             } else {
                 let terminal_data = terminal_emulator.data();
-                let mut scrollback_data = terminal_data.scrollback;
+                let scrollback_data = terminal_data.scrollback;
                 let mut canvas_data = terminal_data.visible;
-                let mut format_data = terminal_emulator.format_data();
-
-                // Arguably incorrect. Scrollback does end with a newline, and that newline causes a blank
-                // space between widgets. Should we strip it here, or in the terminal emulator output?
-                if scrollback_data.ends_with(&[TChar::NewLine]) {
-                    scrollback_data = scrollback_data[0..scrollback_data.len() - 1].to_vec();
-                    if let Some(last_tag) = format_data.scrollback.last_mut() {
-                        last_tag.end = last_tag.end.min(scrollback_data.len());
-                    }
-                }
+                let format_data = terminal_emulator.format_data();
 
                 if canvas_data.ends_with(&[TChar::NewLine]) {
                     canvas_data = canvas_data[0..canvas_data.len() - 1].to_vec();
@@ -500,7 +491,7 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                     ui,
                     &UiData::NewPass(&NewJobAction {
                         text: &canvas_data,
-                        format_data: format_data.visible.clone(),
+                        format_data: format_data.visible,
                     }),
                     font_size,
                 ));
