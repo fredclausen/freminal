@@ -210,6 +210,7 @@ pub struct TerminalBufferInsertResponse {
     /// requested row for writing
     pub insertion_range: Range<usize>,
     pub new_cursor_pos: CursorPos,
+    pub left_over: Vec<u8>,
 }
 
 #[derive(Debug)]
@@ -247,8 +248,14 @@ impl TerminalBufferHolder {
         cursor_pos: &CursorPos,
         data: &[u8],
     ) -> TerminalBufferInsertResponse {
-        let data_converted_to_string =
-            String::from_utf8(data.to_vec()).expect("data should be valid utf8");
+        let mut data_to_use = data.to_vec();
+        let mut leftover_bytes = vec![];
+        while let Err(_e) = String::from_utf8(data_to_use.clone()) {
+            let p = data_to_use.pop().unwrap();
+            leftover_bytes.insert(0, p);
+        }
+
+        let data_converted_to_string = String::from_utf8(data_to_use).unwrap();
 
         // loop through all of the characters
         // if the character is utf8, then we need all of the bytes to be written
@@ -287,6 +294,7 @@ impl TerminalBufferHolder {
             written_range: write_range,
             insertion_range: inserted_padding,
             new_cursor_pos,
+            left_over: leftover_bytes,
         }
     }
 
@@ -320,6 +328,7 @@ impl TerminalBufferHolder {
                 written_range: buf_pos..buf_pos + used_spaces,
                 insertion_range: buf_pos..buf_pos + num_inserted,
                 new_cursor_pos: cursor_pos.clone(),
+                left_over: vec![],
             }
         } else {
             let PadBufferForWriteResponse {
@@ -336,6 +345,7 @@ impl TerminalBufferHolder {
                 written_range: write_idx..write_idx + num_spaces,
                 insertion_range: inserted_padding,
                 new_cursor_pos: cursor_pos.clone(),
+                left_over: vec![],
             }
         }
     }
@@ -444,6 +454,24 @@ impl TerminalBufferHolder {
             cursor_to_buf_pos(&self.buf, cursor_pos, self.width, self.height)?;
 
         let del_range = buf_pos..line_range.end;
+        self.buf.drain(del_range.clone());
+        Some(del_range)
+    }
+
+    pub fn clear_line(&mut self, cursor_pos: &CursorPos) -> Option<Range<usize>> {
+        let (_buf_pos, line_range) =
+            cursor_to_buf_pos(&self.buf, cursor_pos, self.width, self.height)?;
+
+        let del_range = line_range;
+        self.buf.drain(del_range.clone());
+        Some(del_range)
+    }
+
+    pub fn clear_line_backwards(&mut self, cursor_pos: &CursorPos) -> Option<Range<usize>> {
+        let (buf_pos, line_range) =
+            cursor_to_buf_pos(&self.buf, cursor_pos, self.width, self.height)?;
+
+        let del_range = line_range.start..buf_pos;
         self.buf.drain(del_range.clone());
         Some(del_range)
     }
@@ -1407,5 +1435,145 @@ mod test {
         assert_eq!(canvas.data().visible, expected);
         assert_eq!(response.deleted_range, 17..22);
         assert_eq!(response.inserted_range, 11..12);
+    }
+
+    #[test]
+    fn test_clear_line() {
+        let mut canvas = TerminalBufferHolder::new(5, 5);
+
+        // Test empty canvas
+        let response = canvas.clear_line(&CursorPos { x: 0, y: 0 });
+        assert_eq!(response, None);
+        assert_eq!(canvas.data().visible, b"");
+
+        // Test edge wrapped
+        canvas.insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789asdf\nxyzw");
+        let expected = vec![
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'x'),
+            TChar::new_from_single_char(b'y'),
+            TChar::new_from_single_char(b'z'),
+            TChar::new_from_single_char(b'w'),
+            TChar::NewLine,
+        ];
+
+        assert_eq!(canvas.data().visible, expected);
+        let response = canvas.clear_line(&CursorPos { x: 0, y: 0 });
+        let expected = vec![
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'x'),
+            TChar::new_from_single_char(b'y'),
+            TChar::new_from_single_char(b'z'),
+            TChar::new_from_single_char(b'w'),
+            TChar::NewLine,
+        ];
+
+        assert_eq!(canvas.data().visible, expected);
+        assert_eq!(response, Some(0..5));
+
+        // Test newline wrapped
+        let response = canvas.clear_line(&CursorPos { x: 0, y: 1 });
+        let expected = vec![
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            // TChar::new_from_single_char(b'a'),
+            // TChar::new_from_single_char(b's'),
+            // TChar::new_from_single_char(b'd'),
+            // TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'x'),
+            TChar::new_from_single_char(b'y'),
+            TChar::new_from_single_char(b'z'),
+            TChar::new_from_single_char(b'w'),
+            TChar::NewLine,
+        ];
+        assert_eq!(canvas.data().visible, expected);
+        assert_eq!(response, Some(5..9));
+    }
+
+    #[test]
+    fn clear_line_backwards() {
+        let mut canvas = TerminalBufferHolder::new(5, 5);
+
+        // Test empty canvas
+        let response = canvas.clear_line_backwards(&CursorPos { x: 0, y: 0 });
+        assert_eq!(response, None);
+        assert_eq!(canvas.data().visible, b"");
+
+        // Test edge wrapped
+        canvas.insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789asdf\nxyzw");
+        let expected = vec![
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'x'),
+            TChar::new_from_single_char(b'y'),
+            TChar::new_from_single_char(b'z'),
+            TChar::new_from_single_char(b'w'),
+            TChar::NewLine,
+        ];
+
+        assert_eq!(canvas.data().visible, expected);
+        let response = canvas.clear_line_backwards(&CursorPos { x: 3, y: 0 });
+        let expected = vec![
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'x'),
+            TChar::new_from_single_char(b'y'),
+            TChar::new_from_single_char(b'z'),
+            TChar::new_from_single_char(b'w'),
+            TChar::NewLine,
+        ];
+
+        assert_eq!(canvas.data().visible, expected);
+        assert_eq!(response, Some(0..3));
     }
 }

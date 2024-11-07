@@ -127,6 +127,21 @@ impl ReplayIo {
         }
     }
 
+    pub fn clear_line_backwards(&mut self) {
+        if let Some(range) = self
+            .terminal_buffer
+            .clear_line_backwards(&self.cursor_state.pos)
+        {
+            self.format_tracker.delete_range(range);
+        }
+    }
+
+    pub fn clear_line(&mut self) {
+        if let Some(range) = self.terminal_buffer.clear_line(&self.cursor_state.pos) {
+            self.format_tracker.delete_range(range);
+        }
+    }
+
     fn carriage_return(&mut self) {
         self.cursor_state.pos.x = 0;
     }
@@ -353,6 +368,8 @@ impl ReplayIo {
                 TerminalOutput::ClearForwards => self.clear_forwards(),
                 TerminalOutput::ClearAll => self.clear_all(),
                 TerminalOutput::ClearLineForwards => self.clear_line_forwards(),
+                TerminalOutput::ClearLineBackwards => self.clear_line_backwards(),
+                TerminalOutput::ClearLine => self.clear_line(),
                 TerminalOutput::CarriageReturn => self.carriage_return(),
                 TerminalOutput::Newline => self.new_line(),
                 TerminalOutput::Backspace => self.backspace(),

@@ -297,6 +297,8 @@ impl AnsiCsiParser {
         // ECMA-48 8.3.39
         match param.unwrap_or(0) {
             0 => output.push(TerminalOutput::ClearLineForwards),
+            1 => output.push(TerminalOutput::ClearLineBackwards),
+            2 => output.push(TerminalOutput::ClearLine),
             v => {
                 warn!("Unsupported erase in line command ({v})");
                 output.push(TerminalOutput::Invalid);

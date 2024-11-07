@@ -44,6 +44,7 @@ pub struct TerminalState {
     write_tx: crossbeam_channel::Sender<PtyWrite>,
     changed: bool,
     ctx: Option<Context>,
+    leftover_data: Option<Vec<u8>>,
 }
 
 impl TerminalState {
@@ -62,6 +63,7 @@ impl TerminalState {
             write_tx,
             changed: false,
             ctx: None,
+            leftover_data: None,
         }
     }
 
@@ -136,9 +138,27 @@ impl TerminalState {
     }
 
     pub(crate) fn handle_data(&mut self, data: &[u8]) {
+        // if we have leftover data, prepend it to the incoming data
+        let data = self.leftover_data.take().map_or_else(
+            || data.to_vec(),
+            |leftover_data| {
+                info!("We have leftover data: {:?}", leftover_data);
+                let mut new_data = Vec::with_capacity(leftover_data.len() + data.len());
+                new_data.extend_from_slice(&leftover_data);
+                new_data.extend_from_slice(data);
+                self.leftover_data = None;
+                new_data
+            },
+        );
         let response = self
             .terminal_buffer
-            .insert_data(&self.cursor_state.pos, data);
+            .insert_data(&self.cursor_state.pos, &data);
+
+        if !response.left_over.is_empty() {
+            warn!("Leftover data from incoming buffer");
+            self.leftover_data = Some(response.left_over);
+        }
+
         self.format_tracker
             .push_range_adjustment(response.insertion_range);
         self.format_tracker
@@ -199,6 +219,21 @@ impl TerminalState {
             .terminal_buffer
             .clear_line_forwards(&self.cursor_state.pos)
         {
+            self.format_tracker.delete_range(range);
+        }
+    }
+
+    pub(crate) fn clear_line_backwards(&mut self) {
+        if let Some(range) = self
+            .terminal_buffer
+            .clear_line_backwards(&self.cursor_state.pos)
+        {
+            self.format_tracker.delete_range(range);
+        }
+    }
+
+    pub(crate) fn clear_line(&mut self) {
+        if let Some(range) = self.terminal_buffer.clear_line(&self.cursor_state.pos) {
             self.format_tracker.delete_range(range);
         }
     }
@@ -515,6 +550,8 @@ impl TerminalState {
                 TerminalOutput::ClearForwards => self.clear_forwards(),
                 TerminalOutput::ClearAll => self.clear_all(),
                 TerminalOutput::ClearLineForwards => self.clear_line_forwards(),
+                TerminalOutput::ClearLineBackwards => self.clear_line_backwards(),
+                TerminalOutput::ClearLine => self.clear_line(),
                 TerminalOutput::CarriageReturn => self.carriage_return(),
                 TerminalOutput::Newline => self.new_line(),
                 TerminalOutput::Backspace => self.backspace(),
