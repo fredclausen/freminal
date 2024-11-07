@@ -8,8 +8,8 @@ use crate::terminal_emulator::{
     FormatTag, FreminalTermInputOutput, TerminalEmulator, TerminalInput,
 };
 use eframe::egui::{
-    self, text::LayoutJob, Color32, Context, DragValue, Event, InputState, Key, Modifiers, Rect,
-    Stroke, TextFormat, TextStyle, Ui,
+    self, scroll_area::ScrollBarVisibility, text::LayoutJob, Color32, Context, DragValue, Event,
+    InputState, Key, Modifiers, Rect, Stroke, TextFormat, TextStyle, Ui,
 };
 
 use conv::{ConvAsUtil, ValueFrom};
@@ -440,6 +440,8 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
     let response = egui::ScrollArea::new([false, true])
         .auto_shrink([false, false])
         .stick_to_bottom(true)
+        .animated(false)
+        .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
         .show(ui, |ui| {
             let error_logged_rect = |response: Result<
                 (egui::Response, Option<UiJobAction>),
