@@ -8,7 +8,9 @@ use crate::{
 
 use super::{
     csi_commands::{
-        cud::ansi_parser_inner_csi_finished_move_down, cuu::ansi_parser_inner_csi_finished_move_up,
+        cud::ansi_parser_inner_csi_finished_move_down,
+        cuf::ansi_parser_inner_csi_finished_move_right,
+        cuu::ansi_parser_inner_csi_finished_move_up,
     },
     mode::terminal_mode_from_params,
     sgr::SelectGraphicRendition,
@@ -94,7 +96,7 @@ impl AnsiCsiParser {
                 ansi_parser_inner_csi_finished_move_down(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'C') => {
-                self.ansi_parser_inner_csi_finished_move_right(output)
+                ansi_parser_inner_csi_finished_move_right(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'D') => {
                 self.ansi_parser_inner_csi_finished_move_left(output)
@@ -154,24 +156,6 @@ impl AnsiCsiParser {
             }
             _ => Ok(None),
         }
-    }
-
-    fn ansi_parser_inner_csi_finished_move_right(
-        &self,
-        output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<ParserInner>, ()> {
-        let Ok(param) = parse_param_as::<i32>(&self.params) else {
-            warn!("Invalid cursor move right distance");
-            output.push(TerminalOutput::Invalid);
-            return Err(());
-        };
-
-        output.push(TerminalOutput::SetCursorPosRel {
-            x: Some(param.unwrap_or(1)),
-            y: None,
-        });
-
-        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_move_left(
