@@ -11,6 +11,7 @@ use super::{
         cub::ansi_parser_inner_csi_finished_move_left,
         cud::ansi_parser_inner_csi_finished_move_down,
         cuf::ansi_parser_inner_csi_finished_move_right,
+        cup::ansi_parser_inner_csi_finished_set_position_h,
         cuu::ansi_parser_inner_csi_finished_move_up,
     },
     mode::terminal_mode_from_params,
@@ -103,7 +104,7 @@ impl AnsiCsiParser {
                 ansi_parser_inner_csi_finished_move_left(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'H') => {
-                self.ansi_parser_inner_csi_finished_set_position_h(output)
+                ansi_parser_inner_csi_finished_set_position_h(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'G') => {
                 self.ansi_parser_inner_csi_finished_set_position_g(output)
@@ -157,26 +158,6 @@ impl AnsiCsiParser {
             }
             _ => Ok(None),
         }
-    }
-
-    fn ansi_parser_inner_csi_finished_set_position_h(
-        &self,
-        output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<ParserInner>, ()> {
-        let params = split_params_into_semicolon_delimited_usize(&self.params);
-
-        let Ok(params) = params else {
-            warn!("Invalid cursor set position sequence");
-            output.push(TerminalOutput::Invalid);
-            return Err(());
-        };
-
-        output.push(TerminalOutput::SetCursorPos {
-            x: Some(extract_param(1, &params).unwrap_or(1)),
-            y: Some(extract_param(0, &params).unwrap_or(1)),
-        });
-
-        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_set_position_g(

@@ -6,4 +6,5 @@
 pub mod cub;
 pub mod cud;
 pub mod cuf;
+pub mod cup;
 pub mod cuu;
