@@ -8,6 +8,7 @@ use crate::{
 
 use super::{
     csi_commands::{
+        cub::ansi_parser_inner_csi_finished_move_left,
         cud::ansi_parser_inner_csi_finished_move_down,
         cuf::ansi_parser_inner_csi_finished_move_right,
         cuu::ansi_parser_inner_csi_finished_move_up,
@@ -99,7 +100,7 @@ impl AnsiCsiParser {
                 ansi_parser_inner_csi_finished_move_right(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'D') => {
-                self.ansi_parser_inner_csi_finished_move_left(output)
+                ansi_parser_inner_csi_finished_move_left(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'H') => {
                 self.ansi_parser_inner_csi_finished_set_position_h(output)
@@ -156,24 +157,6 @@ impl AnsiCsiParser {
             }
             _ => Ok(None),
         }
-    }
-
-    fn ansi_parser_inner_csi_finished_move_left(
-        &self,
-        output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<ParserInner>, ()> {
-        let Ok(param) = parse_param_as::<i32>(&self.params) else {
-            warn!("Invalid cursor move left distance");
-            output.push(TerminalOutput::Invalid);
-            return Err(());
-        };
-
-        output.push(TerminalOutput::SetCursorPosRel {
-            x: Some(-param.unwrap_or(1)),
-            y: None,
-        });
-
-        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_set_position_h(
