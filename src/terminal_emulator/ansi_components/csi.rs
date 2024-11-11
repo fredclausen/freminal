@@ -6,7 +6,13 @@ use crate::{
     },
 };
 
-use super::{mode::terminal_mode_from_params, sgr::SelectGraphicRendition};
+use super::{
+    csi_commands::{
+        cud::ansi_parser_inner_csi_finished_move_down, cuu::ansi_parser_inner_csi_finished_move_up,
+    },
+    mode::terminal_mode_from_params,
+    sgr::SelectGraphicRendition,
+};
 
 #[derive(Eq, PartialEq, Debug)]
 pub enum AnsiCsiParserState {
@@ -82,10 +88,10 @@ impl AnsiCsiParser {
 
         match self.state {
             AnsiCsiParserState::Finished(b'A') => {
-                self.ansi_parser_inner_csi_finished_move_up(output)
+                ansi_parser_inner_csi_finished_move_up(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'B') => {
-                self.ansi_parser_inner_csi_finished_move_down(output)
+                ansi_parser_inner_csi_finished_move_down(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'C') => {
                 self.ansi_parser_inner_csi_finished_move_right(output)
@@ -148,42 +154,6 @@ impl AnsiCsiParser {
             }
             _ => Ok(None),
         }
-    }
-
-    fn ansi_parser_inner_csi_finished_move_up(
-        &self,
-        output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<ParserInner>, ()> {
-        let Ok(param) = parse_param_as::<i32>(&self.params) else {
-            warn!("Invalid cursor move up distance");
-            output.push(TerminalOutput::Invalid);
-            return Err(());
-        };
-
-        output.push(TerminalOutput::SetCursorPosRel {
-            x: None,
-            y: Some(-param.unwrap_or(1)),
-        });
-
-        Ok(Some(ParserInner::Empty))
-    }
-
-    fn ansi_parser_inner_csi_finished_move_down(
-        &self,
-        output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<ParserInner>, ()> {
-        let Ok(param) = parse_param_as::<i32>(&self.params) else {
-            warn!("Invalid cursor move down distance");
-            output.push(TerminalOutput::Invalid);
-            return Err(());
-        };
-
-        output.push(TerminalOutput::SetCursorPosRel {
-            x: None,
-            y: Some(param.unwrap_or(1)),
-        });
-
-        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_move_right(
