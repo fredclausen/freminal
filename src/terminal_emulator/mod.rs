@@ -4,24 +4,12 @@
 // https://opensource.org/licenses/MIT.
 
 mod ansi;
+pub mod ansi_components;
+pub mod error;
 mod format_tracker;
 mod io;
-pub mod ansi_components {
-    pub mod csi;
-    pub mod mode;
-    pub mod osc;
-    pub mod sgr;
-}
-pub mod error;
 pub mod playback;
-pub mod state {
-    pub mod buffer;
-    pub mod cursor;
-    pub mod data;
-    pub mod fonts;
-    pub mod internal;
-    pub mod term_char;
-}
+pub mod state;
 
 use std::{sync::Arc, sync::Mutex};
 
