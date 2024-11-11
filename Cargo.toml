@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 eframe = "0.29.1"
 portable-pty = "0.8.1"
-thiserror = "2.0.0"
+thiserror = "2.0.3"
 conv = "0.3.3"
 anyhow = "1.0.93"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
