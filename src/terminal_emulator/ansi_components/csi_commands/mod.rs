@@ -13,3 +13,4 @@ pub mod dch;
 pub mod ed;
 pub mod el;
 pub mod il;
+pub mod sgr;
