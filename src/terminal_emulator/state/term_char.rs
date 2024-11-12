@@ -3,6 +3,9 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+use crate::terminal_emulator::error::ParserFailures;
+use anyhow::Result;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TChar {
     Ascii(u8),
@@ -12,6 +15,7 @@ pub enum TChar {
 }
 
 impl TChar {
+    #[must_use]
     pub const fn new_from_single_char(c: u8) -> Self {
         match c {
             32 => Self::Space,
@@ -20,15 +24,22 @@ impl TChar {
         }
     }
 
-    pub fn new_from_many_chars(v: Vec<u8>) -> Self {
+    /// Create a new `TChar` from a vector of u8
+    ///
+    /// # Errors
+    /// Will return an error if the vector is empty or is not a valid utf8 string
+    pub fn new_from_many_chars(v: Vec<u8>) -> Result<Self> {
         // verify the vector is not empty and is a valid utf8 string
-        assert!(!v.is_empty() && std::str::from_utf8(&v).is_ok());
+        if !v.is_empty() && std::str::from_utf8(&v).is_ok() {
+            return Ok(Self::Utf8(v));
+        }
 
-        Self::Utf8(v)
+        Err(ParserFailures::InvalidTChar(v).into())
     }
 
     // FIXME: this is fake news, it is used but clippy is not smart enough to see it
     #[allow(dead_code)]
+    #[must_use]
     pub const fn to_u8(&self) -> u8 {
         match self {
             Self::Ascii(c) => *c,
@@ -45,7 +56,14 @@ impl From<u8> for TChar {
 
 impl From<Vec<u8>> for TChar {
     fn from(v: Vec<u8>) -> Self {
-        Self::new_from_many_chars(v)
+        match Self::new_from_many_chars(v) {
+            Ok(c) => c,
+            Err(e) => {
+                // FIXME: We should probably propagate the error instead of ignoring it
+                error!("Error: {}. Will use ascii 0 character", e);
+                Self::Ascii(0)
+            }
+        }
     }
 }
 
@@ -88,7 +106,7 @@ mod tests {
 
     #[test]
     fn test_new_from_many_chars() {
-        let c = TChar::new_from_many_chars(vec![65, 66, 67]);
+        let c = TChar::new_from_many_chars(vec![65, 66, 67]).unwrap();
         assert_eq!(c, TChar::Utf8(vec![65, 66, 67]));
     }
 
@@ -157,6 +175,6 @@ mod tests {
         assert!(std::str::from_utf8(s).is_err());
 
         // now make sure the TChar::Utf8 will panic
-        assert!(std::panic::catch_unwind(|| TChar::new_from_many_chars(s.to_vec())).is_err());
+        assert!(TChar::new_from_many_chars(s.to_vec()).is_err());
     }
 }

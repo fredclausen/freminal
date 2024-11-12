@@ -4,6 +4,8 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::terminal_emulator::ansi::{parse_param_as, ParserInner, TerminalOutput};
+use crate::terminal_emulator::error::ParserFailures;
+use anyhow::Result;
 
 /// Erase in Display
 ///
@@ -16,16 +18,18 @@ use crate::terminal_emulator::ansi::{parse_param_as, ParserInner, TerminalOutput
 /// 3 - Erase the entire screen including the scrollback buffer
 ///
 /// ESC [ Pn J
+/// # Errors
+/// Will return an error if the parameter is not a valid number
 
 pub fn ansi_parser_inner_csi_finished_set_position_j(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,
-) -> Result<Option<ParserInner>, ()> {
+) -> Result<Option<ParserInner>> {
     let Ok(param) = parse_param_as::<usize>(params) else {
         warn!("Invalid clear command");
         output.push(TerminalOutput::Invalid);
 
-        return Err(());
+        return Err(ParserFailures::UnhandledEDCommand(format!("{params:?}")).into());
     };
 
     let ret = match param.unwrap_or(0) {

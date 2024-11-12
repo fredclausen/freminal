@@ -4,21 +4,28 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::terminal_emulator::ansi::{parse_param_as, ParserInner, TerminalOutput};
+use crate::terminal_emulator::error::ParserFailures;
+use anyhow::Result;
 
 /// Cursor Down
 ///
 /// CUD moves the cursor down by a specified number of lines without changing columns.
 ///
 /// ESC [ Pn B
+/// # Errors
+/// Will return an error if the parameter is not a valid number
 
 pub fn ansi_parser_inner_csi_finished_move_down(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,
-) -> Result<Option<ParserInner>, ()> {
+) -> Result<Option<ParserInner>> {
     let Ok(param) = parse_param_as::<i32>(params) else {
         warn!("Invalid cursor move down distance");
         output.push(TerminalOutput::Invalid);
-        return Err(());
+        return Err(ParserFailures::UnhandledCUDCommand(
+            String::from_utf8_lossy(params).to_string(),
+        )
+        .into());
     };
 
     output.push(TerminalOutput::SetCursorPosRel {

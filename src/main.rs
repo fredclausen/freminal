@@ -23,9 +23,9 @@ use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 mod gui;
-mod terminal_emulator;
+pub mod terminal_emulator;
 
-struct Args {
+pub struct Args {
     recording: Option<String>,
     shell: Option<String>,
 }

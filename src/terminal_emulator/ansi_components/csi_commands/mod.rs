@@ -12,5 +12,6 @@ pub mod cuu;
 pub mod dch;
 pub mod ed;
 pub mod el;
+pub mod ict;
 pub mod il;
 pub mod sgr;

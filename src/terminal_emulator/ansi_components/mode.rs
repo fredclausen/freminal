@@ -60,6 +60,7 @@ impl fmt::Debug for Mode {
     }
 }
 
+#[must_use]
 pub fn terminal_mode_from_params(params: &[u8]) -> Mode {
     match params {
         // https://vt100.net/docs/vt510-rm/DECCKM.html

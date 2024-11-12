@@ -4,6 +4,8 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::terminal_emulator::ansi::{parse_param_as, ParserInner, TerminalOutput};
+use crate::terminal_emulator::error::ParserFailures;
+use anyhow::Result;
 
 /// Erase in Line
 ///
@@ -15,15 +17,18 @@ use crate::terminal_emulator::ansi::{parse_param_as, ParserInner, TerminalOutput
 /// 2 - Erase the whole line
 ///
 /// ESC [ Pn K
+///
+/// # Errors
+/// Will return an error if the parameter is not a valid number
 pub fn ansi_parser_inner_csi_finished_set_position_k(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,
-) -> Result<Option<ParserInner>, ()> {
+) -> Result<Option<ParserInner>> {
     let Ok(param) = parse_param_as::<usize>(params) else {
         warn!("Invalid erase in line command");
         output.push(TerminalOutput::Invalid);
 
-        return Err(());
+        return Err(ParserFailures::UnhandledELCommand(format!("{params:?}")).into());
     };
 
     // ECMA-48 8.3.39

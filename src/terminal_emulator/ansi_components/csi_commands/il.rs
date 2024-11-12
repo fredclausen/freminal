@@ -4,21 +4,25 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::terminal_emulator::ansi::{parse_param_as, ParserInner, TerminalOutput};
-
+use crate::terminal_emulator::error::ParserFailures;
+use anyhow::Result;
 /// Insert Lines
 ///
 /// IL inserts a specified number of lines at the cursor position.
 ///
 /// ESC [ Pn L
+/// # Errors
+/// Will return an error if the parameter is not a valid number
+
 pub fn ansi_parser_inner_csi_finished_set_position_l(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,
-) -> Result<Option<ParserInner>, ()> {
+) -> Result<Option<ParserInner>> {
     let Ok(param) = parse_param_as::<usize>(params) else {
         warn!("Invalid il command");
         output.push(TerminalOutput::Invalid);
 
-        return Err(());
+        return Err(ParserFailures::UnhandledILCommand(format!("{params:?}")).into());
     };
 
     output.push(TerminalOutput::InsertLines(param.unwrap_or(1)));

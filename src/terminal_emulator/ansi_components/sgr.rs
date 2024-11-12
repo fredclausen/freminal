@@ -4,6 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::gui::colors::TerminalColor;
+use anyhow::Result;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SelectGraphicRendition {
@@ -159,16 +160,21 @@ impl SelectGraphicRendition {
         }
     }
 
-    pub fn from_usize_color(val: usize, r: usize, g: usize, b: usize) -> Self {
-        let r = u8::try_from(r).unwrap();
-        let g = u8::try_from(g).unwrap();
-        let b = u8::try_from(b).unwrap();
+    /// Create a new `SelectGraphicRendition` from a `usize` and three `usize` values representing
+    /// the red, green and blue components of a custom color.
+    ///
+    /// # Errors
+    /// Will return an error if any of the `usize` values are greater than `u8::MAX`.
+    pub fn from_usize_color(val: usize, r: usize, g: usize, b: usize) -> Result<Self> {
+        let r = u8::try_from(r)?;
+        let g = u8::try_from(g)?;
+        let b = u8::try_from(b)?;
 
         match val {
-            38 => Self::Foreground(TerminalColor::Custom(r, g, b)),
-            48 => Self::Background(TerminalColor::Custom(r, g, b)),
-            58 => Self::UnderlineColor(TerminalColor::Custom(r, g, b)),
-            _ => Self::Unknown(val),
+            38 => Ok(Self::Foreground(TerminalColor::Custom(r, g, b))),
+            48 => Ok(Self::Background(TerminalColor::Custom(r, g, b))),
+            58 => Ok(Self::UnderlineColor(TerminalColor::Custom(r, g, b))),
+            _ => Ok(Self::Unknown(val)),
         }
     }
 }

@@ -126,6 +126,10 @@ pub fn run_terminal(
 impl FreminalTermInputOutput for FreminalPtyInputOutput {}
 
 impl FreminalPtyInputOutput {
+    /// Create a new `FreminalPtyInputOutput` instance.
+    ///
+    /// # Errors
+    /// Will return an error if the terminal cannot be created.
     pub fn new(
         write_rx: Receiver<PtyWrite>,
         send_tx: Sender<PtyRead>,

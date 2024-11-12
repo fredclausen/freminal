@@ -27,7 +27,14 @@ pub struct ReplayIo {
     saved_color_state: Option<(TerminalColor, TerminalColor, TerminalColor)>,
 }
 
+impl Default for ReplayIo {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ReplayIo {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             parser: FreminalAnsiParser::new(),
@@ -50,6 +57,7 @@ impl ReplayIo {
         }
     }
 
+    #[must_use]
     pub const fn get_win_size(&self) -> (usize, usize) {
         self.terminal_buffer.get_win_size()
     }
@@ -62,9 +70,16 @@ impl ReplayIo {
     }
 
     fn handle_data(&mut self, data: &[u8]) {
-        let response = self
+        let response = match self
             .terminal_buffer
-            .insert_data(&self.cursor_state.pos, data);
+            .insert_data(&self.cursor_state.pos, data)
+        {
+            Ok(response) => response,
+            Err(e) => {
+                error!("Failed to insert data: {e}");
+                return;
+            }
+        };
         self.format_tracker
             .push_range_adjustment(response.insertion_range);
         self.format_tracker
@@ -105,16 +120,29 @@ impl ReplayIo {
         }
     }
 
-    fn clear_forwards(&mut self) {
-        if let Some(buf_pos) = self.terminal_buffer.clear_forwards(&self.cursor_state.pos) {
-            self.format_tracker
-                .push_range(&self.cursor_state, buf_pos..usize::MAX);
+    pub(crate) fn clear_forwards(&mut self) {
+        match self.terminal_buffer.clear_forwards(&self.cursor_state.pos) {
+            Ok(Some(buf_pos)) => {
+                self.format_tracker
+                    .push_range(&self.cursor_state, buf_pos..usize::MAX);
+            }
+            // FIXME: why on god's green earth are we having an option type here?
+            Ok(None) => (),
+            Err(e) => {
+                error!("Failed to clear forwards: {e}");
+            }
         }
     }
 
     pub(crate) fn clear_backwards(&mut self) {
-        if let Some(buf_pos) = self.terminal_buffer.clear_backwards(&self.cursor_state.pos) {
-            self.format_tracker.push_range(&self.cursor_state, buf_pos);
+        match self.terminal_buffer.clear_backwards(&self.cursor_state.pos) {
+            Ok(Some(buf_pos)) => {
+                self.format_tracker.push_range(&self.cursor_state, buf_pos);
+            }
+            Ok(None) => (),
+            Err(e) => {
+                error!("Failed to clear backwards: {e}");
+            }
         }
     }
 
@@ -406,15 +434,18 @@ impl ReplayIo {
         }
     }
 
+    #[must_use]
     pub fn data(&self) -> TerminalSections<Vec<TChar>> {
         self.terminal_buffer.data()
     }
 
+    #[must_use]
     pub fn format_data(&self) -> TerminalSections<Vec<FormatTag>> {
         let offset = self.terminal_buffer.data().scrollback.len();
         split_format_data_for_scrollback(self.format_tracker.tags(), offset)
     }
 
+    #[must_use]
     pub fn cursor_pos(&self) -> CursorPos {
         self.cursor_state.pos.clone()
     }

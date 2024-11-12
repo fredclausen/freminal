@@ -40,26 +40,31 @@ impl CursorState {
         Self::default()
     }
 
+    #[must_use]
     pub const fn with_background_color(mut self, background_color: TerminalColor) -> Self {
         self.background_color = background_color;
         self
     }
 
+    #[must_use]
     pub const fn with_color(mut self, color: TerminalColor) -> Self {
         self.color = color;
         self
     }
 
+    #[must_use]
     pub const fn with_font_weight(mut self, font_weight: FontWeight) -> Self {
         self.font_weight = font_weight;
         self
     }
 
+    #[must_use]
     pub fn with_font_decorations(mut self, font_decorations: Vec<FontDecorations>) -> Self {
         self.font_decorations = font_decorations;
         self
     }
 
+    #[must_use]
     pub const fn with_pos(mut self, pos: CursorPos) -> Self {
         self.pos = pos;
         self

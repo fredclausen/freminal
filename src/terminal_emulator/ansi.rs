@@ -266,13 +266,16 @@ impl FreminalAnsiParser {
                             }
                             None => continue,
                         },
-                        Err(()) => continue,
+                        Err(e) => {
+                            error!("Parser Error: {e}");
+                            error!("CSI Sequence that threw an error: {output_string_sequence}");
+                        }
                     }
                 }
                 ParserInner::Osc(parser) => {
                     output_string_sequence.push(*b as char);
                     match parser.ansiparser_inner_osc(*b, &mut output) {
-                        Some(value) => {
+                        Ok(Some(value)) => {
                             self.inner = value;
 
                             // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
@@ -283,7 +286,11 @@ impl FreminalAnsiParser {
                                 );
                             }
                         }
-                        None => continue,
+                        Ok(None) => continue,
+                        Err(e) => {
+                            error!("Parser Error: {e}");
+                            error!("OSC Sequence that threw an error: {output_string_sequence}");
+                        }
                     }
                 }
             }
@@ -425,7 +432,7 @@ mod test {
     fn test_parsing_unknown_csi() {
         let mut parser = AnsiCsiParser::new();
         for b in b"0123456789:;<=>?!\"#$%&'()*+,-./}" {
-            parser.push(*b);
+            parser.push(*b).unwrap();
         }
 
         assert_eq!(parser.params, b"0123456789:;<=>?");
@@ -433,14 +440,14 @@ mod test {
         assert!(matches!(parser.state, AnsiCsiParserState::Finished(b'}')));
 
         let mut parser = AnsiCsiParser::new();
-        parser.push(0x40);
+        parser.push(0x40).unwrap();
 
         assert_eq!(parser.params, &[]);
         assert_eq!(parser.intermediates, &[]);
         assert!(matches!(parser.state, AnsiCsiParserState::Finished(0x40)));
 
         let mut parser = AnsiCsiParser::new();
-        parser.push(0x7e);
+        parser.push(0x7e).unwrap();
 
         assert_eq!(parser.params, &[]);
         assert_eq!(parser.intermediates, &[]);
@@ -451,11 +458,11 @@ mod test {
     fn test_parsing_invalid_csi() {
         let mut parser = AnsiCsiParser::new();
         for b in b"0$0" {
-            parser.push(*b);
+            parser.push(*b).unwrap();
         }
 
         assert!(matches!(parser.state, AnsiCsiParserState::Invalid));
-        parser.push(b'm');
+        parser.push(b'm').unwrap();
         assert!(matches!(parser.state, AnsiCsiParserState::InvalidFinished));
     }
 

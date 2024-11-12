@@ -11,7 +11,7 @@ mod io;
 pub mod playback;
 pub mod state;
 
-use std::{sync::Arc, sync::Mutex};
+use std::sync::{Arc, Mutex};
 
 use ansi_components::mode::{Decawm, Decckm, Mode, TerminalModes};
 use anyhow::Result;
@@ -166,6 +166,10 @@ pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
 }
 
 impl TerminalEmulator<FreminalPtyInputOutput> {
+    /// Create a new terminal emulator
+    ///
+    /// # Errors
+    ///
     pub fn new(args: &Args) -> Result<(Self, Receiver<PtyRead>)> {
         let (write_tx, read_rx) = unbounded();
         let (pty_tx, pty_rx) = unbounded();
@@ -201,7 +205,12 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     pub fn set_egui_ctx_if_missing(&mut self, ctx: egui::Context) {
         if self.ctx.is_none() {
             self.ctx = Some(ctx.clone());
-            self.internal.lock().unwrap().set_ctx(ctx);
+            match self.internal.lock() {
+                Ok(mut internal) => internal.set_ctx(ctx),
+                Err(e) => {
+                    error!("Error setting egui context: {e}");
+                }
+            }
         }
     }
 
@@ -220,40 +229,74 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         self.previous_pass_valid = true;
     }
     pub fn needs_redraw(&self) -> bool {
-        let internal = self.internal.lock().unwrap().is_changed();
+        let internal = match self.internal.lock() {
+            Ok(internal) => internal.is_changed(),
+            Err(e) => {
+                error!("Error checking if terminal needs redraw: {e}");
+                true
+            }
+        };
 
         if internal {
-            self.internal.lock().unwrap().clear_changed();
+            match self.internal.lock() {
+                Ok(mut internal) => internal.clear_changed(),
+                Err(e) => {
+                    error!("Error setting terminal as not changed: {e}");
+                }
+            }
         }
 
         !self.previous_pass_valid || internal
     }
 
     pub fn get_win_size(&self) -> (usize, usize) {
-        self.internal.lock().unwrap().get_win_size()
+        match self.internal.lock() {
+            Ok(internal) => internal.get_win_size(),
+            Err(e) => {
+                error!("Error getting window size: {e}. Using default values");
+                (TERMINAL_WIDTH, TERMINAL_HEIGHT)
+            }
+        }
     }
 
     pub fn get_window_title(&self) -> Option<String> {
-        self.internal.lock().unwrap().get_window_title()
+        match self.internal.lock() {
+            Ok(internal) => internal.get_window_title(),
+            Err(e) => {
+                error!("Error getting window title: {e}");
+                None
+            }
+        }
     }
 
     #[allow(dead_code)]
     pub fn clear_window_title(&self) {
-        self.internal.lock().unwrap().clear_window_title();
+        match self.internal.lock() {
+            Ok(mut internal) => internal.clear_window_title(),
+            Err(e) => {
+                error!("Error clearing window title: {e}");
+            }
+        }
     }
 
+    /// Set the window title
+    ///
+    /// # Errors
+    /// Will error if the terminal cannot be locked
     pub fn set_win_size(
         &mut self,
         width_chars: usize,
         height_chars: usize,
         font_pixel_width: usize,
         font_pixel_height: usize,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let response = self
-            .internal
-            .lock()
-            .unwrap()
-            .set_win_size(width_chars, height_chars);
+    ) -> Result<()> {
+        let response = match self.internal.lock() {
+            Ok(mut internal) => internal.set_win_size(width_chars, height_chars),
+            Err(e) => {
+                error!("Error setting window size: {e}");
+                return Err(anyhow::anyhow!("Error setting window size: {e}"));
+            }
+        };
 
         if response.changed {
             self.write_tx.send(PtyWrite::Resize(FreminalTerminalSize {
@@ -269,20 +312,54 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         Ok(())
     }
 
-    pub fn write(&self, to_write: &TerminalInput) -> Result<(), Box<dyn std::error::Error>> {
-        self.internal.lock().unwrap().write(to_write)
+    /// Write to the terminal
+    ///
+    /// # Errors
+    /// Will error if the terminal cannot be locked
+    pub fn write(&self, to_write: &TerminalInput) -> Result<()> {
+        match self.internal.lock() {
+            Ok(internal) => internal.write(to_write),
+            Err(e) => Err(anyhow::anyhow!("Error writing to terminal: {e}")),
+        }
     }
 
     pub fn data(&self) -> TerminalSections<Vec<TChar>> {
-        self.internal.lock().unwrap().data()
+        // FIXME: should this propagate the error?
+        match self.internal.lock() {
+            Ok(internal) => internal.data(),
+            Err(e) => {
+                error!("Error getting terminal data: {e}");
+                TerminalSections {
+                    scrollback: Vec::new(),
+                    visible: Vec::new(),
+                }
+            }
+        }
     }
 
     pub fn format_data(&self) -> TerminalSections<Vec<FormatTag>> {
-        self.internal.lock().unwrap().format_data()
+        // FIXME: should this propagate the error?
+        match self.internal.lock() {
+            Ok(internal) => internal.format_data(),
+            Err(e) => {
+                error!("Error getting terminal format data: {e}");
+                TerminalSections {
+                    scrollback: Vec::new(),
+                    visible: Vec::new(),
+                }
+            }
+        }
     }
 
     pub fn cursor_pos(&self) -> CursorPos {
-        self.internal.lock().unwrap().cursor_pos()
+        // FIXME: should this propagate the error?
+        match self.internal.lock() {
+            Ok(internal) => internal.cursor_pos(),
+            Err(e) => {
+                error!("Error getting cursor position: {e}");
+                CursorPos::default()
+            }
+        }
     }
 }
 

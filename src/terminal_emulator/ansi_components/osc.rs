@@ -3,6 +3,8 @@ use std::str::FromStr;
 //use eframe::egui::Color32;
 
 use crate::terminal_emulator::ansi::{ParserInner, TerminalOutput};
+use crate::terminal_emulator::error::ParserFailures;
+use anyhow::Result;
 
 #[derive(Eq, PartialEq, Debug)]
 pub enum AnsiOscInternalType {
@@ -117,7 +119,14 @@ pub struct AnsiOscParser {
 // OSC Sequence looks like this:
 // 1b]11;?1b\
 
+impl Default for AnsiOscParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AnsiOscParser {
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             state: AnsiOscParserState::Params,
@@ -126,9 +135,13 @@ impl AnsiOscParser {
         }
     }
 
-    pub fn push(&mut self, b: u8) {
+    /// Push a byte into the parser
+    ///
+    /// # Errors
+    /// Will return an error if the parser is in the `Finished` or `InvalidFinished` state
+    pub fn push(&mut self, b: u8) -> Result<()> {
         if let AnsiOscParserState::Finished | AnsiOscParserState::InvalidFinished = &self.state {
-            panic!("OscParser should not be pushed to once finished");
+            return Err(ParserFailures::ParsedPushedToOnceFinished.into());
         }
 
         match self.state {
@@ -160,14 +173,20 @@ impl AnsiOscParser {
                 }
             }
         }
+
+        Ok(())
     }
 
+    /// Parse the OSC sequence
+    ///
+    /// # Errors
+    /// Will return an error if the parser is in the `Finished` or `InvalidFinished` state
     pub fn ansiparser_inner_osc(
         &mut self,
         b: u8,
         output: &mut Vec<TerminalOutput>,
-    ) -> Option<ParserInner> {
-        self.push(b);
+    ) -> Result<Option<ParserInner>> {
+        self.push(b)?;
 
         match self.state {
             AnsiOscParserState::Finished => {
@@ -175,7 +194,7 @@ impl AnsiOscParser {
                     let Some(type_number) = extract_param(0, &params) else {
                         warn!("Invalid OSC params: {:?}", self.params);
                         output.push(TerminalOutput::Invalid);
-                        return Some(ParserInner::Empty);
+                        return Ok(Some(ParserInner::Empty));
                     };
 
                     let osc_target = OscTarget::from(type_number.clone());
@@ -221,13 +240,13 @@ impl AnsiOscParser {
                     output.push(TerminalOutput::Invalid);
                 };
 
-                Some(ParserInner::Empty)
+                Ok(Some(ParserInner::Empty))
             }
             AnsiOscParserState::Invalid => {
                 output.push(TerminalOutput::Invalid);
-                Some(ParserInner::Empty)
+                Ok(Some(ParserInner::Empty))
             }
-            _ => None,
+            _ => Ok(None),
         }
     }
 }
@@ -269,20 +288,24 @@ impl FromStr for AnsiOscToken {
     }
 }
 
+/// # Errors
+/// Will return an error if the parameter is not a valid number
 pub fn split_params_into_semicolon_delimited_usize(
     params: &[u8],
-) -> Result<Vec<Option<AnsiOscToken>>, ()> {
+) -> Result<Vec<Option<AnsiOscToken>>> {
     let params = params
         .split(|b| *b == b';')
         .map(parse_param_as::<AnsiOscToken>)
-        .collect::<Result<Vec<Option<AnsiOscToken>>, ()>>();
+        .collect::<Result<Vec<Option<AnsiOscToken>>, anyhow::Error>>();
 
     params
 }
 
-pub fn parse_param_as<T: std::str::FromStr>(param_bytes: &[u8]) -> Result<Option<T>, ()> {
-    let param_str =
-        std::str::from_utf8(param_bytes).expect("parameter should always be valid utf8");
+/// # Errors
+///
+/// Will return an error if the parameter is not a valid number
+pub fn parse_param_as<T: std::str::FromStr>(param_bytes: &[u8]) -> Result<Option<T>> {
+    let param_str = std::str::from_utf8(param_bytes)?;
     if param_str.is_empty() {
         return Ok(None);
     }
@@ -293,7 +316,7 @@ pub fn parse_param_as<T: std::str::FromStr>(param_bytes: &[u8]) -> Result<Option
                 param_bytes,
                 std::any::type_name::<T>()
             );
-            Err(())
+            Err(anyhow::anyhow!("Failed to parse parameter"))
         },
         |value| Ok(Some(value)),
     )

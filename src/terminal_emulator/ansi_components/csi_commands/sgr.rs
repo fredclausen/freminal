@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+use crate::terminal_emulator::error::ParserFailures;
 use crate::{
     gui::colors::{lookup_256_color_by_index, TerminalColor},
     terminal_emulator::{
@@ -10,19 +11,29 @@ use crate::{
         ansi_components::sgr::SelectGraphicRendition,
     },
 };
+use anyhow::Result;
 
+/// Select Graphic Rendition
+///
+/// SGR sets the text attributes for the following characters. Several attributes can be combined by separating them with a semicolon.
+///
+/// Values for param are defined in the `SelectGraphicRendition` enum
+///
+/// ESC [ params m
+/// # Errors
+/// Will return an error if the parameter is not a valid number
 #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
 pub fn ansi_parser_inner_csi_finished_sgr_ansi(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,
-) -> Result<Option<ParserInner>, ()> {
+) -> Result<Option<ParserInner>> {
     let params = split_params_into_semicolon_delimited_usize(params);
 
     let Ok(mut params) = params else {
         warn!("Invalid SGR sequence");
         output.push(TerminalOutput::Invalid);
 
-        return Err(());
+        return Err(ParserFailures::UnhandledSGRCommand(format!("{params:?}")).into());
     };
 
     if params.is_empty() {
@@ -123,14 +134,19 @@ pub fn ansi_parser_inner_csi_finished_sgr_ansi(
                 }
             }
 
-            output.push(TerminalOutput::Sgr(
-                SelectGraphicRendition::from_usize_color(
-                    custom_color_control_code,
-                    custom_color_r,
-                    custom_color_g,
-                    custom_color_b,
-                ),
-            ));
+            match SelectGraphicRendition::from_usize_color(
+                custom_color_control_code,
+                custom_color_r,
+                custom_color_g,
+                custom_color_b,
+            ) {
+                Ok(sgr) => output.push(TerminalOutput::Sgr(sgr)),
+                Err(e) => {
+                    warn!("Invalid SGR sequence: {}", e);
+                    output.push(TerminalOutput::Invalid);
+                }
+            }
+
             continue;
         }
 
@@ -154,7 +170,10 @@ mod tests {
             let i_string = i.to_string();
             let params = i_string.as_bytes();
             let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
-            assert_eq!(result, Ok(Some(ParserInner::Empty)), "Failed for {i}");
+            match result {
+                Ok(Some(ParserInner::Empty)) => (),
+                _ => panic!("Failed for {i}"),
+            }
             assert_eq!(
                 output,
                 vec![TerminalOutput::Sgr(SelectGraphicRendition::from_usize(i))],
@@ -167,7 +186,7 @@ mod tests {
         let mut output = Vec::new();
         let params = b"38;2;255;255;255";
         let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
-        assert_eq!(result, Ok(Some(ParserInner::Empty)));
+        assert!(matches!(result, Ok(Some(ParserInner::Empty))));
         assert_eq!(
             output,
             vec![TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
@@ -178,6 +197,12 @@ mod tests {
         let mut output = Vec::new();
         let params = b"48;5;255";
         let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
-        assert_eq!(result, Ok(Some(ParserInner::Empty)));
+        assert!(matches!(result, Ok(Some(ParserInner::Empty))));
+        assert_eq!(
+            output,
+            vec![TerminalOutput::Sgr(SelectGraphicRendition::Background(
+                TerminalColor::Custom(238, 238, 238)
+            ))]
+        );
     }
 }

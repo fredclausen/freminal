@@ -1,5 +1,3 @@
-use crate::terminal_emulator::ansi::{parse_param_as, ParserInner, TerminalOutput};
-
 use super::{
     csi_commands::{
         cha::ansi_parser_inner_csi_finished_set_position_g,
@@ -10,12 +8,15 @@ use super::{
         cuu::ansi_parser_inner_csi_finished_move_up,
         dch::ansi_parser_inner_csi_finished_set_position_p,
         ed::ansi_parser_inner_csi_finished_set_position_j,
-        el::ansi_parser_inner_csi_finished_set_position_k,
+        el::ansi_parser_inner_csi_finished_set_position_k, ict::ansi_parser_inner_csi_finished_ich,
         il::ansi_parser_inner_csi_finished_set_position_l,
         sgr::ansi_parser_inner_csi_finished_sgr_ansi,
     },
     mode::terminal_mode_from_params,
 };
+use crate::terminal_emulator::ansi::{ParserInner, TerminalOutput};
+use crate::terminal_emulator::error::ParserFailures;
+use anyhow::Result;
 
 #[derive(Eq, PartialEq, Debug)]
 pub enum AnsiCsiParserState {
@@ -33,7 +34,14 @@ pub struct AnsiCsiParser {
     pub(crate) intermediates: Vec<u8>,
 }
 
+impl Default for AnsiCsiParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AnsiCsiParser {
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             state: AnsiCsiParserState::Params,
@@ -42,9 +50,13 @@ impl AnsiCsiParser {
         }
     }
 
-    pub fn push(&mut self, b: u8) {
+    /// Push a byte into the parser
+    ///
+    /// # Errors
+    /// Will return an error if the parser is in a finished state
+    pub fn push(&mut self, b: u8) -> Result<()> {
         if let AnsiCsiParserState::Finished(_) | AnsiCsiParserState::InvalidFinished = &self.state {
-            panic!("CsiParser should not be pushed to once finished");
+            return Err(ParserFailures::ParsedPushedToOnceFinished.into());
         }
 
         match &mut self.state {
@@ -80,14 +92,20 @@ impl AnsiCsiParser {
                 unreachable!();
             }
         }
+
+        Ok(())
     }
 
+    /// Push a byte into the parser and return the next state
+    ///
+    /// # Errors
+    /// Will return an error if the parser encounters an invalid state
     pub fn ansiparser_inner_csi(
         &mut self,
         b: u8,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<ParserInner>, ()> {
-        self.push(b);
+    ) -> Result<Option<ParserInner>> {
+        self.push(b)?;
 
         match self.state {
             AnsiCsiParserState::Finished(b'A') => {
@@ -135,7 +153,9 @@ impl AnsiCsiParser {
                 )));
                 Ok(Some(ParserInner::Empty))
             }
-            AnsiCsiParserState::Finished(b'@') => self.ansi_parser_inner_csi_finished_ich(output),
+            AnsiCsiParserState::Finished(b'@') => {
+                ansi_parser_inner_csi_finished_ich(&self.params, output)
+            }
             AnsiCsiParserState::Finished(b'n') => {
                 output.push(TerminalOutput::CursorReport);
                 Ok(Some(ParserInner::Empty))
@@ -159,23 +179,6 @@ impl AnsiCsiParser {
             }
             _ => Ok(None),
         }
-    }
-
-    fn ansi_parser_inner_csi_finished_ich(
-        &self,
-        output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<ParserInner>, ()> {
-        let Ok(param) = parse_param_as::<usize>(&self.params) else {
-            warn!("Invalid ich command");
-            output.push(TerminalOutput::Invalid);
-
-            return Err(());
-        };
-
-        // ecma-48 8.3.64
-        output.push(TerminalOutput::InsertSpaces(param.unwrap_or(1)));
-
-        Ok(Some(ParserInner::Empty))
     }
 }
 

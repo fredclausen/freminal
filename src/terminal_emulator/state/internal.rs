@@ -3,8 +3,8 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+use anyhow::Result;
 use core::str;
-
 use eframe::egui::{Color32, Context};
 
 use crate::{
@@ -48,6 +48,7 @@ pub struct TerminalState {
 }
 
 impl TerminalState {
+    #[must_use]
     pub fn new(write_tx: crossbeam_channel::Sender<PtyWrite>) -> Self {
         Self {
             parser: FreminalAnsiParser::new(),
@@ -150,9 +151,16 @@ impl TerminalState {
                 new_data
             },
         );
-        let response = self
+        let response = match self
             .terminal_buffer
-            .insert_data(&self.cursor_state.pos, &data);
+            .insert_data(&self.cursor_state.pos, &data)
+        {
+            Ok(response) => response,
+            Err(e) => {
+                error!("Failed to insert data: {e}");
+                return;
+            }
+        };
 
         if !response.left_over.is_empty() {
             warn!("Leftover data from incoming buffer");
@@ -202,15 +210,28 @@ impl TerminalState {
     }
 
     pub(crate) fn clear_forwards(&mut self) {
-        if let Some(buf_pos) = self.terminal_buffer.clear_forwards(&self.cursor_state.pos) {
-            self.format_tracker
-                .push_range(&self.cursor_state, buf_pos..usize::MAX);
+        match self.terminal_buffer.clear_forwards(&self.cursor_state.pos) {
+            Ok(Some(buf_pos)) => {
+                self.format_tracker
+                    .push_range(&self.cursor_state, buf_pos..usize::MAX);
+            }
+            // FIXME: why on god's green earth are we having an option type here?
+            Ok(None) => (),
+            Err(e) => {
+                error!("Failed to clear forwards: {e}");
+            }
         }
     }
 
     pub(crate) fn clear_backwards(&mut self) {
-        if let Some(buf_pos) = self.terminal_buffer.clear_backwards(&self.cursor_state.pos) {
-            self.format_tracker.push_range(&self.cursor_state, buf_pos);
+        match self.terminal_buffer.clear_backwards(&self.cursor_state.pos) {
+            Ok(Some(buf_pos)) => {
+                self.format_tracker.push_range(&self.cursor_state, buf_pos);
+            }
+            Ok(None) => (),
+            Err(e) => {
+                error!("Failed to clear backwards: {e}");
+            }
         }
     }
 
@@ -590,7 +611,11 @@ impl TerminalState {
         }
     }
 
-    pub fn write(&self, to_write: &TerminalInput) -> Result<(), Box<dyn std::error::Error>> {
+    /// Write data to the terminal
+    ///
+    /// # Errors
+    /// Will return an error if the write fails
+    pub fn write(&self, to_write: &TerminalInput) -> Result<()> {
         match to_write.to_payload(self.get_cursor_key_mode() == Decckm::Application) {
             TerminalInputPayload::Single(c) => {
                 self.write_tx.send(PtyWrite::Write(vec![c]))?;
