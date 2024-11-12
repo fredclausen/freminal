@@ -13,6 +13,7 @@ use super::{
         cuf::ansi_parser_inner_csi_finished_move_right,
         cup::ansi_parser_inner_csi_finished_set_position_h,
         cuu::ansi_parser_inner_csi_finished_move_up,
+        ed::ansi_parser_inner_csi_finished_set_position_j,
     },
     mode::terminal_mode_from_params,
     sgr::SelectGraphicRendition,
@@ -110,7 +111,7 @@ impl AnsiCsiParser {
                 ansi_parser_inner_csi_finished_set_position_g(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'J') => {
-                self.ansi_parser_inner_csi_finished_set_position_j(output)
+                ansi_parser_inner_csi_finished_set_position_j(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'K') => {
                 self.ansi_parser_inner_csi_finished_set_position_k(output)
@@ -158,27 +159,6 @@ impl AnsiCsiParser {
             }
             _ => Ok(None),
         }
-    }
-
-    fn ansi_parser_inner_csi_finished_set_position_j(
-        &self,
-        output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<ParserInner>, ()> {
-        let Ok(param) = parse_param_as::<usize>(&self.params) else {
-            warn!("Invalid clear command");
-            output.push(TerminalOutput::Invalid);
-
-            return Err(());
-        };
-
-        let ret = match param.unwrap_or(0) {
-            0 => TerminalOutput::ClearForwards,
-            2 | 3 => TerminalOutput::ClearAll,
-            _ => TerminalOutput::Invalid,
-        };
-        output.push(ret);
-
-        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_set_position_k(
