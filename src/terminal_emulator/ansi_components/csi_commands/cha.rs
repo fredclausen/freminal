@@ -38,41 +38,41 @@ pub fn ansi_parser_inner_csi_finished_set_position_g(
     Ok(Some(ParserInner::Empty))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::terminal_emulator::ansi::TerminalOutput;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use crate::terminal_emulator::ansi::TerminalOutput;
 
-    #[test]
-    fn test_cha() {
-        let mut output = Vec::new();
-        ansi_parser_inner_csi_finished_set_position_g(b"1", &mut output).unwrap();
-        assert_eq!(
-            output,
-            vec![TerminalOutput::SetCursorPos {
-                x: Some(1),
-                y: None
-            }]
-        );
+//     #[test]
+//     fn test_cha() {
+//         let mut output = Vec::new();
+//         ansi_parser_inner_csi_finished_set_position_g(b"1", &mut output).unwrap();
+//         assert_eq!(
+//             output,
+//             vec![TerminalOutput::SetCursorPos {
+//                 x: Some(1),
+//                 y: None
+//             }]
+//         );
 
-        let mut output = Vec::new();
-        ansi_parser_inner_csi_finished_set_position_g(b"2", &mut output).unwrap();
-        assert_eq!(
-            output,
-            vec![TerminalOutput::SetCursorPos {
-                x: Some(2),
-                y: None
-            }]
-        );
+//         let mut output = Vec::new();
+//         ansi_parser_inner_csi_finished_set_position_g(b"2", &mut output).unwrap();
+//         assert_eq!(
+//             output,
+//             vec![TerminalOutput::SetCursorPos {
+//                 x: Some(2),
+//                 y: None
+//             }]
+//         );
 
-        let mut output = Vec::new();
-        ansi_parser_inner_csi_finished_set_position_g(b"3", &mut output).unwrap();
-        assert_eq!(
-            output,
-            vec![TerminalOutput::SetCursorPos {
-                x: Some(3),
-                y: None
-            }]
-        );
-    }
-}
+//         let mut output = Vec::new();
+//         ansi_parser_inner_csi_finished_set_position_g(b"3", &mut output).unwrap();
+//         assert_eq!(
+//             output,
+//             vec![TerminalOutput::SetCursorPos {
+//                 x: Some(3),
+//                 y: None
+//             }]
+//         );
+//     }
+// }

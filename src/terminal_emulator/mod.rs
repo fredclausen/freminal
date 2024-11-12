@@ -3,11 +3,11 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-mod ansi;
+pub mod ansi;
 pub mod ansi_components;
 pub mod error;
-mod format_tracker;
-mod io;
+pub mod format_tracker;
+pub mod io;
 pub mod playback;
 pub mod state;
 
@@ -27,7 +27,7 @@ use state::{
     term_char::TChar,
 };
 
-use crate::{gui::colors::TerminalColor, Args};
+use crate::{args::Args, gui::colors::TerminalColor};
 
 const fn char_to_ctrl_code(c: u8) -> u8 {
     // https://catern.com/posts/terminal_quirks.html

@@ -87,39 +87,38 @@ impl std::fmt::Display for TerminalOutput {
     }
 }
 
+#[must_use]
 pub fn extract_param(idx: usize, params: &[Option<usize>]) -> Option<usize> {
     params.get(idx).copied().flatten()
 }
 
+/// # Errors
+/// Will return an error if the parameter is not a valid number
 pub fn split_params_into_semicolon_delimited_usize(
     params: &[u8],
-) -> Result<Vec<Option<usize>>, ()> {
+) -> Result<Vec<Option<usize>>, anyhow::Error> {
     let params = params
         .split(|b| *b == b';')
         .map(parse_param_as::<usize>)
-        .collect::<Result<Vec<Option<usize>>, ()>>();
+        .collect::<Result<Vec<Option<usize>>, anyhow::Error>>();
 
     params
 }
 
-pub fn parse_param_as<T: std::str::FromStr>(param_bytes: &[u8]) -> Result<Option<T>, ()> {
-    let param_str =
-        std::str::from_utf8(param_bytes).expect("parameter should always be valid utf8");
+/// # Errors
+/// Will return an error if the parameter is not a valid number
+pub fn parse_param_as<T: std::str::FromStr>(
+    param_bytes: &[u8],
+) -> Result<Option<T>, anyhow::Error> {
+    let param_str = std::str::from_utf8(param_bytes)?;
     if param_str.is_empty() {
         return Ok(None);
     }
 
-    param_str.parse().map_err(|_| ()).map_or_else(
-        |()| {
-            warn!(
-                "Failed to parse parameter ({:?}) as {:?}",
-                param_bytes,
-                std::any::type_name::<T>()
-            );
-            Err(())
-        },
-        |value| Ok(Some(value)),
-    )
+    param_str
+        .parse()
+        .map_err(|_| anyhow::Error::msg("Parse error"))
+        .map(Some)
 }
 
 fn push_data_if_non_empty(data: &mut Vec<u8>, output: &mut Vec<TerminalOutput>) {
@@ -140,7 +139,14 @@ pub struct FreminalAnsiParser {
     pub(crate) inner: ParserInner,
 }
 
+impl Default for FreminalAnsiParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FreminalAnsiParser {
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             inner: ParserInner::Empty,
@@ -932,7 +938,7 @@ mod test {
         // parse_param_as
 
         // invalid utf8
-        let result: Result<Option<usize>, ()> = parse_param_as(b"\xff");
+        let result: Result<Option<usize>, anyhow::Error> = parse_param_as(b"\xff");
         assert!(result.is_err());
     }
 
@@ -940,7 +946,7 @@ mod test {
     fn test_parse_str_fail_on_conversion() {
         // string that should trigger the map_or_else
 
-        let result: Result<Option<bool>, ()> = parse_param_as(b"123");
+        let result: Result<Option<bool>, anyhow::Error> = parse_param_as(b"123");
 
         assert!(result.is_err());
     }

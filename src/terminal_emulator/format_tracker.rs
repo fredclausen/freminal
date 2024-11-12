@@ -3,8 +3,6 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::gui::colors::TerminalColor;
-
 use super::{
     ansi_components::mode::Decawm,
     state::{
@@ -12,6 +10,8 @@ use super::{
         fonts::{FontDecorations, FontWeight},
     },
 };
+use crate::gui::colors::TerminalColor;
+use anyhow::Result;
 use std::ops::Range;
 
 const fn ranges_overlap(a: Range<usize>, b: Range<usize>) -> bool {
@@ -142,7 +142,14 @@ pub struct FormatTracker {
     color_info: Vec<FormatTag>,
 }
 
+impl Default for FormatTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FormatTracker {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             color_info: vec![FormatTag {
@@ -197,11 +204,16 @@ impl FormatTracker {
         }
     }
 
+    #[must_use]
     pub fn tags(&self) -> Vec<FormatTag> {
         self.color_info.clone()
     }
 
-    pub fn delete_range(&mut self, range: Range<usize>) {
+    /// Delete ranges
+    ///
+    /// # Errors
+    /// if the ranges overlap in an unhandled way it will return an error
+    pub fn delete_range(&mut self, range: Range<usize>) -> Result<()> {
         let mut to_delete = Vec::new();
         let del_size = range.end - range.start;
 
@@ -228,10 +240,26 @@ impl FormatTracker {
                         info.end -= del_size;
                     }
                 } else {
-                    panic!("Unhandled overlap");
+                    return Err(anyhow::anyhow!(
+                        "Unhandled overlap case {}-{}, {}-{}",
+                        info.start,
+                        info.end,
+                        range.start,
+                        range.end
+                    ));
                 }
             } else {
-                assert!(!ranges_overlap(range.clone(), info_range.clone()));
+                //assert!(!ranges_overlap(range.clone(), info_range.clone()));
+
+                if ranges_overlap(range.clone(), info_range.clone()) {
+                    return Err(anyhow::anyhow!(
+                        "Unhandled overlap case {}-{}, {}-{}",
+                        info.start,
+                        info.end,
+                        range.start,
+                        range.end
+                    ));
+                }
                 info.start -= del_size;
                 if info.end != usize::MAX {
                     info.end -= del_size;
@@ -242,6 +270,8 @@ impl FormatTracker {
         for i in to_delete.into_iter().rev() {
             self.color_info.remove(i);
         }
+
+        Ok(())
     }
 }
 
@@ -668,16 +698,16 @@ mod test {
         cursor.color = TerminalColor::Red;
         format_tracker.push_range(&cursor, 10..20);
 
-        format_tracker.delete_range(0..2);
+        format_tracker.delete_range(0..2).unwrap();
         del_range_test_one(&format_tracker);
 
-        format_tracker.delete_range(2..4);
+        format_tracker.delete_range(2..4).unwrap();
         del_range_test_two(&format_tracker);
 
-        format_tracker.delete_range(4..6);
+        format_tracker.delete_range(4..6).unwrap();
         del_range_test_three(&format_tracker);
 
-        format_tracker.delete_range(2..7);
+        format_tracker.delete_range(2..7).unwrap();
         del_range_test_four(&format_tracker);
     }
 
