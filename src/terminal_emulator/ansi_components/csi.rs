@@ -14,6 +14,7 @@ use super::{
         cup::ansi_parser_inner_csi_finished_set_position_h,
         cuu::ansi_parser_inner_csi_finished_move_up,
         ed::ansi_parser_inner_csi_finished_set_position_j,
+        il::ansi_parser_inner_csi_finished_set_position_l,
     },
     mode::terminal_mode_from_params,
     sgr::SelectGraphicRendition,
@@ -117,7 +118,7 @@ impl AnsiCsiParser {
                 self.ansi_parser_inner_csi_finished_set_position_k(output)
             }
             AnsiCsiParserState::Finished(b'L') => {
-                self.ansi_parser_inner_csi_finished_set_position_l(output)
+                ansi_parser_inner_csi_finished_set_position_l(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'P') => {
                 self.ansi_parser_inner_csi_finished_set_position_p(output)
@@ -182,22 +183,6 @@ impl AnsiCsiParser {
                 output.push(TerminalOutput::Invalid);
             }
         }
-
-        Ok(Some(ParserInner::Empty))
-    }
-
-    fn ansi_parser_inner_csi_finished_set_position_l(
-        &self,
-        output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<ParserInner>, ()> {
-        let Ok(param) = parse_param_as::<usize>(&self.params) else {
-            warn!("Invalid il command");
-            output.push(TerminalOutput::Invalid);
-
-            return Err(());
-        };
-
-        output.push(TerminalOutput::InsertLines(param.unwrap_or(1)));
 
         Ok(Some(ParserInner::Empty))
     }
