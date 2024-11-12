@@ -5,6 +5,6 @@
 
 #[macro_use]
 extern crate tracing;
-mod args;
-mod gui;
+pub mod args;
+pub mod gui;
 pub mod terminal_emulator;

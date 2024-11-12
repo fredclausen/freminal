@@ -535,6 +535,7 @@ pub struct FreminalTerminalWidget {
 }
 
 impl FreminalTerminalWidget {
+    #[must_use]
     pub fn new(ctx: &Context) -> Self {
         setup_font_files(ctx);
         setup_bg_fill(ctx);
@@ -552,10 +553,12 @@ impl FreminalTerminalWidget {
         }
     }
 
+    #[must_use]
     pub const fn get_font_size(&self) -> f32 {
         self.font_size
     }
 
+    #[must_use]
     pub fn calculate_available_size(&self, ui: &Ui) -> (usize, usize) {
         let character_size = get_char_size(ui.ctx(), self.font_size);
         let width_chars = (ui.available_width() / character_size.0)

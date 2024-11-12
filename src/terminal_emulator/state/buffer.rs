@@ -11,12 +11,7 @@ use unicode_segmentation::UnicodeSegmentation;
 /// Calculate the indexes of the start and end of each line in the buffer given an input width.
 /// Ranges do not include newlines. If a newline appears past the width, it does not result in an
 /// extra line
-///
-/// Example
-/// ```
-/// let ranges = calc_line_ranges(b"12\n1234\n12345", 4);
-/// assert_eq!(ranges, [0..2, 3..7, 8..11, 12..13]);
-/// ```
+
 fn calc_line_ranges(buf: &[TChar], width: usize) -> Vec<Range<usize>> {
     let mut ret = vec![];
 

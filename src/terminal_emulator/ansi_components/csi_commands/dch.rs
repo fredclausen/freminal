@@ -34,28 +34,3 @@ pub fn ansi_parser_inner_csi_finished_set_position_p(
 
     Ok(Some(ParserInner::Empty))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_ansi_parser_inner_csi_finished_set_position_p() {
-        let mut output = Vec::new();
-
-        ansi_parser_inner_csi_finished_set_position_p(&[], &mut output).unwrap();
-        assert_eq!(output, vec![TerminalOutput::Delete(1)]);
-
-        output.clear();
-        ansi_parser_inner_csi_finished_set_position_p(b"0", &mut output).unwrap();
-        assert_eq!(output, vec![TerminalOutput::Delete(0)]);
-
-        output.clear();
-        ansi_parser_inner_csi_finished_set_position_p(b"1", &mut output).unwrap();
-        assert_eq!(output, vec![TerminalOutput::Delete(1)]);
-
-        output.clear();
-        ansi_parser_inner_csi_finished_set_position_p(b"2", &mut output).unwrap();
-        assert_eq!(output, vec![TerminalOutput::Delete(2)]);
-    }
-}

@@ -74,6 +74,10 @@ impl eframe::App for FreminalGui {
     }
 }
 
+/// Run the GUI
+///
+/// # Errors
+/// Will return an error if the GUI fails to run
 pub fn run(
     terminal_emulator: TerminalEmulator<FreminalPtyInputOutput>,
 ) -> Result<(), Box<dyn std::error::Error>> {

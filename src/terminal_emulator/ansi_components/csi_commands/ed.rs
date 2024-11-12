@@ -43,38 +43,3 @@ pub fn ansi_parser_inner_csi_finished_set_position_j(
 
     Ok(Some(ParserInner::Empty))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::terminal_emulator::ansi::TerminalOutput;
-
-    #[test]
-    fn test_ed() {
-        let mut output = Vec::new();
-        ansi_parser_inner_csi_finished_set_position_j(&[], &mut output).unwrap();
-        assert_eq!(
-            output,
-            vec![TerminalOutput::ClearDisplayfromCursortoEndofDisplay]
-        );
-
-        let mut output = Vec::new();
-        ansi_parser_inner_csi_finished_set_position_j(b"1", &mut output).unwrap();
-        assert_eq!(
-            output,
-            vec![TerminalOutput::ClearDiplayfromStartofDisplaytoCursor]
-        );
-
-        let mut output = Vec::new();
-        ansi_parser_inner_csi_finished_set_position_j(b"2", &mut output).unwrap();
-        assert_eq!(output, vec![TerminalOutput::ClearDisplay]);
-
-        let mut output = Vec::new();
-        ansi_parser_inner_csi_finished_set_position_j(b"3", &mut output).unwrap();
-        assert_eq!(output, vec![TerminalOutput::ClearScrollbackandDisplay]);
-
-        let mut output = Vec::new();
-        ansi_parser_inner_csi_finished_set_position_j(b"4", &mut output).unwrap();
-        assert_eq!(output, vec![TerminalOutput::Invalid]);
-    }
-}

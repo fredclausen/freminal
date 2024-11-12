@@ -70,7 +70,14 @@ pub struct TerminalFont {
     bold_italic: FontFamily,
 }
 
+impl Default for TerminalFont {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TerminalFont {
+    #[must_use]
     pub fn new() -> Self {
         let bold = FontFamily::Name(BOLD_FONT_NAME.to_string().into());
         let regular = FontFamily::Name(REGULAR_FONT_NAME.to_string().into());
@@ -85,6 +92,7 @@ impl TerminalFont {
         }
     }
 
+    #[must_use]
     pub fn get_family(&self, font_decs: &[FontDecorations], weight: &FontWeight) -> FontFamily {
         match (weight, font_decs.contains(&FontDecorations::Italic)) {
             (FontWeight::Bold, false) => self.bold.clone(),
@@ -95,6 +103,7 @@ impl TerminalFont {
     }
 }
 
+#[must_use]
 pub fn get_char_size(ctx: &egui::Context, font_size: f32) -> (f32, f32) {
     let font_id = FontId {
         size: font_size,

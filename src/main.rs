@@ -22,7 +22,7 @@ use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 pub mod args;
-mod gui;
+pub mod gui;
 pub mod terminal_emulator;
 
 use args::Args;

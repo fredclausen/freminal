@@ -7,6 +7,7 @@ use std::fmt;
 
 use eframe::egui::Color32;
 
+#[must_use]
 pub const fn lookup_256_color_by_index(index: usize) -> (usize, usize, usize) {
     // https://stackoverflow.com/questions/69138165/how-to-get-the-rgb-values-of-a-256-color-palette-terminal-color
     match index {
@@ -55,6 +56,7 @@ const fn cube_component(value: usize, modifier: usize) -> usize {
     }
 }
 
+#[must_use]
 pub fn internal_color_to_egui(
     default_foreground_color: Color32,
     default_background_color: Color32,

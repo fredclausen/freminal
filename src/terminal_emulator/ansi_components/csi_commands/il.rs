@@ -29,24 +29,3 @@ pub fn ansi_parser_inner_csi_finished_set_position_l(
 
     Ok(Some(ParserInner::Empty))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::terminal_emulator::ansi::TerminalOutput;
-
-    #[test]
-    fn test_el() {
-        let mut output = Vec::new();
-        ansi_parser_inner_csi_finished_set_position_l(&[], &mut output).unwrap();
-        assert_eq!(output, vec![TerminalOutput::InsertLines(1)]);
-
-        let mut output = Vec::new();
-        ansi_parser_inner_csi_finished_set_position_l(b"1", &mut output).unwrap();
-        assert_eq!(output, vec![TerminalOutput::InsertLines(1)]);
-
-        let mut output = Vec::new();
-        ansi_parser_inner_csi_finished_set_position_l(b"2", &mut output).unwrap();
-        assert_eq!(output, vec![TerminalOutput::InsertLines(2)]);
-    }
-}

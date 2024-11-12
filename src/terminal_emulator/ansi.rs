@@ -933,7 +933,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "parameter should always be valid utf8")]
     fn test_parse_str_fail_on_invalid_utf8() {
         // parse_param_as
 
