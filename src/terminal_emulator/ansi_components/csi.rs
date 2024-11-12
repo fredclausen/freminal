@@ -13,6 +13,7 @@ use super::{
         cuf::ansi_parser_inner_csi_finished_move_right,
         cup::ansi_parser_inner_csi_finished_set_position_h,
         cuu::ansi_parser_inner_csi_finished_move_up,
+        dch::ansi_parser_inner_csi_finished_set_position_p,
         ed::ansi_parser_inner_csi_finished_set_position_j,
         el::ansi_parser_inner_csi_finished_set_position_k,
         il::ansi_parser_inner_csi_finished_set_position_l,
@@ -122,7 +123,7 @@ impl AnsiCsiParser {
                 ansi_parser_inner_csi_finished_set_position_l(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'P') => {
-                self.ansi_parser_inner_csi_finished_set_position_p(output)
+                ansi_parser_inner_csi_finished_set_position_p(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'm') => self.ansi_parser_inner_csi_finished_sgr(output),
             AnsiCsiParserState::Finished(b'h') => {
@@ -161,22 +162,6 @@ impl AnsiCsiParser {
             }
             _ => Ok(None),
         }
-    }
-
-    fn ansi_parser_inner_csi_finished_set_position_p(
-        &self,
-        output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<ParserInner>, ()> {
-        let Ok(param) = parse_param_as::<usize>(&self.params) else {
-            warn!("Invalid del command");
-            output.push(TerminalOutput::Invalid);
-
-            return Err(());
-        };
-
-        output.push(TerminalOutput::Delete(param.unwrap_or(1)));
-
-        Ok(Some(ParserInner::Empty))
     }
 
     #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
