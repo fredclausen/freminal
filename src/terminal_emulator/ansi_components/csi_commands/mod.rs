@@ -10,4 +10,5 @@ pub mod cuf;
 pub mod cup;
 pub mod cuu;
 pub mod ed;
+pub mod el;
 pub mod il;

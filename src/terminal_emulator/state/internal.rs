@@ -208,10 +208,24 @@ impl TerminalState {
         }
     }
 
+    pub(crate) fn clear_backwards(&mut self) {
+        if let Some(buf_pos) = self.terminal_buffer.clear_backwards(&self.cursor_state.pos) {
+            self.format_tracker.push_range(&self.cursor_state, buf_pos);
+        }
+    }
+
     pub(crate) fn clear_all(&mut self) {
         self.format_tracker
             .push_range(&self.cursor_state, 0..usize::MAX);
         self.terminal_buffer.clear_all();
+    }
+
+    pub(crate) fn clear_visible(&mut self) {
+        let range = self.terminal_buffer.clear_visible();
+
+        if range.end > 0 {
+            self.format_tracker.push_range(&self.cursor_state, range);
+        }
     }
 
     pub(crate) fn clear_line_forwards(&mut self) {
@@ -547,8 +561,10 @@ impl TerminalState {
                 TerminalOutput::Data(data) => self.handle_data(&data),
                 TerminalOutput::SetCursorPos { x, y } => self.set_cursor_pos(x, y),
                 TerminalOutput::SetCursorPosRel { x, y } => self.set_cursor_pos_rel(x, y),
-                TerminalOutput::ClearForwards => self.clear_forwards(),
-                TerminalOutput::ClearAll => self.clear_all(),
+                TerminalOutput::ClearDisplayfromCursortoEndofDisplay => self.clear_forwards(),
+                TerminalOutput::ClearDiplayfromStartofDisplaytoCursor => self.clear_backwards(),
+                TerminalOutput::ClearScrollbackandDisplay => self.clear_all(),
+                TerminalOutput::ClearDisplay => self.clear_visible(),
                 TerminalOutput::ClearLineForwards => self.clear_line_forwards(),
                 TerminalOutput::ClearLineBackwards => self.clear_line_backwards(),
                 TerminalOutput::ClearLine => self.clear_line(),

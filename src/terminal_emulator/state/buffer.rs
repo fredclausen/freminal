@@ -403,6 +403,61 @@ impl TerminalBufferHolder {
         }
     }
 
+    pub fn clear_backwards(&mut self, cursor_pos: &CursorPos) -> Option<Range<usize>> {
+        let line_ranges = calc_line_ranges(&self.buf, self.width);
+        let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, self.height);
+
+        let (buf_pos, _) =
+            cursor_to_buf_pos_from_visible_line_ranges(cursor_pos, visible_line_ranges)?;
+
+        // we want to clear from the start of the visible line to the cursor pos
+
+        // clear from the buf pos that is the start of the visible line to the cursor pos
+
+        let previous_last_char = self.buf[buf_pos].clone();
+
+        for line in visible_line_ranges {
+            // replace all characters from the start of the visible lines to buf_pos with spaces
+            if line.start < buf_pos {
+                self.buf[line.start..buf_pos].fill(TChar::Space);
+            }
+
+            // if the line is where the cursor is, we want to clear from the start of the line to the cursor pos
+            if line.start == buf_pos {
+                self.buf[line.start..buf_pos].fill(TChar::Space);
+                break;
+            }
+        }
+
+        let mut pos = buf_to_cursor_pos(&self.buf, self.width, self.height, buf_pos);
+        // NOTE: buf to cursor pos may put the cursor one past the end of the line. In this
+        // case it's ok because there are two valid cursor positions and we only care about one
+        // of them
+        if pos.x == self.width {
+            pos.x = 0;
+            pos.y += 1;
+            //pos.x_as_characters = 0;
+        }
+        let new_cursor_pos = pos;
+
+        // If we truncate at the start of a line, and the previous line did not end with a newline,
+        // the first inserted newline will not have an effect on the number of visible lines. This
+        // is because we are allowed to have a trailing newline that is longer than the terminal
+        // width. To keep the cursor pos the same as it was before, if the truncate position is the
+        // start of a line, and the previous character is _not_ a newline, insert an extra newline
+        // to compensate
+        //
+        // If we truncated a newline it's the same situation
+        if cursor_pos.x == 0 && buf_pos > 0 && self.buf[buf_pos - 1] != TChar::NewLine
+            || previous_last_char == TChar::NewLine
+        {
+            self.buf.push(TChar::NewLine);
+        }
+
+        assert_eq!(new_cursor_pos, cursor_pos.clone());
+        Some(visible_line_ranges[cursor_pos.y].start..buf_pos)
+    }
+
     pub fn clear_forwards(&mut self, cursor_pos: &CursorPos) -> Option<usize> {
         let line_ranges = calc_line_ranges(&self.buf, self.width);
         let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, self.height);
@@ -478,6 +533,22 @@ impl TerminalBufferHolder {
 
     pub fn clear_all(&mut self) {
         self.buf.clear();
+    }
+
+    pub fn clear_visible(&mut self) -> std::ops::Range<usize> {
+        let line_ranges = calc_line_ranges(&self.buf, self.width);
+        let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, self.height);
+
+        // replace all NONE newlines with spaces
+        for line in visible_line_ranges {
+            self.buf[line.start..line.end].iter_mut().for_each(|c| {
+                if *c != TChar::NewLine {
+                    *c = TChar::Space;
+                }
+            });
+        }
+
+        visible_line_ranges[0].start..usize::MAX
     }
 
     pub fn delete_forwards(
@@ -1575,5 +1646,139 @@ mod test {
 
         assert_eq!(canvas.data().visible, expected);
         assert_eq!(response, Some(0..3));
+    }
+
+    #[test]
+    fn test_clear_backwards() {
+        let mut canvas = TerminalBufferHolder::new(5, 5);
+
+        // Test empty canvas
+        let response = canvas.clear_backwards(&CursorPos { x: 0, y: 0 });
+        assert_eq!(response, None);
+        assert_eq!(canvas.data().visible, b"");
+
+        // Test edge wrapped
+        canvas.insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789asdf\nxyzw");
+        let expected = vec![
+            TChar::new_from_single_char(b'0'),
+            TChar::new_from_single_char(b'1'),
+            TChar::new_from_single_char(b'2'),
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'x'),
+            TChar::new_from_single_char(b'y'),
+            TChar::new_from_single_char(b'z'),
+            TChar::new_from_single_char(b'w'),
+            TChar::NewLine,
+        ];
+
+        assert_eq!(canvas.data().visible, expected);
+        let response = canvas.clear_backwards(&CursorPos { x: 3, y: 0 });
+        let expected = vec![
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::new_from_single_char(b'3'),
+            TChar::new_from_single_char(b'4'),
+            TChar::new_from_single_char(b'5'),
+            TChar::new_from_single_char(b'6'),
+            TChar::new_from_single_char(b'7'),
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'x'),
+            TChar::new_from_single_char(b'y'),
+            TChar::new_from_single_char(b'z'),
+            TChar::new_from_single_char(b'w'),
+            TChar::NewLine,
+        ];
+
+        assert_eq!(canvas.data().visible, expected);
+        assert_eq!(response, Some(0..3));
+
+        // clearing on the second line
+        let response = canvas.clear_backwards(&CursorPos { x: 3, y: 1 });
+        let expected = vec![
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::new_from_single_char(b'8'),
+            TChar::new_from_single_char(b'9'),
+            TChar::new_from_single_char(b'a'),
+            TChar::new_from_single_char(b's'),
+            TChar::new_from_single_char(b'd'),
+            TChar::new_from_single_char(b'f'),
+            TChar::NewLine,
+            TChar::new_from_single_char(b'x'),
+            TChar::new_from_single_char(b'y'),
+            TChar::new_from_single_char(b'z'),
+            TChar::new_from_single_char(b'w'),
+            TChar::NewLine,
+        ];
+
+        assert_eq!(canvas.data().visible, expected);
+        assert_eq!(response, Some(5..8));
+    }
+
+    #[test]
+    fn test_clear_visible() {
+        let mut canvas = TerminalBufferHolder::new(5, 5);
+
+        // Test edge wrapped
+        canvas.insert_data(
+            &CursorPos { x: 0, y: 0 },
+            b"0123456789asdf0123456789asdf0123456789asdf0123456789asdf0123456789asdf\nxyzw",
+        );
+
+        let response = canvas.clear_visible();
+        let expected: Vec<TChar> = vec![
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::NewLine,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::Space,
+            TChar::NewLine,
+        ];
+        assert_eq!(canvas.data().visible, expected);
+        assert_eq!(response, 50..usize::MAX);
     }
 }

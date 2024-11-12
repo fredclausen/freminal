@@ -14,6 +14,7 @@ use super::{
         cup::ansi_parser_inner_csi_finished_set_position_h,
         cuu::ansi_parser_inner_csi_finished_move_up,
         ed::ansi_parser_inner_csi_finished_set_position_j,
+        el::ansi_parser_inner_csi_finished_set_position_k,
         il::ansi_parser_inner_csi_finished_set_position_l,
     },
     mode::terminal_mode_from_params,
@@ -115,7 +116,7 @@ impl AnsiCsiParser {
                 ansi_parser_inner_csi_finished_set_position_j(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'K') => {
-                self.ansi_parser_inner_csi_finished_set_position_k(output)
+                ansi_parser_inner_csi_finished_set_position_k(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'L') => {
                 ansi_parser_inner_csi_finished_set_position_l(&self.params, output)
@@ -160,31 +161,6 @@ impl AnsiCsiParser {
             }
             _ => Ok(None),
         }
-    }
-
-    fn ansi_parser_inner_csi_finished_set_position_k(
-        &self,
-        output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<ParserInner>, ()> {
-        let Ok(param) = parse_param_as::<usize>(&self.params) else {
-            warn!("Invalid erase in line command");
-            output.push(TerminalOutput::Invalid);
-
-            return Err(());
-        };
-
-        // ECMA-48 8.3.39
-        match param.unwrap_or(0) {
-            0 => output.push(TerminalOutput::ClearLineForwards),
-            1 => output.push(TerminalOutput::ClearLineBackwards),
-            2 => output.push(TerminalOutput::ClearLine),
-            v => {
-                warn!("Unsupported erase in line command ({v})");
-                output.push(TerminalOutput::Invalid);
-            }
-        }
-
-        Ok(Some(ParserInner::Empty))
     }
 
     fn ansi_parser_inner_csi_finished_set_position_p(

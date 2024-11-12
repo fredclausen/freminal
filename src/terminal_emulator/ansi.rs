@@ -19,8 +19,10 @@ use anyhow::Result;
 pub enum TerminalOutput {
     SetCursorPos { x: Option<usize>, y: Option<usize> },
     SetCursorPosRel { x: Option<i32>, y: Option<i32> },
-    ClearForwards,
-    ClearAll,
+    ClearDisplayfromCursortoEndofDisplay,
+    ClearDiplayfromStartofDisplaytoCursor,
+    ClearScrollbackandDisplay,
+    ClearDisplay,
     CarriageReturn,
     ClearLineForwards,
     ClearLineBackwards,
@@ -55,8 +57,10 @@ impl std::fmt::Display for TerminalOutput {
             Self::SetCursorPosRel { x, y } => {
                 write!(f, "SetCursorPosRel: x: {x:?}, y: {y:?}")
             }
-            Self::ClearForwards => write!(f, "ClearForwards"),
-            Self::ClearAll => write!(f, "ClearAll"),
+            Self::ClearDisplayfromCursortoEndofDisplay => write!(f, "ClearForwards"),
+            Self::ClearScrollbackandDisplay => write!(f, "ClearAll"),
+            Self::ClearDiplayfromStartofDisplaytoCursor => write!(f, "ClearBackwards"),
+            Self::ClearDisplay => write!(f, "ClearDisplay"),
             Self::CarriageReturn => write!(f, "CarriageReturn"),
             Self::ClearLineForwards => write!(f, "ClearLineForwards"),
             Self::ClearLineBackwards => write!(f, "ClearLineBackwards"),
@@ -379,17 +383,23 @@ mod test {
         let mut output_buffer = FreminalAnsiParser::new();
         let parsed = output_buffer.push(b"\x1b[J");
         assert_eq!(parsed.len(), 1);
-        assert!(matches!(parsed[0], TerminalOutput::ClearForwards,));
+        assert!(matches!(
+            parsed[0],
+            TerminalOutput::ClearDisplayfromCursortoEndofDisplay,
+        ));
 
         let mut output_buffer = FreminalAnsiParser::new();
         let parsed = output_buffer.push(b"\x1b[0J");
         assert_eq!(parsed.len(), 1);
-        assert!(matches!(parsed[0], TerminalOutput::ClearForwards,));
+        assert!(matches!(
+            parsed[0],
+            TerminalOutput::ClearDisplayfromCursortoEndofDisplay,
+        ));
 
         let mut output_buffer = FreminalAnsiParser::new();
         let parsed = output_buffer.push(b"\x1b[2J");
         assert_eq!(parsed.len(), 1);
-        assert!(matches!(parsed[0], TerminalOutput::ClearAll,));
+        assert!(matches!(parsed[0], TerminalOutput::ClearDisplay,));
     }
 
     #[test]
@@ -761,10 +771,10 @@ mod test {
             "SetCursorPosRel: x: Some(1), y: Some(1)"
         );
 
-        let output = TerminalOutput::ClearForwards;
+        let output = TerminalOutput::ClearDisplayfromCursortoEndofDisplay;
         assert_eq!(format!("{output}"), "ClearForwards");
 
-        let output = TerminalOutput::ClearAll;
+        let output = TerminalOutput::ClearScrollbackandDisplay;
         assert_eq!(format!("{output}"), "ClearAll");
 
         let output = TerminalOutput::CarriageReturn;
