@@ -1,8 +1,7 @@
 use crate::{
     gui::colors::{lookup_256_color_by_index, TerminalColor},
     terminal_emulator::ansi::{
-        extract_param, parse_param_as, split_params_into_semicolon_delimited_usize, ParserInner,
-        TerminalOutput,
+        parse_param_as, split_params_into_semicolon_delimited_usize, ParserInner, TerminalOutput,
     },
 };
 
