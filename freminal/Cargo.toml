@@ -16,14 +16,10 @@ rust-version.workspace = true
 
 [dependencies]
 eframe.workspace = true
-portable-pty.workspace = true
-thiserror.workspace = true
 conv.workspace = true
 anyhow.workspace = true
 tracing-subscriber.workspace = true
 tracing.workspace = true
-crossbeam-channel.workspace = true
-unicode-segmentation.workspace = true
 terminal_emulator = { path = "../terminal-emulator" }
 freminal-common = { path = "../freminal-common" }
 

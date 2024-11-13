@@ -1382,16 +1382,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "conv",
- "crossbeam-channel",
  "eframe",
  "freminal-common",
- "portable-pty",
  "tar",
  "terminal_emulator",
- "thiserror 2.0.3",
  "tracing",
  "tracing-subscriber",
- "unicode-segmentation",
 ]
 
 [[package]]
