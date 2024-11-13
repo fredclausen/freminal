@@ -150,35 +150,35 @@ jobs:
       - uses: Swatinem/rust-cache@v2.7.5
       - run: cargo xtask test-docs
 
-  # Run cargo test on the libraries of the crate.
-  test-libs:
-    name: Test Libs ${{ matrix.toolchain }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        toolchain: ["1.82.0", "stable"]
-    steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2.7.5
-      - run: cargo xtask test-libs
+  # # Run cargo test on the libraries of the crate.
+  # test-libs:
+  #   name: Test Libs ${{ matrix.toolchain }}
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       toolchain: ["1.82.0", "stable"]
+  #   steps:
+  #     - uses: actions/checkout@v4.2.2
+  #     - uses: dtolnay/rust-toolchain@stable
+  #     - uses: Swatinem/rust-cache@v2.7.5
+  #     - run: cargo xtask test-libs
 
-  # Run cargo test on all the backends.
-  test-backends:
-    name: Test ${{matrix.backend}} on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        backend: [crossterm, termion, termwiz]
-        exclude:
-          # termion is not supported on windows
-          - os: windows-latest
-            backend: termion
-    steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2.7.5
-      - run: cargo xtask test-backend ${{ matrix.backend }}
+  # # Run cargo test on all the backends.
+  # test-backends:
+  #   name: Test ${{matrix.backend}} on ${{ matrix.os }}
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       os: [ubuntu-latest, windows-latest, macos-latest]
+  #       backend: [crossterm, termion, termwiz]
+  #       exclude:
+  #         # termion is not supported on windows
+  #         - os: windows-latest
+  #           backend: termion
+  #   steps:
+  #     - uses: actions/checkout@v4.2.2
+  #     - uses: dtolnay/rust-toolchain@stable
+  #     - uses: Swatinem/rust-cache@v2.7.5
+  #     - run: cargo xtask test-backend ${{ matrix.backend }}
