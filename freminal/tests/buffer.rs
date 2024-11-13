@@ -437,7 +437,7 @@ fn test_canvas_scrolling() {
         .unwrap();
     crlf(&mut response.new_cursor_pos);
 
-    let expeceted_scrollback = vec![
+    let expected_scrollback = vec![
         TChar::new_from_single_char(b'a'),
         TChar::new_from_single_char(b's'),
         TChar::new_from_single_char(b'd'),
@@ -461,7 +461,7 @@ fn test_canvas_scrolling() {
         TChar::new_from_single_char(b'8'),
         TChar::NewLine,
     ];
-    assert_eq!(canvas.data().scrollback, expeceted_scrollback);
+    assert_eq!(canvas.data().scrollback, expected_scrollback);
     assert_eq!(canvas.data().visible, expected_visible);
 }
 

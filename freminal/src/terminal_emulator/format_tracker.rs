@@ -21,7 +21,7 @@ pub const fn ranges_overlap(a: Range<usize>, b: Range<usize>) -> bool {
 /// if a and b overlap like
 /// a:  [         ]
 /// b:      [  ]
-const fn range_fully_conatins(a: &Range<usize>, b: &Range<usize>) -> bool {
+const fn range_fully_contains(a: &Range<usize>, b: &Range<usize>) -> bool {
     a.start <= b.start && a.end >= b.end
 }
 
@@ -49,9 +49,9 @@ fn adjust_existing_format_range(
     };
 
     let existing_range = existing_elem.start..existing_elem.end;
-    if range_fully_conatins(range, &existing_range) {
+    if range_fully_contains(range, &existing_range) {
         ret.should_delete = true;
-    } else if range_fully_conatins(&existing_range, range) {
+    } else if range_fully_contains(&existing_range, range) {
         if existing_elem.start == range.start {
             ret.should_delete = true;
         }
@@ -225,7 +225,7 @@ impl FormatTracker {
             }
 
             if ranges_overlap(range.clone(), info_range.clone()) {
-                if range_fully_conatins(&range, &info_range) {
+                if range_fully_contains(&range, &info_range) {
                     to_delete.push(i);
                 } else if range_starts_overlapping(&range, &info_range) {
                     if info.end != usize::MAX {
@@ -236,7 +236,7 @@ impl FormatTracker {
                     if info.end != usize::MAX {
                         info.end -= del_size;
                     }
-                } else if range_fully_conatins(&info_range, &range) {
+                } else if range_fully_contains(&info_range, &range) {
                     if info.end != usize::MAX {
                         info.end -= del_size;
                     }

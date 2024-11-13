@@ -366,8 +366,8 @@ impl ReplayIo {
             | SelectGraphicRendition::AlternativeFont8
             | SelectGraphicRendition::AlternativeFont9
             | SelectGraphicRendition::FontFranktur
-            | SelectGraphicRendition::ProportionnalSpacing
-            | SelectGraphicRendition::DisableProportionnalSpacing
+            | SelectGraphicRendition::ProportionalSpacing
+            | SelectGraphicRendition::DisableProportionalSpacing
             | SelectGraphicRendition::Framed
             | SelectGraphicRendition::Encircled
             | SelectGraphicRendition::Overlined

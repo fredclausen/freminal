@@ -33,7 +33,7 @@ repos:
       - id: codespell
         types: [text]
         args: [--ignore-words=.dictionary.txt]
-        exclude: ^(Dockerfile*|res/freminal.ti)
+        exclude: ^(Dockerfile*|res/freminal.ti|typos.toml)
 
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.10.0.1

@@ -30,7 +30,7 @@ use args::Args;
 fn main() {
     // use env for filtering
     // example
-    // RUST_LOG=none,spectre_config=debug cargo run
+    // RUST_LOG=none,freminal=debug cargo run
 
     let env_filter = EnvFilter::builder()
         .with_default_directive(Level::INFO.into())
