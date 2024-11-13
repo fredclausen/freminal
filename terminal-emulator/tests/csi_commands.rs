@@ -434,3 +434,83 @@ fn test_sgr() {
         ))]
     );
 }
+
+#[test]
+fn test_sgr_invalid() {
+    let mut output = Vec::new();
+    let params = b"test";
+    let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
+    assert!(result.is_err());
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+
+    // no params
+    let mut output = Vec::new();
+    let params = b"";
+    let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
+    assert!(result.is_ok());
+    // check the output
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Sgr(SelectGraphicRendition::Reset)],
+        "Failed for {output:?}"
+    );
+
+    // test 38, 48, 58 with no color
+    let mut output = Vec::new();
+    let params = b"38";
+    let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
+    assert!(result.is_ok());
+    // check the output
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
+            TerminalColor::Default
+        ))],
+        "Failed for {output:?}"
+    );
+
+    let mut output = Vec::new();
+    let params = b"48";
+    let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
+    assert!(result.is_ok());
+    // check the output
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Sgr(SelectGraphicRendition::Background(
+            TerminalColor::DefaultBackground
+        ))],
+        "Failed for {output:?}"
+    );
+
+    let mut output = Vec::new();
+    let params = b"58";
+    let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
+    assert!(result.is_ok());
+    // check the output
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Sgr(SelectGraphicRendition::UnderlineColor(
+            TerminalColor::DefaultUnderlineColor
+        ))],
+        "Failed for {output:?}"
+    );
+
+    // now test 38, 48, 58 with 2 but not enough params
+    let mut output = Vec::new();
+    let params = b"38;2";
+    let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+
+    let mut output = Vec::new();
+    let params = b"48;5";
+    let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+
+    let mut output = Vec::new();
+    let params = b"58;2;255";
+    let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+}

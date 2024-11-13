@@ -74,10 +74,11 @@ pub fn ansi_parser_inner_csi_finished_sgr_ansi(
                     48 => TerminalOutput::Sgr(SelectGraphicRendition::Background(
                         TerminalColor::DefaultBackground,
                     )),
-                    58 => TerminalOutput::Sgr(SelectGraphicRendition::UnderlineColor(
+                    // instead of matching directly on 58, we'll match on a wildcard. This helps with codecov because it thought
+                    // we were testing `_` in the match statement when it's impossible to end up here with a value other than 58
+                    _ => TerminalOutput::Sgr(SelectGraphicRendition::UnderlineColor(
                         TerminalColor::DefaultUnderlineColor,
                     )),
-                    _ => unreachable!(),
                 });
                 continue;
             };
