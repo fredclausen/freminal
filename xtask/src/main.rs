@@ -195,12 +195,27 @@ fn lint() -> Result<()> {
 
 /// Run clippy on the project
 fn lint_clippy() -> Result<()> {
-    run_cargo(vec!["clippy", "--all-targets", "--all-features"])
+    run_cargo(vec![
+        "clippy",
+        "--all-targets",
+        "--all-features",
+        "--",
+        "-D",
+        "warnings",
+    ])
 }
 
 /// Fix clippy warnings in the project
 fn fix_clippy() -> Result<()> {
-    run_cargo(vec!["clippy", "--all-targets", "--all-features", "--fix"])
+    run_cargo(vec![
+        "clippy",
+        "--all-targets",
+        "--all-features",
+        "--fix",
+        "--",
+        "-D",
+        "warnings",
+    ])
 }
 
 /// Check that docs build without errors using flags for docs.rs

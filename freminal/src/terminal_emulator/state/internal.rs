@@ -254,7 +254,12 @@ impl TerminalState {
             .terminal_buffer
             .clear_line_forwards(&self.cursor_state.pos)
         {
-            self.format_tracker.delete_range(range);
+            match self.format_tracker.delete_range(range) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to delete range: {e}");
+                }
+            }
         }
     }
 
@@ -263,13 +268,23 @@ impl TerminalState {
             .terminal_buffer
             .clear_line_backwards(&self.cursor_state.pos)
         {
-            self.format_tracker.delete_range(range);
+            match self.format_tracker.delete_range(range) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to delete range: {e}");
+                }
+            }
         }
     }
 
     pub(crate) fn clear_line(&mut self) {
         if let Some(range) = self.terminal_buffer.clear_line(&self.cursor_state.pos) {
-            self.format_tracker.delete_range(range);
+            match self.format_tracker.delete_range(range) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to delete range: {e}");
+                }
+            }
         }
     }
 
@@ -294,7 +309,13 @@ impl TerminalState {
         let response = self
             .terminal_buffer
             .insert_lines(&self.cursor_state.pos, num_lines);
-        self.format_tracker.delete_range(response.deleted_range);
+        match self.format_tracker.delete_range(response.deleted_range) {
+            Ok(()) => (),
+            Err(e) => {
+                error!("Failed to delete range: {e}");
+                return;
+            }
+        };
         self.format_tracker
             .push_range_adjustment(response.inserted_range);
     }
@@ -304,7 +325,12 @@ impl TerminalState {
             .terminal_buffer
             .delete_forwards(&self.cursor_state.pos, num_chars);
         if let Some(range) = deleted_buf_range {
-            self.format_tracker.delete_range(range);
+            match self.format_tracker.delete_range(range) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to delete range: {e}");
+                }
+            }
         }
     }
 
