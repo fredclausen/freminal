@@ -29,9 +29,9 @@ pub enum AnsiCsiParserState {
 
 #[derive(Eq, PartialEq, Debug)]
 pub struct AnsiCsiParser {
-    pub(crate) state: AnsiCsiParserState,
-    pub(crate) params: Vec<u8>,
-    pub(crate) intermediates: Vec<u8>,
+    pub state: AnsiCsiParserState,
+    pub params: Vec<u8>,
+    pub intermediates: Vec<u8>,
 }
 
 impl Default for AnsiCsiParser {
