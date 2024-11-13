@@ -1,3 +1,17 @@
+// Copyright (C) 2024 Fred Clausen and the ratatui project contributors
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file or at
+// https://opensource.org/licenses/MIT.
+
+#![deny(
+    clippy::pedantic,
+    //clippy::cargo,
+    clippy::nursery,
+    clippy::style,
+    clippy::correctness,
+    clippy::all
+)]
+
 use std::{fmt::Debug, io, process::Output, vec};
 
 use cargo_metadata::MetadataCommand;
@@ -17,7 +31,7 @@ fn main() -> Result<()> {
         .init();
 
     match args.run() {
-        Ok(_) => (),
+        Ok(()) => (),
         Err(err) => {
             tracing::error!("{err}");
             std::process::exit(1);
@@ -126,23 +140,23 @@ enum Command {
 impl Command {
     fn run(self) -> Result<()> {
         match self {
-            Command::CI => ci(),
-            Command::Build => build(),
-            Command::Check => check(),
-            Command::CheckReadme => check_readme(),
-            Command::Coverage => coverage(),
-            Command::Lint => lint(),
-            Command::LintClippy => lint_clippy(),
-            Command::LintDocs => lint_docs(),
-            Command::LintFormatting => lint_format(),
-            Command::LintTypos => lint_typos(),
-            Command::LintMarkdown => lint_markdown(),
-            Command::FixClippy => fix_clippy(),
-            Command::FixFormatting => fix_format(),
-            Command::FixTypos => fix_typos(),
-            Command::Test => test(),
-            Command::TestDocs => test_docs(),
-            Command::TestLibs => test_libs(),
+            Self::CI => ci(),
+            Self::Build => build(),
+            Self::Check => check(),
+            Self::CheckReadme => check_readme(),
+            Self::Coverage => coverage(),
+            Self::Lint => lint(),
+            Self::LintClippy => lint_clippy(),
+            Self::LintDocs => lint_docs(),
+            Self::LintFormatting => lint_format(),
+            Self::LintTypos => lint_typos(),
+            Self::LintMarkdown => lint_markdown(),
+            Self::FixClippy => fix_clippy(),
+            Self::FixFormatting => fix_format(),
+            Self::FixTypos => fix_typos(),
+            Self::Test => test(),
+            Self::TestDocs => test_docs(),
+            Self::TestLibs => test_libs(),
         }
     }
 }
@@ -212,6 +226,8 @@ fn fix_clippy() -> Result<()> {
         "--all-targets",
         "--all-features",
         "--fix",
+        "--allow-dirty",
+        "--allow-staged",
         "--",
         "-D",
         "warnings",
