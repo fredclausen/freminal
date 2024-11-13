@@ -158,11 +158,7 @@ pub fn pad_buffer_for_write(
         padding_start_pos = Some(actual_end);
     }
 
-    let number_of_spaces = if desired_end > actual_end {
-        desired_end - actual_end
-    } else {
-        0
-    };
+    let number_of_spaces = desired_end.saturating_sub(actual_end);
 
     num_inserted_characters += number_of_spaces;
 
