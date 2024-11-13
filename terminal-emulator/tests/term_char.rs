@@ -89,4 +89,8 @@ fn test_invalid_utf8() {
 
     // now make sure the TChar::Utf8 will panic
     assert!(TChar::new_from_many_chars(s.to_vec()).is_err());
+
+    // test from vec<u8> with invalid utf8
+    let convert = TChar::from(s.to_vec());
+    assert_eq!(convert, TChar::Ascii(0));
 }
