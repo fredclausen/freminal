@@ -139,3 +139,129 @@ impl std::str::FromStr for TerminalColor {
         Ok(ret)
     }
 }
+
+#[test]
+fn test_color_from_string() {
+    let color = "default".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::Default);
+
+    let color = "default_background".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::DefaultBackground);
+
+    let color = "default_underline_color".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::DefaultUnderlineColor);
+
+    let color = "black".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::Black);
+
+    let color = "red".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::Red);
+
+    let color = "green".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::Green);
+
+    let color = "yellow".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::Yellow);
+
+    let color = "blue".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::Blue);
+
+    let color = "magenta".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::Magenta);
+
+    let color = "cyan".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::Cyan);
+
+    let color = "white".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::White);
+
+    let color = "bright yellow".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::BrightYellow);
+
+    let color = "bright black".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::BrightBlack);
+
+    let color = "bright red".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::BrightRed);
+
+    let color = "bright green".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::BrightGreen);
+
+    let color = "bright blue".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::BrightBlue);
+
+    let color = "bright magenta".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::BrightMagenta);
+
+    let color = "bright cyan".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::BrightCyan);
+
+    let color = "bright white".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::BrightWhite);
+
+    let color = "sucks".parse::<TerminalColor>();
+    assert_eq!(color, Err(()));
+}
+
+#[test]
+fn test_fmt_display() {
+    let color = TerminalColor::Default;
+    assert_eq!(format!("{color}"), "default");
+
+    let color = TerminalColor::DefaultBackground;
+    assert_eq!(format!("{color}"), "default background");
+
+    let color = TerminalColor::DefaultUnderlineColor;
+    assert_eq!(format!("{color}"), "default underline color");
+
+    let color = TerminalColor::Black;
+    assert_eq!(format!("{color}"), "black");
+
+    let color = TerminalColor::Red;
+    assert_eq!(format!("{color}"), "red");
+
+    let color = TerminalColor::Green;
+    assert_eq!(format!("{color}"), "green");
+
+    let color = TerminalColor::Yellow;
+    assert_eq!(format!("{color}"), "yellow");
+
+    let color = TerminalColor::Blue;
+    assert_eq!(format!("{color}"), "blue");
+
+    let color = TerminalColor::Magenta;
+    assert_eq!(format!("{color}"), "magenta");
+
+    let color = TerminalColor::Cyan;
+    assert_eq!(format!("{color}"), "cyan");
+
+    let color = TerminalColor::White;
+    assert_eq!(format!("{color}"), "white");
+
+    let color = TerminalColor::BrightYellow;
+    assert_eq!(format!("{color}"), "bright yellow");
+
+    let color = TerminalColor::BrightBlack;
+    assert_eq!(format!("{color}"), "bright black");
+
+    let color = TerminalColor::BrightRed;
+    assert_eq!(format!("{color}"), "bright red");
+
+    let color = TerminalColor::BrightGreen;
+    assert_eq!(format!("{color}"), "bright green");
+
+    let color = TerminalColor::BrightBlue;
+    assert_eq!(format!("{color}"), "bright blue");
+
+    let color = TerminalColor::BrightMagenta;
+    assert_eq!(format!("{color}"), "bright magenta");
+
+    let color = TerminalColor::BrightCyan;
+    assert_eq!(format!("{color}"), "bright cyan");
+
+    let color = TerminalColor::BrightWhite;
+    assert_eq!(format!("{color}"), "bright white");
+
+    let color = TerminalColor::Custom(255, 255, 255);
+    assert_eq!(format!("{color}"), "rgb(255, 255, 255)");
+}
