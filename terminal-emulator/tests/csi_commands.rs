@@ -56,6 +56,12 @@ fn test_cha() {
             y: None
         }]
     );
+
+    // test invalid
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_set_position_g(b"test", &mut output);
+    assert!(result.is_err());
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
 }
 
 #[test]
@@ -89,6 +95,11 @@ fn test_cub() {
             y: None
         }]
     );
+
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_move_left(b"test", &mut output);
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+    assert!(result.is_err());
 }
 
 #[test]
@@ -122,6 +133,11 @@ fn test_cud() {
             y: Some(2)
         }]
     );
+
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_move_down(b"test", &mut output);
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+    assert!(result.is_err());
 }
 
 #[test]
@@ -155,6 +171,11 @@ fn test_cuf() {
             y: None
         }]
     );
+
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_move_right(b"test", &mut output);
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+    assert!(result.is_err());
 }
 
 #[test]
@@ -198,6 +219,11 @@ fn test_cup() {
             y: Some(1)
         }]
     );
+
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_set_position_h(b"test", &mut output);
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+    assert!(result.is_err());
 }
 
 #[test]
@@ -231,6 +257,11 @@ fn test_cuu() {
             y: Some(-2)
         }]
     );
+
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_move_up(b"test", &mut output);
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+    assert!(result.is_err());
 }
 
 #[test]
@@ -251,6 +282,11 @@ fn test_dch() {
     output.clear();
     ansi_parser_inner_csi_finished_set_position_p(b"2", &mut output).unwrap();
     assert_eq!(output, vec![TerminalOutput::Delete(2)]);
+
+    output.clear();
+    let result = ansi_parser_inner_csi_finished_set_position_p(b"test", &mut output);
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+    assert!(result.is_err());
 }
 
 #[test]
@@ -280,6 +316,11 @@ fn test_ed() {
     let mut output = Vec::new();
     ansi_parser_inner_csi_finished_set_position_j(b"4", &mut output).unwrap();
     assert_eq!(output, vec![TerminalOutput::Invalid]);
+
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_set_position_j(b"test", &mut output);
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+    assert!(result.is_err());
 }
 
 #[test]
@@ -304,6 +345,11 @@ fn test_el() {
     output.clear();
     ansi_parser_inner_csi_finished_set_position_k(b"", &mut output).unwrap();
     assert_eq!(output, vec![TerminalOutput::ClearLineForwards]);
+
+    output.clear();
+    let result = ansi_parser_inner_csi_finished_set_position_k(b"test", &mut output);
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+    assert!(result.is_err());
 }
 
 #[test]
@@ -339,6 +385,11 @@ fn test_il() {
     let mut output = Vec::new();
     ansi_parser_inner_csi_finished_set_position_l(b"2", &mut output).unwrap();
     assert_eq!(output, vec![TerminalOutput::InsertLines(2)]);
+
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_set_position_l(b"test", &mut output);
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+    assert!(result.is_err());
 }
 
 #[test]
