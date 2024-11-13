@@ -8,7 +8,7 @@ use terminal_emulator::{
     ansi_components::mode::Decawm,
     state::{
         cursor::{CursorPos, CursorState},
-        fonts::FontWeight,
+        fonts::{FontDecorations, FontWeight},
     },
 };
 
@@ -81,6 +81,34 @@ fn test_cursor_state_with() {
         CursorState {
             pos: CursorPos::default(),
             font_weight: FontWeight::Bold,
+            font_decorations: Vec::new(),
+            color: TerminalColor::Default,
+            background_color: TerminalColor::DefaultBackground,
+            underline_color: TerminalColor::DefaultUnderlineColor,
+            line_wrap_mode: Decawm::default(),
+        }
+    );
+
+    let cursor = CursorState::default().with_font_decorations(vec![FontDecorations::Underline]);
+    assert_eq!(
+        cursor,
+        CursorState {
+            pos: CursorPos::default(),
+            font_weight: FontWeight::default(),
+            font_decorations: vec![FontDecorations::Underline],
+            color: TerminalColor::Default,
+            background_color: TerminalColor::DefaultBackground,
+            underline_color: TerminalColor::DefaultUnderlineColor,
+            line_wrap_mode: Decawm::default(),
+        }
+    );
+
+    let cursor = CursorState::default().with_pos(CursorPos { x: 10, y: 10 });
+    assert_eq!(
+        cursor,
+        CursorState {
+            pos: CursorPos { x: 10, y: 10 },
+            font_weight: FontWeight::default(),
             font_decorations: Vec::new(),
             color: TerminalColor::Default,
             background_color: TerminalColor::DefaultBackground,
