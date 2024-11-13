@@ -11,9 +11,15 @@ use super::state::term_char::TChar;
 use super::{
     ansi::{FreminalAnsiParser, TerminalOutput},
     format_tracker::FormatTracker,
-    split_format_data_for_scrollback, CursorPos, Decawm, Decckm, FormatTag, Mode, TerminalColor,
-    TerminalModes, TerminalSections,
 };
+use crate::gui::colors::TerminalColor;
+use crate::terminal_emulator::ansi_components::mode::Mode;
+use crate::terminal_emulator::ansi_components::mode::TerminalModes;
+use crate::terminal_emulator::ansi_components::mode::{Decawm, Decckm};
+use crate::terminal_emulator::format_tracker::FormatTag;
+use crate::terminal_emulator::interface::split_format_data_for_scrollback;
+use crate::terminal_emulator::state::cursor::CursorPos;
+use crate::terminal_emulator::state::data::TerminalSections;
 
 pub const TERMINAL_WIDTH: usize = 112;
 pub const TERMINAL_HEIGHT: usize = 38;

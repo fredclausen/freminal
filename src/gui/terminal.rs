@@ -3,10 +3,14 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+use crate::gui::TerminalEmulator;
 use crate::terminal_emulator::{
+    format_tracker::FormatTag,
+    interface::TerminalInput,
+    io::FreminalTermInputOutput,
     state::{cursor::CursorPos, fonts::FontDecorations, term_char::TChar},
-    FormatTag, FreminalTermInputOutput, TerminalEmulator, TerminalInput,
 };
+
 use eframe::egui::{
     self, scroll_area::ScrollBarVisibility, text::LayoutJob, Color32, Context, DragValue, Event,
     InputState, Key, Modifiers, Rect, Stroke, TextFormat, TextStyle, Ui,

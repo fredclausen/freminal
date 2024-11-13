@@ -5,7 +5,10 @@
 
 use freminal::{
     gui::colors::TerminalColor,
-    terminal_emulator::{ansi_components::mode::Decawm, state::fonts::FontWeight, FormatTag},
+    terminal_emulator::{
+        ansi_components::mode::Decawm, format_tracker::FormatTag,
+        interface::split_format_data_for_scrollback, state::fonts::FontWeight,
+    },
 };
 
 fn get_tags() -> Vec<FormatTag> {

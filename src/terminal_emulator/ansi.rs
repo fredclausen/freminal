@@ -3,14 +3,14 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use super::{
+use crate::terminal_emulator::{
     ansi_components::{
         csi::AnsiCsiParser,
+        mode::Mode,
         osc::{AnsiOscParser, AnsiOscType},
         sgr::SelectGraphicRendition,
     },
     error::ParserFailures,
-    Mode,
 };
 
 use anyhow::Result;

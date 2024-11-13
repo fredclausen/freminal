@@ -17,7 +17,7 @@ extern crate tracing;
 
 use std::process;
 // use smol_macros::main;
-use terminal_emulator::TerminalEmulator;
+use terminal_emulator::interface::TerminalEmulator;
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 

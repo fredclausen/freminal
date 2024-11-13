@@ -16,9 +16,9 @@ use crate::{
             osc::{AnsiOscInternalType, AnsiOscType},
             sgr::SelectGraphicRendition,
         },
-        format_tracker::FormatTracker,
+        format_tracker::{FormatTag, FormatTracker},
+        interface::{split_format_data_for_scrollback, TerminalInput, TerminalInputPayload},
         io::PtyWrite,
-        split_format_data_for_scrollback, FormatTag, TerminalInput, TerminalInputPayload,
     },
 };
 
