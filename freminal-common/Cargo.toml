@@ -1,5 +1,5 @@
 [package]
-name = "freminal"
+name = "freminal-common"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -15,17 +15,5 @@ rust-version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-eframe.workspace = true
-portable-pty.workspace = true
-thiserror.workspace = true
-conv.workspace = true
 anyhow.workspace = true
-tracing-subscriber.workspace = true
 tracing.workspace = true
-crossbeam-channel.workspace = true
-unicode-segmentation.workspace = true
-terminal_emulator = { path = "../terminal-emulator" }
-freminal-common = { path = "../freminal-common" }
-
-[build-dependencies]
-tar = "0.4.43"

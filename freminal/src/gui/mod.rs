@@ -3,12 +3,12 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::terminal_emulator::interface::TerminalEmulator;
-use crate::terminal_emulator::io::FreminalPtyInputOutput;
 use anyhow::Result;
 use eframe::egui::{self, CentralPanel};
 use fonts::get_char_size;
 use terminal::FreminalTerminalWidget;
+use terminal_emulator::interface::TerminalEmulator;
+use terminal_emulator::io::FreminalPtyInputOutput;
 pub mod colors;
 pub mod fonts;
 pub mod terminal;

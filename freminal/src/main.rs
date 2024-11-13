@@ -21,11 +21,9 @@ use terminal_emulator::interface::TerminalEmulator;
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-pub mod args;
 pub mod gui;
-pub mod terminal_emulator;
 
-use args::Args;
+use freminal_common::args::Args;
 
 fn main() {
     // use env for filtering

@@ -1,6 +1,6 @@
 [workspace]
-members = ["freminal", "xtask"]
-default-members = ["freminal"]
+members = ["freminal", "freminal-common", "terminal-emulator", "xtask"]
+default-members = ["freminal", "freminal-common", "terminal-emulator"]
 resolver = "2"
 
 [workspace.package]
@@ -14,3 +14,14 @@ homepage = "https://github.com/fredclausen/freminal"
 readme = "README.md"
 rust-version = "1.82.0"
 version = "0.1.0"
+
+[workspace.dependencies]
+eframe = "0.29.1"
+portable-pty = "0.8.1"
+thiserror = "2.0.3"
+conv = "0.3.3"
+anyhow = "1.0.93"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tracing = "0.1.40"
+crossbeam-channel = "0.5.13"
+unicode-segmentation = "1.12.0"

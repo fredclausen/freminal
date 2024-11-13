@@ -4,7 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::gui::TerminalEmulator;
-use crate::terminal_emulator::{
+use terminal_emulator::{
     format_tracker::FormatTag,
     interface::TerminalInput,
     io::FreminalTermInputOutput,
