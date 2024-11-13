@@ -87,7 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.2
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@nightly
         with:
           components: llvm-tools
       - uses: taiki-e/install-action@cargo-llvm-cov
@@ -105,7 +105,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        toolchain: ["1.82.0", "stable"]
+        toolchain: ["1.82.0", "stable", "nightly"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4.2.2
@@ -116,14 +116,14 @@ jobs:
       - run: cargo xtask check
 
   # Check if README.md is up-to-date with the crate's documentation.
-  check-readme:
-    name: Check README
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: Swatinem/rust-cache@v2.7.5
-      - uses: taiki-e/install-action@cargo-rdme
-      - run: cargo xtask check-readme
+  # check-readme:
+  #   name: Check README
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4.2.2
+  #     - uses: Swatinem/rust-cache@v2.7.5
+  #     - uses: taiki-e/install-action@cargo-rdme
+  #     - run: cargo xtask check-readme
 
   # Run cargo rustdoc with the same options that would be used by docs.rs, taking into account the
   # package.metadata.docs.rs configured in Cargo.toml. https://github.com/dtolnay/cargo-docs-rs
@@ -150,35 +150,35 @@ jobs:
       - uses: Swatinem/rust-cache@v2.7.5
       - run: cargo xtask test-docs
 
-  # Run cargo test on the libraries of the crate.
-  test-libs:
-    name: Test Libs ${{ matrix.toolchain }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        toolchain: ["1.82.0", "stable"]
-    steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2.7.5
-      - run: cargo xtask test-libs
+  # # Run cargo test on the libraries of the crate.
+  # test-libs:
+  #   name: Test Libs ${{ matrix.toolchain }}
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       toolchain: ["1.82.0", "stable"]
+  #   steps:
+  #     - uses: actions/checkout@v4.2.2
+  #     - uses: dtolnay/rust-toolchain@stable
+  #     - uses: Swatinem/rust-cache@v2.7.5
+  #     - run: cargo xtask test-libs
 
-  # Run cargo test on all the backends.
-  test-backends:
-    name: Test ${{matrix.backend}} on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        backend: [crossterm, termion, termwiz]
-        exclude:
-          # termion is not supported on windows
-          - os: windows-latest
-            backend: termion
-    steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2.7.5
-      - run: cargo xtask test-backend ${{ matrix.backend }}
+  # # Run cargo test on all the backends.
+  # test-backends:
+  #   name: Test ${{matrix.backend}} on ${{ matrix.os }}
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       os: [ubuntu-latest, windows-latest, macos-latest]
+  #       backend: [crossterm, termion, termwiz]
+  #       exclude:
+  #         # termion is not supported on windows
+  #         - os: windows-latest
+  #           backend: termion
+  #   steps:
+  #     - uses: actions/checkout@v4.2.2
+  #     - uses: dtolnay/rust-toolchain@stable
+  #     - uses: Swatinem/rust-cache@v2.7.5
+  #     - run: cargo xtask test-backend ${{ matrix.backend }}

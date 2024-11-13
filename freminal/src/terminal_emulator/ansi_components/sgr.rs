@@ -43,8 +43,8 @@ pub enum SelectGraphicRendition {
     SlowBlink,
     FastBlink,
     NotBlinking,
-    ProportionnalSpacing,
-    DisableProportionnalSpacing,
+    ProportionalSpacing,
+    DisableProportionalSpacing,
     Framed,
     Encircled,
     Overlined,
@@ -90,7 +90,7 @@ impl SelectGraphicRendition {
             23 => Self::NotItalic,
             24 => Self::NotUnderlined,
             25 => Self::NotBlinking,
-            26 => Self::ProportionnalSpacing,
+            26 => Self::ProportionalSpacing,
             27 => Self::ResetReverseVideo,
             28 => Self::Revealed,
             29 => Self::NotStrikethrough,
@@ -120,7 +120,7 @@ impl SelectGraphicRendition {
                 Self::Background(TerminalColor::DefaultBackground)
             }
             49 => Self::Background(TerminalColor::DefaultBackground),
-            50 => Self::DisableProportionnalSpacing,
+            50 => Self::DisableProportionalSpacing,
             51 => Self::Framed,
             52 => Self::Encircled,
             53 => Self::Overlined,

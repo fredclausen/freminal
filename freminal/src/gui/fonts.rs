@@ -17,23 +17,27 @@ pub fn setup_font_files(ctx: &egui::Context) {
 
     fonts.font_data.insert(
         REGULAR_FONT_NAME.to_owned(),
-        FontData::from_static(include_bytes!("../../res/MesloLGSNerdFontMono-Regular.ttf")),
+        FontData::from_static(include_bytes!(
+            "../../../res/MesloLGSNerdFontMono-Regular.ttf"
+        )),
     );
 
     fonts.font_data.insert(
         BOLD_FONT_NAME.to_owned(),
-        FontData::from_static(include_bytes!("../../res/MesloLGSNerdFontMono-Bold.ttf")),
+        FontData::from_static(include_bytes!("../../../res/MesloLGSNerdFontMono-Bold.ttf")),
     );
 
     fonts.font_data.insert(
         ITALIC_FONT_NAME.to_owned(),
-        FontData::from_static(include_bytes!("../../res/MesloLGSNerdFontMono-Italic.ttf")),
+        FontData::from_static(include_bytes!(
+            "../../../res/MesloLGSNerdFontMono-Italic.ttf"
+        )),
     );
 
     fonts.font_data.insert(
         BOLD_ITALIC_FONT_NAME.to_owned(),
         FontData::from_static(include_bytes!(
-            "../../res/MesloLGSNerdFontMono-BoldItalic.ttf"
+            "../../../res/MesloLGSNerdFontMono-BoldItalic.ttf"
         )),
     );
 
