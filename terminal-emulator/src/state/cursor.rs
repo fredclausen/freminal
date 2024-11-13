@@ -38,7 +38,7 @@ impl Default for CursorState {
 // FIXME: it would be cool to not lint this out
 #[allow(dead_code)]
 impl CursorState {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self::default()
     }
 
