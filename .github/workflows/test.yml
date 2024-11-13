@@ -16,40 +16,19 @@ jobs:
       RUSTDOCFLAGS: -Cpanic=abort
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.2.2
-      # - uses: actions-rs/toolchain@v1.0.7
-      # with:
-      #   profile: minimal
-      #   toolchain: nightly
-      #   override: true
-      - name: Cache dependencies
-        uses: actions/cache@v4.1.2
+      - uses: actions/checkout@v4.1.1
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools
+      - name: cargo install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov@v2.44.68
+      - name: cargo llvm-cov
+        run: cargo llvm-cov --all-features --lcov --output-path lcov.info
         env:
-          cache-name: cache-dependencies
-        with:
-          path: |
-            ~/.cargo/.crates.toml
-            ~/.cargo/.crates2.json
-            ~/.cargo/bin
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            target
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
-      - name: Generate test result and coverage report
-        run: |
-          rustup toolchain install nightly
-          cargo +nightly install cargo2junit grcov;
-          cargo +nightly test $CARGO_OPTIONS -- -Z unstable-options --format json | cargo2junit > results.xml;
-          zip -0 ccov.zip `find . \( -name "$PROJECT_NAME_UNDERSCORE*.gc*" \) -print`;
-          grcov ccov.zip -s . -t lcov --llvm --ignore-not-existing --ignore "/*" --ignore "tests/*" -o lcov.info;
-      - name: Upload test results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          check_name: Test Results
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          files: results.xml
+          CARGO_HUSKY_DONT_INSTALL_HOOKS: true
       - name: Upload to CodeCov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v4.6.0
         with:
           # required for private repositories:
           token: ${{ secrets.CODECOV_TOKEN }}
