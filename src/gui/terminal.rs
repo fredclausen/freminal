@@ -12,7 +12,7 @@ use eframe::egui::{
     InputState, Key, Modifiers, Rect, Stroke, TextFormat, TextStyle, Ui,
 };
 
-use conv::{ConvAsUtil, ValueFrom};
+use conv::{ConvUtil, ValueFrom};
 use std::borrow::Cow;
 
 use super::{
@@ -561,14 +561,24 @@ impl FreminalTerminalWidget {
     #[must_use]
     pub fn calculate_available_size(&self, ui: &Ui) -> (usize, usize) {
         let character_size = get_char_size(ui.ctx(), self.font_size);
-        let width_chars = (ui.available_width() / character_size.0)
-            .floor()
-            .approx()
-            .unwrap();
-        let height_chars = (ui.available_height() / character_size.1)
-            .floor()
-            .approx()
-            .unwrap();
+        let width_chars =
+            match ((ui.available_width() / character_size.0).floor()).approx_as::<usize>() {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("Failed to calculate width chars: {}", e);
+                    10
+                }
+            };
+
+        let height_chars =
+            match ((ui.available_height() / character_size.1).floor()).approx_as::<usize>() {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("Failed to calculate height chars: {}", e);
+                    10
+                }
+            };
+
         (width_chars, height_chars)
     }
 
@@ -582,8 +592,21 @@ impl FreminalTerminalWidget {
 
         let frame_response = egui::Frame::none().show(ui, |ui| {
             let (width_chars, height_chars) = terminal_emulator.get_win_size();
-            let width_chars = f32::value_from(width_chars).unwrap();
-            let height_chars = f32::value_from(height_chars).unwrap();
+            let width_chars = match f32::value_from(width_chars) {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("Failed to convert width chars to f32: {}", e);
+                    10.0
+                }
+            };
+
+            let height_chars = match f32::value_from(height_chars) {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("Failed to convert height chars to f32: {}", e);
+                    10.0
+                }
+            };
 
             ui.set_width((width_chars + 0.5) * character_size.0);
             ui.set_height((height_chars + 0.5) * character_size.1);

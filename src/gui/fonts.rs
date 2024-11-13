@@ -37,11 +37,15 @@ pub fn setup_font_files(ctx: &egui::Context) {
         )),
     );
 
-    fonts
-        .families
-        .get_mut(&FontFamily::Monospace)
-        .expect("egui should provide a monospace font")
-        .insert(0, REGULAR_FONT_NAME.to_owned());
+    if let Some(f) = fonts.families.get_mut(&FontFamily::Monospace) {
+        f.insert(0, REGULAR_FONT_NAME.to_owned());
+    } else {
+        error!("Failed to get monospace font family");
+
+        // exit the program
+        std::process::exit(1);
+    }
+    // .insert(0, REGULAR_FONT_NAME.to_owned());
 
     fonts.families.insert(
         FontFamily::Name(REGULAR_FONT_NAME.to_string().into()),
