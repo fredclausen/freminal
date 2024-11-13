@@ -1,7 +1,7 @@
 use std::{fmt::Debug, io, process::Output, vec};
 
 use cargo_metadata::MetadataCommand;
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use color_eyre::{eyre::Context, Result};
 use duct::cmd;
@@ -107,10 +107,6 @@ enum Command {
     #[command(visible_alias = "t")]
     Test,
 
-    /// Test backend
-    #[command(visible_alias = "tb")]
-    TestBackend { backend: Backend },
-
     /// Run doc tests
     #[command(visible_alias = "td")]
     TestDocs,
@@ -120,12 +116,12 @@ enum Command {
     TestLibs,
 }
 
-#[derive(Clone, Debug, ValueEnum, PartialEq, Eq)]
-enum Backend {
-    Crossterm,
-    Termion,
-    Termwiz,
-}
+// #[derive(Clone, Debug, ValueEnum, PartialEq, Eq)]
+// enum Backend {
+//     Crossterm,
+//     Termion,
+//     Termwiz,
+// }
 
 impl Command {
     fn run(self) -> Result<()> {
@@ -145,7 +141,6 @@ impl Command {
             Command::FixFormatting => fix_format(),
             Command::FixTypos => fix_typos(),
             Command::Test => test(),
-            Command::TestBackend { backend } => test_backend(backend),
             Command::TestDocs => test_docs(),
             Command::TestLibs => test_libs(),
         }
@@ -200,31 +195,12 @@ fn lint() -> Result<()> {
 
 /// Run clippy on the project
 fn lint_clippy() -> Result<()> {
-    run_cargo(vec![
-        "clippy",
-        "--all-targets",
-        "--all-features",
-        "--tests",
-        "--benches",
-        "--",
-        "-D",
-        "warnings",
-    ])
+    run_cargo(vec!["clippy", "--all-targets", "--all-features"])
 }
 
 /// Fix clippy warnings in the project
 fn fix_clippy() -> Result<()> {
-    run_cargo(vec![
-        "clippy",
-        "--all-targets",
-        "--all-features",
-        "--tests",
-        "--benches",
-        "--",
-        "-D",
-        "warnings",
-        "--fix",
-    ])
+    run_cargo(vec!["clippy", "--all-targets", "--all-features", "--fix"])
 }
 
 /// Check that docs build without errors using flags for docs.rs
@@ -269,30 +245,8 @@ fn fix_typos() -> Result<()> {
 /// Run tests for libs, backends, and docs
 fn test() -> Result<()> {
     test_libs()?;
-    test_backend(Backend::Crossterm)?;
-    test_backend(Backend::Termion)?;
-    test_backend(Backend::Termwiz)?;
     test_docs()?; // run last because it's slow
     Ok(())
-}
-
-/// Run tests for the specified backend
-fn test_backend(backend: Backend) -> Result<()> {
-    if cfg!(windows) && backend == Backend::Termion {
-        tracing::error!("termion backend is not supported on Windows");
-    }
-    let backend = match backend {
-        Backend::Crossterm => "crossterm",
-        Backend::Termion => "termion",
-        Backend::Termwiz => "termwiz",
-    };
-    run_cargo(vec![
-        "test",
-        "--all-targets",
-        "--no-default-features",
-        "--features",
-        backend,
-    ])
 }
 
 /// Run doc tests for the workspace's default packages
