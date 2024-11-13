@@ -63,3 +63,16 @@ fn test_invalid_arg() {
     );
     assert!(args.is_err());
 }
+
+#[test]
+fn test_missing_recording_path_arg() {
+    let args =
+        Args::parse(vec!["freminal".to_string(), "--recording-path".to_string()].into_iter());
+    assert!(args.is_err());
+}
+
+#[test]
+fn test_missing_shell_arg() {
+    let args = Args::parse(vec!["freminal".to_string(), "--shell".to_string()].into_iter());
+    assert!(args.is_err());
+}

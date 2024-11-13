@@ -44,7 +44,8 @@ pub const fn lookup_256_color_by_index(index: usize) -> (usize, usize, usize) {
     }
 }
 
-const fn cube_component(value: usize, modifier: usize) -> usize {
+#[must_use]
+pub const fn cube_component(value: usize, modifier: usize) -> usize {
     let i = ((value - 16) / modifier) % 6;
 
     if i == 0 {
