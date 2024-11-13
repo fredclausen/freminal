@@ -7,4 +7,14 @@
 extern crate tracing;
 pub mod args;
 pub mod gui;
-pub mod terminal_emulator;
+pub mod terminal_emulator {
+    // expose pub items in module root
+    pub use crate::terminal_emulator::io::FreminalPtyInputOutput;
+    pub use crate::terminal_emulator::TerminalEmulator;
+    pub mod ansi;
+    pub mod ansi_components;
+    pub mod error;
+    pub mod format_tracker;
+    pub mod io;
+    pub mod state;
+}
