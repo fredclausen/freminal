@@ -10,13 +10,13 @@ use super::fonts::{FontDecorations, FontWeight};
 #[allow(clippy::module_name_repetitions)]
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct CursorState {
-    pub(crate) pos: CursorPos,
-    pub(crate) font_weight: FontWeight,
-    pub(crate) font_decorations: Vec<FontDecorations>,
-    pub(crate) color: TerminalColor,
-    pub(crate) background_color: TerminalColor,
-    pub(crate) underline_color: TerminalColor,
-    pub(crate) line_wrap_mode: Decawm,
+    pub pos: CursorPos,
+    pub font_weight: FontWeight,
+    pub font_decorations: Vec<FontDecorations>,
+    pub color: TerminalColor,
+    pub background_color: TerminalColor,
+    pub underline_color: TerminalColor,
+    pub line_wrap_mode: Decawm,
 }
 
 impl Default for CursorState {
