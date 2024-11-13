@@ -1,5 +1,6 @@
 [workspace]
-members = ["freminal"]
+members = ["freminal", "xtask"]
+default-members = ["freminal"]
 resolver = "2"
 
 [workspace.package]
