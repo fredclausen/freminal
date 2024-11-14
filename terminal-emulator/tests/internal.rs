@@ -293,3 +293,61 @@ fn test_clear_display() {
     // verify the cursor position is unchanged
     assert_eq!(old_cursor_pos, terminal_state.cursor_state.pos);
 }
+
+#[test]
+fn test_clear_lines() {
+    let (tx, _rx) = crossbeam_channel::unbounded();
+    let mut terminal_state = TerminalState::new(tx.clone());
+
+    // add some data
+    let data = b"Hello, World!\n\rHello, World!\n\rHello, World!\n\rHello, World!\n\rHello, World!\n\rHello, World!";
+    terminal_state.handle_incoming_data(data);
+
+    // clear the line
+    //ESC [ Pn K
+    let data: [u8; 4] = [0x1b, 0x5b, 0x32, 0x4b];
+    terminal_state.handle_incoming_data(&data);
+
+    let buffer = terminal_state.terminal_buffer.data();
+    let expected_visible =
+        b"Hello, World!\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n\n";
+    let expected_visible = TChar::from_vec(expected_visible).unwrap();
+    assert_eq!(
+        buffer.visible,
+        expected_visible,
+        "visible buffer: {}",
+        display_vec_tchar_as_string(&buffer.visible)
+    );
+
+    // move the cursor to the first line, 5 chars in
+    let data: [u8; 6] = [0x1b, 0x5b, 0x31, 0x3b, 0x35, 0x48];
+    terminal_state.handle_incoming_data(&data);
+
+    // now delete to the left of the cursor
+    let data: [u8; 4] = [0x1b, 0x5b, 0x31, 0x4b];
+    terminal_state.handle_incoming_data(&data);
+
+    let buffer = terminal_state.terminal_buffer.data();
+    let expected = b"o, World!\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n\n";
+    let expected = TChar::from_vec(expected).unwrap();
+    assert_eq!(
+        buffer.visible,
+        expected,
+        "visible buffer: {}",
+        display_vec_tchar_as_string(&buffer.visible)
+    );
+
+    // now delete to the right of the cursor
+    let data: [u8; 4] = [0x1b, 0x5b, 0x30, 0x4b];
+    terminal_state.handle_incoming_data(&data);
+    let buffer = terminal_state.terminal_buffer.data();
+
+    let expected = b"o, W\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n\n";
+    let expected = TChar::from_vec(expected).unwrap();
+    assert_eq!(
+        buffer.visible,
+        expected,
+        "visible buffer: {}",
+        display_vec_tchar_as_string(&buffer.visible)
+    );
+}
