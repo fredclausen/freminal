@@ -5,15 +5,12 @@
 
 use eframe::egui::Context;
 use terminal_emulator::{
-    ansi::FreminalAnsiParser,
-    ansi_components::mode::{BracketedPaste, Decckm, TerminalModes},
-    format_tracker::FormatTracker,
-    state::{
+    ansi::FreminalAnsiParser, ansi_components::mode::{BracketedPaste, Decckm, TerminalModes}, format_tracker::FormatTracker, io::PtyWrite, state::{
         buffer::TerminalBufferHolder,
         cursor::{CursorPos, CursorState},
         internal::{TerminalState, TERMINAL_HEIGHT, TERMINAL_WIDTH},
         term_char::{display_vec_tchar_as_string, TChar},
-    },
+    }
 };
 
 #[test]
@@ -350,4 +347,81 @@ fn test_clear_lines() {
         "visible buffer: {}",
         display_vec_tchar_as_string(&buffer.visible)
     );
+}
+
+#[test]
+fn test_invalid_sequence() {
+    let (tx, _rx) = crossbeam_channel::unbounded();
+    let mut terminal_state = TerminalState::new(tx.clone());
+
+    // add some data
+    let data = b"Hello, World!";
+    terminal_state.handle_incoming_data(data);
+
+    // send an invalid sequence
+    let data: [u8; 1] = [0x1b];
+    terminal_state.handle_incoming_data(&data);
+    let buffer = terminal_state.terminal_buffer.data();
+    let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
+    assert_eq!(buffer.visible, expected);
+}
+
+#[test]
+fn test_backspace_and_delete_and_spaces() {
+    let (tx, _rx) = crossbeam_channel::unbounded();
+    let mut terminal_state = TerminalState::new(tx.clone());
+
+    // add some data
+    let data = b"Hello, World!";
+    terminal_state.handle_incoming_data(data);
+
+    // send a backspace
+    let previous_cursor_pos = terminal_state.cursor_state.pos.clone();
+    let data: [u8; 1] = [0x08];
+    terminal_state.handle_incoming_data(&data);
+    let buffer = terminal_state.terminal_buffer.data();
+    let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
+    let new_cursor_pos = terminal_state.cursor_state.pos.clone();
+    assert_eq!(buffer.visible, expected);
+    assert_eq!(new_cursor_pos, CursorPos { x: 12, y: 0 }, "cursor pos: {:?} {:?}", previous_cursor_pos, new_cursor_pos);
+
+    // send a delete
+    // ESC [ Pn P
+
+    let data: [u8; 4] = [0x1b, 0x5b, 0x31, 0x50];
+    terminal_state.handle_incoming_data(&data);
+    let buffer = terminal_state.terminal_buffer.data();
+    let expected = TChar::from_vec(b"Hello, World\n").unwrap();
+    assert_eq!(buffer.visible, expected);
+
+    // send a insert spaces
+    // ESC [ Pn @
+    let data: [u8; 4] = [0x1b, 0x5b, 0x31, 0x40];
+    terminal_state.handle_incoming_data(&data);
+    let buffer = terminal_state.terminal_buffer.data();
+    let expected = TChar::from_vec(b"Hello, World \n").unwrap();
+    assert_eq!(buffer.visible, expected);
+}
+
+#[test]
+fn test_send_cursor_report() {
+    let (tx, rx) = crossbeam_channel::unbounded();
+    let mut terminal_state = TerminalState::new(tx.clone());
+
+    // ESC [ n
+    // "\0x1b[n" sends a cursor report
+    let data: [u8; 3] = [0x1b, 0x5b, 0x6e];
+    terminal_state.handle_incoming_data(&data);
+
+    // verify rx has the cursor position
+
+    if let Ok(r) = rx.recv() {
+        if let PtyWrite::Write(v) = r {
+            println!("{:?}", v.len());
+            let s = std::str::from_utf8(&v).unwrap();
+            assert_eq!(s, "\x1b[1;1R");
+        } else {
+            panic!("unexpected response from rx: {:?}", r);
+        }
+    }
 }

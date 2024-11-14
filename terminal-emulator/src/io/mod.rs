@@ -15,6 +15,7 @@ pub use pty::FreminalPtyInputOutput;
 //     Empty,
 // }
 
+#[derive(Debug)]
 pub struct FreminalTerminalSize {
     pub width: usize,
     pub height: usize,
@@ -40,6 +41,7 @@ pub struct PtyRead {
     pub read_amount: usize,
 }
 
+#[derive(Debug)]
 pub enum PtyWrite {
     Write(Vec<u8>),
     Resize(FreminalTerminalSize),
