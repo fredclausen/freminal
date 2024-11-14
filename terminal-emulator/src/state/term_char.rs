@@ -5,6 +5,7 @@
 
 use crate::error::ParserFailures;
 use anyhow::Result;
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TChar {
@@ -45,6 +46,70 @@ impl TChar {
             Self::Ascii(c) => *c,
             _ => 0,
         }
+    }
+
+    /// Convert a vector of u8s to a vector of `TChars`
+    /// The assumption here is that the vector of u8s will contain one or more `TChars`.
+    /// If the byte vector is known to contain a single `TChar`, then use `TChar::from` instead.
+    ///
+    /// # Errors
+    /// Will return an error if the vector is not a valid utf8 string, or if the vector contains characters that are not valid `TChar`
+    ///
+    pub fn from_vec(v: &[u8]) -> Result<Vec<Self>> {
+        let data_as_string = std::str::from_utf8(v)?;
+        let graphemes = data_as_string
+            .graphemes(true)
+            .collect::<Vec<&str>>()
+            .clone();
+
+        Self::from_vec_of_graphemes(&graphemes)
+    }
+
+    /// Convert a vector of graphemes to a vector of `TChar`
+    /// The assumption here is that the vector of graphemes will contain one or more `TChars`.
+    ///
+    /// # Errors
+    /// Will return an error if the vector contains characters that are not valid `TChar`
+    ///
+    pub fn from_vec_of_graphemes(v: &[&str]) -> Result<Vec<Self>> {
+        v.iter()
+            .map(|s| {
+                Ok(if s.len() == 1 {
+                    Self::new_from_single_char(s.as_bytes()[0])
+                } else {
+                    match Self::new_from_many_chars(s.as_bytes().to_vec()) {
+                        Ok(c) => c,
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    }
+                })
+            })
+            .collect::<Result<Vec<Self>>>()
+    }
+
+    /// Convert a String to a vector of `TChar`
+    ///
+    /// # Errors
+    /// Will return an error if the string is not valid utf8 or the string contains characters that are not valid `TChar`
+    pub fn from_string(s: &str) -> Result<Vec<Self>> {
+        let graphemes = s.graphemes(true).collect::<Vec<&str>>();
+
+        graphemes
+            .iter()
+            .map(|s| {
+                Ok(if s.len() == 1 {
+                    Self::new_from_single_char(s.as_bytes()[0])
+                } else {
+                    match Self::new_from_many_chars(s.as_bytes().to_vec()) {
+                        Ok(c) => c,
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    }
+                })
+            })
+            .collect::<Result<Vec<Self>>>()
     }
 }
 

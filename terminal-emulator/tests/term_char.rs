@@ -4,6 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use terminal_emulator::state::term_char::TChar;
+use unicode_segmentation::UnicodeSegmentation;
 
 #[test]
 fn test_new_from_single_char() {
@@ -93,4 +94,57 @@ fn test_invalid_utf8() {
     // test from vec<u8> with invalid utf8
     let convert = TChar::from(s.to_vec());
     assert_eq!(convert, TChar::Ascii(0));
+}
+
+#[test]
+fn test_self_from_vec() {
+    let s = "test";
+    let c = TChar::from_vec(s.as_bytes()).unwrap();
+    assert_eq!(
+        c,
+        vec![
+            TChar::Ascii(116),
+            TChar::Ascii(101),
+            TChar::Ascii(115),
+            TChar::Ascii(116),
+        ]
+    );
+
+    // test invalid utf8 input
+    let s = vec![0, 128, 255];
+    let c = TChar::from_vec(&s);
+    assert!(c.is_err());
+}
+
+#[test]
+fn test_self_from_string() {
+    let s = "test";
+    let c = TChar::from_string(s).unwrap();
+    assert_eq!(
+        c,
+        vec![
+            TChar::Ascii(116),
+            TChar::Ascii(101),
+            TChar::Ascii(115),
+            TChar::Ascii(116),
+        ]
+    );
+
+    // TODO: We need to test invalid string input....which may be impossible?
+}
+
+#[test]
+fn test_from_vec_of_graphemes() {
+    let s = "test";
+    let graphemes = s.graphemes(true).collect::<Vec<&str>>();
+    let result = TChar::from_vec_of_graphemes(&graphemes).unwrap();
+    assert_eq!(
+        result,
+        vec![
+            TChar::Ascii(116),
+            TChar::Ascii(101),
+            TChar::Ascii(115),
+            TChar::Ascii(116),
+        ]
+    );
 }

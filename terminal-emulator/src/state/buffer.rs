@@ -6,7 +6,6 @@
 use super::{cursor::CursorPos, data::TerminalSections, term_char::TChar};
 use anyhow::Result;
 use std::ops::Range;
-use unicode_segmentation::UnicodeSegmentation;
 
 /// Calculate the indexes of the start and end of each line in the buffer given an input width.
 /// Ranges do not include newlines. If a newline appears past the width, it does not result in an
@@ -265,30 +264,10 @@ impl TerminalBufferHolder {
             leftover_bytes.insert(0, p);
         }
 
-        let data_converted_to_string = String::from_utf8(data_to_use)?;
-
         // loop through all of the characters
         // if the character is utf8, then we need all of the bytes to be written
 
-        let graphemes = data_converted_to_string
-            .graphemes(true)
-            .collect::<Vec<&str>>();
-
-        let converted_buffer = graphemes
-            .iter()
-            .map(|s| {
-                Ok(if s.len() == 1 {
-                    TChar::new_from_single_char(s.as_bytes()[0])
-                } else {
-                    match TChar::new_from_many_chars(s.as_bytes().to_vec()) {
-                        Ok(c) => c,
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    }
-                })
-            })
-            .collect::<Result<Vec<TChar>>>()?;
+        let converted_buffer = TChar::from_vec(&data_to_use)?;
 
         let PadBufferForWriteResponse {
             write_idx,
@@ -298,9 +277,9 @@ impl TerminalBufferHolder {
             self.width,
             self.height,
             cursor_pos,
-            graphemes.len(),
+            converted_buffer.len(),
         );
-        let write_range = write_idx..write_idx + graphemes.len();
+        let write_range = write_idx..write_idx + converted_buffer.len();
 
         self.buf
             .splice(write_range.clone(), converted_buffer.iter().cloned());
