@@ -134,3 +134,30 @@ fn test_internal_terminal_state_data() {
     assert_eq!(buffer, expected);
     assert!(terminal_state.leftover_data.is_none());
 }
+
+#[test]
+fn test_set_cursor_pos() {
+    let (tx, _rx) = crossbeam_channel::unbounded();
+    let mut terminal_state = TerminalState::new(tx.clone());
+
+    // vector of bytes that represent the string "\0xb[1;1HHello, World!"
+    let data: [u8; 19] = [
+        0x1b, 0x5b, 0x31, 0x3b, 0x31, 0x48, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x2c, 0x20, 0x57, 0x6f,
+        0x72, 0x6c, 0x64, 0x21,
+    ];
+    terminal_state.handle_incoming_data(&data);
+    let buffer = terminal_state.terminal_buffer.data();
+    let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
+    assert_eq!(buffer.visible, expected);
+    // verify that the cursor position is set to the end of the string
+    let cursor_pos = terminal_state.cursor_state.pos.clone();
+    let expected = CursorPos { x: 13, y: 0 };
+    assert_eq!(cursor_pos, expected);
+
+    // test cursor movement
+    let data: [u8; 6] = [0x1b, 0x5b, 0x31, 0x3b, 0x31, 0x48];
+    terminal_state.handle_incoming_data(&data);
+    let cursor_pos = terminal_state.cursor_state.pos.clone();
+    let expected = CursorPos { x: 0, y: 0 };
+    assert_eq!(cursor_pos, expected);
+}
