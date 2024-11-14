@@ -8,6 +8,7 @@ use terminal_emulator::{
     ansi::FreminalAnsiParser,
     ansi_components::mode::{BracketedPaste, Decckm, TerminalModes},
     format_tracker::FormatTracker,
+    interface::TerminalInput,
     io::PtyWrite,
     state::{
         buffer::TerminalBufferHolder,
@@ -438,4 +439,24 @@ fn test_send_cursor_report() {
     }
 
     assert_eq!(received, "\x1b[1;1R");
+}
+
+#[test]
+fn test_write_many() {
+    let (tx, rx) = crossbeam_channel::unbounded();
+    let terminal_state = TerminalState::new(tx.clone());
+
+    let input = TerminalInput::ArrowRight;
+    assert!(terminal_state.write(&input).is_ok());
+
+    // make sure the data was written
+    if let Ok(r) = rx.recv() {
+        if let PtyWrite::Write(v) = r {
+            assert_eq!(v, vec![0x1b, 0x5b, 0x43]);
+        } else {
+            panic!("unexpected response from rx: {:?}", r);
+        }
+    } else {
+        panic!("no response from rx");
+    }
 }
