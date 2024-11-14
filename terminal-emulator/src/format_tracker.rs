@@ -158,7 +158,7 @@ impl FormatTracker {
                 start: 0,
                 end: usize::MAX,
                 color: TerminalColor::Default,
-                background_color: TerminalColor::Black,
+                background_color: TerminalColor::DefaultBackground,
                 underline_color: TerminalColor::DefaultUnderlineColor,
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
