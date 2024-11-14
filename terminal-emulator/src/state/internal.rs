@@ -157,21 +157,9 @@ impl TerminalState {
     }
 
     pub(crate) fn handle_data(&mut self, data: &[u8]) {
-        // if we have leftover data, prepend it to the incoming data
-        let data = self.leftover_data.take().map_or_else(
-            || data.to_vec(),
-            |leftover_data| {
-                info!("We have leftover data: {:?}", leftover_data);
-                let mut new_data = Vec::with_capacity(leftover_data.len() + data.len());
-                new_data.extend_from_slice(&leftover_data);
-                new_data.extend_from_slice(data);
-                self.leftover_data = None;
-                new_data
-            },
-        );
         let response = match self
             .terminal_buffer
-            .insert_data(&self.cursor_state.pos, &data)
+            .insert_data(&self.cursor_state.pos, data)
         {
             Ok(response) => response,
             Err(e) => {
@@ -180,6 +168,8 @@ impl TerminalState {
             }
         };
 
+        // FIXME: I think this is wrong.....the incoming "bad" data should be coming from the parsing?
+        // Or maybe this is right, but we need to ALSO get the bad data from the parser?
         if !response.left_over.is_empty() {
             warn!("Leftover data from incoming buffer");
             self.leftover_data = Some(response.left_over);
@@ -616,7 +606,20 @@ impl TerminalState {
     }
 
     pub fn handle_incoming_data(&mut self, incoming: &[u8]) {
-        let parsed = self.parser.push(incoming);
+        // if we have leftover data, prepend it to the incoming data
+        let incoming = self.leftover_data.take().map_or_else(
+            || incoming.to_vec(),
+            |leftover_data| {
+                info!("We have leftover data: {:?}", leftover_data);
+                let mut new_data = Vec::with_capacity(leftover_data.len() + incoming.len());
+                new_data.extend_from_slice(&leftover_data);
+                new_data.extend_from_slice(incoming);
+                self.leftover_data = None;
+                new_data
+            },
+        );
+
+        let parsed = self.parser.push(&incoming);
         for segment in parsed {
             // if segment is not data, we want to print out the segment
             if let TerminalOutput::Data(data) = &segment {

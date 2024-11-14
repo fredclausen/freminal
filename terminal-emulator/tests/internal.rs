@@ -3,8 +3,6 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use std::i32;
-
 use eframe::egui::Context;
 use terminal_emulator::{
     ansi::FreminalAnsiParser,
@@ -14,6 +12,7 @@ use terminal_emulator::{
         buffer::TerminalBufferHolder,
         cursor::{CursorPos, CursorState},
         internal::{TerminalState, TERMINAL_HEIGHT, TERMINAL_WIDTH},
+        term_char::TChar,
     },
 };
 
@@ -105,4 +104,33 @@ fn test_internal_terminal_state_new() {
     let cursor_pos = terminal_state.cursor_state.pos.clone();
     let expected = CursorPos { x: 2, y: 2 };
     assert_eq!(cursor_pos, expected);
+}
+
+#[test]
+fn test_internal_terminal_state_data() {
+    let (tx, _rx) = crossbeam_channel::unbounded();
+    let mut terminal_state = TerminalState::new(tx.clone());
+
+    // new data for it to process. This is a simple string with no escape codes
+    let data = b"Hello, World!";
+    terminal_state.handle_incoming_data(data);
+    // verify that the data was written to the buffer
+    let buffer = terminal_state.terminal_buffer.data();
+    let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
+    assert_eq!(buffer.visible, expected);
+
+    // test leftover data
+    terminal_state.leftover_data = Some(b"Hello, World!".to_vec());
+    terminal_state.handle_incoming_data(b"\n");
+    let buffer = terminal_state.terminal_buffer.data();
+    println!("{:?}", buffer);
+    let expected = TChar::from_vec(b"Hello, World!Hello, World!\n").unwrap();
+    // combine the two buffers in to one vec of TChar
+    let buffer = buffer
+        .scrollback
+        .into_iter()
+        .chain(buffer.visible)
+        .collect::<Vec<TChar>>();
+    assert_eq!(buffer, expected);
+    assert!(terminal_state.leftover_data.is_none());
 }
