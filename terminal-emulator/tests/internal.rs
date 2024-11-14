@@ -364,7 +364,7 @@ fn test_invalid_sequence() {
     terminal_state.handle_incoming_data(data);
 
     // send an invalid sequence
-    let data: [u8; 1] = [0x1b];
+    let data: [u8; 2] = [0x1b, 0x69];
     terminal_state.handle_incoming_data(&data);
     let buffer = terminal_state.terminal_buffer.data();
     let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
