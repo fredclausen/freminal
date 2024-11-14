@@ -7,7 +7,7 @@ use crate::error::ParserFailures;
 use anyhow::Result;
 use unicode_segmentation::UnicodeSegmentation;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub enum TChar {
     Ascii(u8),
     Utf8(Vec<u8>),
@@ -132,6 +132,8 @@ impl From<Vec<u8>> for TChar {
     }
 }
 
+// FIXME: Ideally this should be a generic implementation for all types instead of one for each type
+
 impl PartialEq<u8> for TChar {
     fn eq(&self, other: &u8) -> bool {
         match self {
@@ -148,6 +150,23 @@ impl PartialEq<Vec<u8>> for TChar {
         match self {
             Self::Utf8(v) => v == other,
             _ => false,
+        }
+    }
+}
+
+impl PartialEq<Self> for TChar {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Self::Ascii(c) => match other {
+                Self::Ascii(o) => c == o,
+                _ => false,
+            },
+            Self::Utf8(v) => match other {
+                Self::Utf8(o) => v == o,
+                _ => false,
+            },
+            Self::Space => matches!(other, Self::Space),
+            Self::NewLine => matches!(other, Self::NewLine),
         }
     }
 }

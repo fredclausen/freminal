@@ -54,7 +54,7 @@ fn test_from_vec() {
 #[test]
 fn test_eq_u8() {
     let c = TChar::Ascii(65);
-    assert_eq!(c, 65);
+    assert_eq!(c, TChar::Ascii(65));
 
     let c = TChar::Space;
     assert_eq!(c, 32);
@@ -147,4 +147,49 @@ fn test_from_vec_of_graphemes() {
             TChar::Ascii(116),
         ]
     );
+}
+
+#[test]
+fn test_equals() {
+    let c = TChar::Ascii(65);
+    assert_eq!(c, TChar::Ascii(65));
+
+    let c = TChar::Space;
+    assert_eq!(c, TChar::Space);
+
+    let c = TChar::NewLine;
+    assert_eq!(c, TChar::NewLine);
+
+    let c = TChar::Utf8(vec![65, 66, 67]);
+    assert_eq!(c, TChar::Utf8(vec![65, 66, 67]));
+
+    // array of tchars
+    let c = vec![
+        TChar::Ascii(65),
+        TChar::Space,
+        TChar::NewLine,
+        TChar::Utf8(vec![65, 66, 67]),
+    ];
+    let d = vec![
+        TChar::Ascii(65),
+        TChar::Space,
+        TChar::NewLine,
+        TChar::Utf8(vec![65, 66, 67]),
+    ];
+    assert_eq!(c, d);
+
+    // different array of tchars
+    let c = vec![
+        TChar::Ascii(65),
+        TChar::Space,
+        TChar::NewLine,
+        TChar::Utf8(vec![65, 66, 67]),
+    ];
+    let d = vec![
+        TChar::Ascii(65),
+        TChar::Space,
+        TChar::NewLine,
+        TChar::Utf8(vec![65, 66, 68]),
+    ];
+    assert_ne!(c, d);
 }
