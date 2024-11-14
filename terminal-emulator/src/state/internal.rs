@@ -111,11 +111,13 @@ impl TerminalState {
         }
     }
 
-    pub(crate) const fn get_win_size(&self) -> (usize, usize) {
+    #[must_use]
+    pub const fn get_win_size(&self) -> (usize, usize) {
         self.terminal_buffer.get_win_size()
     }
 
-    pub(crate) fn get_window_title(&self) -> Option<String> {
+    #[must_use]
+    pub fn get_window_title(&self) -> Option<String> {
         self.window_title.clone()
     }
 
@@ -132,11 +134,11 @@ impl TerminalState {
         self.cursor_state.pos.clone()
     }
 
-    pub(crate) fn clear_window_title(&mut self) {
+    pub fn clear_window_title(&mut self) {
         self.window_title = None;
     }
 
-    pub(crate) fn set_win_size(
+    pub fn set_win_size(
         &mut self,
         width: usize,
         height: usize,
@@ -149,7 +151,8 @@ impl TerminalState {
         response
     }
 
-    pub(crate) fn get_cursor_key_mode(&self) -> Decckm {
+    #[must_use]
+    pub fn get_cursor_key_mode(&self) -> Decckm {
         self.modes.cursor_key.clone()
     }
 
@@ -191,7 +194,7 @@ impl TerminalState {
         self.request_redraw();
     }
 
-    pub(crate) fn set_cursor_pos(&mut self, x: Option<usize>, y: Option<usize>) {
+    pub fn set_cursor_pos(&mut self, x: Option<usize>, y: Option<usize>) {
         if let Some(x) = x {
             self.cursor_state.pos.x = x - 1;
         }
@@ -200,25 +203,28 @@ impl TerminalState {
         }
     }
 
-    pub(crate) fn set_cursor_pos_rel(&mut self, x: Option<i32>, y: Option<i32>) {
+    pub fn set_cursor_pos_rel(&mut self, x: Option<i32>, y: Option<i32>) {
         if let Some(x) = x {
             let x: i64 = x.into();
-            let current_x: i64 = self
-                .cursor_state
-                .pos
-                .x
-                .try_into()
-                .expect("x position larger than i64 can handle");
+            let current_x: i64 = match self.cursor_state.pos.x.try_into() {
+                Ok(x) => x,
+                Err(e) => {
+                    error!("Failed to convert x position to i64: {e}");
+                    return;
+                }
+            };
+
             self.cursor_state.pos.x = usize::try_from((current_x + x).max(0)).unwrap_or(0);
         }
         if let Some(y) = y {
             let y: i64 = y.into();
-            let current_y: i64 = self
-                .cursor_state
-                .pos
-                .y
-                .try_into()
-                .expect("y position larger than i64 can handle");
+            let current_y: i64 = match self.cursor_state.pos.y.try_into() {
+                Ok(y) => y,
+                Err(e) => {
+                    error!("Failed to convert y position to i64: {e}");
+                    return;
+                }
+            };
             // ensure y is not negative, and throw an error if it is
             self.cursor_state.pos.y = usize::try_from((current_y + y).max(0)).unwrap_or(0);
         }
