@@ -28,6 +28,14 @@ Before you submit a PR, please run the following commands:
 cargo xtask ci
 ```
 
+Alternatively, if you have pre-commit installed, you can run the following command:
+
+```bash
+pre-commit run --all-files
+```
+
+OR if you have installed the git hooks for the repo clippy, fmt and the ci xtask are run and everything will be good.
+
 And ensure that all tests pass. If you're adding a new feature, please add tests for it. If you're fixing a bug, please add a test that would have caught the bug. And lastly, please ensure your commits are signed.
 
 ## Credit

@@ -46,11 +46,35 @@ repos:
       - id: check-github-actions
       - id: check-github-workflows
 
-  - repo: https://github.com/doublify/pre-commit-rust
-    rev: v1.0
+  - repo: local
     hooks:
-      - id: fmt
-      - id: cargo-check
+      - id: xtask
+        name: Cargo xtask fix clippy
+        entry: cargo xtask fix-clippy
+        language: rust
+        pass_filenames: false
+        # exclude all non-rust files
+        files: \.rs$
+
+  - repo: local
+    hooks:
+      - id: xtask
+        name: Cargo xtask fix fmt
+        entry: cargo xtask fix-fmt
+        language: rust
+        pass_filenames: false
+        # exclude all non-rust files
+        files: \.rs$
+
+  - repo: local
+    hooks:
+      - id: xtask
+        name: Cargo xtask ci
+        entry: cargo xtask ci
+        language: rust
+        pass_filenames: false
+        # exclude all non-rust files
+        files: \.rs$
 
     # lint python formatting
   - repo: https://github.com/psf/black
