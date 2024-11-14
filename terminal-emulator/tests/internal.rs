@@ -267,4 +267,29 @@ fn test_clear_display() {
         display_vec_tchar_as_string(&buffer.scrollback),
         display_vec_tchar_as_string(&scrollback_expected)
     );
+
+    let old_cursor_pos = terminal_state.cursor_state.pos.clone();
+    // clear just the visible buffer
+    let data: [u8; 4] = [0x1b, 0x5b, 0x32, 0x4a];
+    terminal_state.handle_incoming_data(&data);
+    let buffer = terminal_state.terminal_buffer.data();
+    // expected visible is the previous expected visible with all the characters replaced with spaces, unless the TChar is a newline
+    let expected_visible = expected_visible
+        .iter()
+        .map(|tchar| {
+            if *tchar == TChar::NewLine {
+                TChar::NewLine
+            } else {
+                TChar::Space
+            }
+        })
+        .collect::<Vec<TChar>>();
+    assert_eq!(
+        buffer.visible,
+        expected_visible,
+        "visible buffer is not empty: {}",
+        display_vec_tchar_as_string(&buffer.visible)
+    );
+    // verify the cursor position is unchanged
+    assert_eq!(old_cursor_pos, terminal_state.cursor_state.pos);
 }
