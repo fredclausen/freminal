@@ -3,6 +3,8 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+use core::fmt;
+
 use crate::error::ParserFailures;
 use anyhow::Result;
 use unicode_segmentation::UnicodeSegmentation;
@@ -113,6 +115,14 @@ impl TChar {
     }
 }
 
+#[must_use]
+pub fn display_vec_tchar_as_string(v: &[TChar]) -> String {
+    v.iter().fold(String::new(), |mut acc, c| {
+        acc.push_str(&format!("{c}"));
+        acc
+    })
+}
+
 impl From<u8> for TChar {
     fn from(c: u8) -> Self {
         Self::new_from_single_char(c)
@@ -167,6 +177,20 @@ impl PartialEq<Self> for TChar {
             },
             Self::Space => matches!(other, Self::Space),
             Self::NewLine => matches!(other, Self::NewLine),
+        }
+    }
+}
+
+impl fmt::Display for TChar {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Ascii(c) => match c {
+                0x00..=0x1F => write!(f, "0x{c:02X}"),
+                _ => write!(f, "{}", *c as char),
+            },
+            Self::Utf8(v) => write!(f, "{}", std::str::from_utf8(v).unwrap_or("")),
+            Self::Space => write!(f, " "),
+            Self::NewLine => writeln!(f),
         }
     }
 }

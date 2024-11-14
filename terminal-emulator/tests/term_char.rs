@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use terminal_emulator::state::term_char::TChar;
+use terminal_emulator::state::term_char::{display_vec_tchar_as_string, TChar};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[test]
@@ -192,4 +192,27 @@ fn test_equals() {
         TChar::Utf8(vec![65, 66, 68]),
     ];
     assert_ne!(c, d);
+}
+
+#[test]
+fn test_display() {
+    let c = TChar::Ascii(65);
+    assert_eq!(format!("{}", c), "A");
+
+    let c = TChar::Space;
+    assert_eq!(format!("{}", c), " ");
+
+    let c = TChar::NewLine;
+    assert_eq!(format!("{}", c), "\n");
+
+    let c = TChar::Utf8(vec![65, 66, 67]);
+    assert_eq!(format!("{}", c), "ABC");
+
+    let c = vec![
+        TChar::Ascii(65),
+        TChar::Space,
+        TChar::NewLine,
+        TChar::Utf8(vec![65, 66, 67]),
+    ];
+    assert_eq!(format!("{}", display_vec_tchar_as_string(&c)), "A \nABC");
 }
