@@ -139,6 +139,7 @@ pub struct FormatTag {
     pub line_wrap_mode: Decawm,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FormatTracker {
     color_info: Vec<FormatTag>,
 }

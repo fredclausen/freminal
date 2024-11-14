@@ -135,6 +135,7 @@ pub enum ParserInner {
     Osc(AnsiOscParser),
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct FreminalAnsiParser {
     pub inner: ParserInner,
 }

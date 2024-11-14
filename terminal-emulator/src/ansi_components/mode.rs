@@ -31,7 +31,7 @@ pub enum Decawm {
 }
 
 /// Bracketed Paste Mode (DEC 2004)
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Eq, PartialEq)]
 pub enum BracketedPaste {
     #[default]
     /// Bracketed paste mode is disabled
@@ -40,6 +40,7 @@ pub enum BracketedPaste {
     Enabled,
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct TerminalModes {
     pub cursor_key: Decckm,
     pub bracketed_paste: BracketedPaste,

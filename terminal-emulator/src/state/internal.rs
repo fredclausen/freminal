@@ -31,18 +31,34 @@ use super::{
 pub const TERMINAL_WIDTH: usize = 50;
 pub const TERMINAL_HEIGHT: usize = 16;
 
+#[derive(Debug)]
 pub struct TerminalState {
-    parser: FreminalAnsiParser,
-    terminal_buffer: TerminalBufferHolder,
-    format_tracker: FormatTracker,
-    cursor_state: CursorState,
-    modes: TerminalModes,
-    saved_color_state: Option<(TerminalColor, TerminalColor, TerminalColor)>,
-    window_title: Option<String>,
-    write_tx: crossbeam_channel::Sender<PtyWrite>,
-    changed: bool,
-    ctx: Option<Context>,
-    leftover_data: Option<Vec<u8>>,
+    pub parser: FreminalAnsiParser,
+    pub terminal_buffer: TerminalBufferHolder,
+    pub format_tracker: FormatTracker,
+    pub cursor_state: CursorState,
+    pub modes: TerminalModes,
+    pub saved_color_state: Option<(TerminalColor, TerminalColor, TerminalColor)>,
+    pub window_title: Option<String>,
+    pub write_tx: crossbeam_channel::Sender<PtyWrite>,
+    pub changed: bool,
+    pub ctx: Option<Context>,
+    pub leftover_data: Option<Vec<u8>>,
+}
+
+impl PartialEq for TerminalState {
+    fn eq(&self, other: &Self) -> bool {
+        self.parser == other.parser
+            && self.terminal_buffer == other.terminal_buffer
+            && self.format_tracker == other.format_tracker
+            && self.cursor_state == other.cursor_state
+            && self.modes == other.modes
+            && self.saved_color_state == other.saved_color_state
+            && self.window_title == other.window_title
+            && self.changed == other.changed
+            && self.ctx == other.ctx
+            && self.leftover_data == other.leftover_data
+    }
 }
 
 impl TerminalState {
@@ -66,15 +82,16 @@ impl TerminalState {
         }
     }
 
-    pub(crate) const fn is_changed(&self) -> bool {
+    #[must_use]
+    pub const fn is_changed(&self) -> bool {
         self.changed
     }
 
-    fn set_state_changed(&mut self) {
+    pub fn set_state_changed(&mut self) {
         self.changed = true;
     }
 
-    pub(crate) fn clear_changed(&mut self) {
+    pub fn clear_changed(&mut self) {
         self.changed = false;
     }
 
