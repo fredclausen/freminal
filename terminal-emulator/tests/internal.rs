@@ -5,12 +5,16 @@
 
 use eframe::egui::Context;
 use terminal_emulator::{
-    ansi::FreminalAnsiParser, ansi_components::mode::{BracketedPaste, Decckm, TerminalModes}, format_tracker::FormatTracker, io::PtyWrite, state::{
+    ansi::FreminalAnsiParser,
+    ansi_components::mode::{BracketedPaste, Decckm, TerminalModes},
+    format_tracker::FormatTracker,
+    io::PtyWrite,
+    state::{
         buffer::TerminalBufferHolder,
         cursor::{CursorPos, CursorState},
         internal::{TerminalState, TERMINAL_HEIGHT, TERMINAL_WIDTH},
         term_char::{display_vec_tchar_as_string, TChar},
-    }
+    },
 };
 
 #[test]
@@ -120,7 +124,7 @@ fn test_internal_terminal_state_data() {
     terminal_state.leftover_data = Some(b"Hello, World!".to_vec());
     terminal_state.handle_incoming_data(b"\n");
     let buffer = terminal_state.terminal_buffer.data();
-    println!("{:?}", buffer);
+
     let expected = TChar::from_vec(b"Hello, World!Hello, World!\n").unwrap();
     // combine the two buffers in to one vec of TChar
     let buffer = buffer
@@ -383,7 +387,13 @@ fn test_backspace_and_delete_and_spaces() {
     let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
     let new_cursor_pos = terminal_state.cursor_state.pos.clone();
     assert_eq!(buffer.visible, expected);
-    assert_eq!(new_cursor_pos, CursorPos { x: 12, y: 0 }, "cursor pos: {:?} {:?}", previous_cursor_pos, new_cursor_pos);
+    assert_eq!(
+        new_cursor_pos,
+        CursorPos { x: 12, y: 0 },
+        "cursor pos: {:?} {:?}",
+        previous_cursor_pos,
+        new_cursor_pos
+    );
 
     // send a delete
     // ESC [ Pn P
@@ -415,13 +425,17 @@ fn test_send_cursor_report() {
 
     // verify rx has the cursor position
 
-    if let Ok(r) = rx.recv() {
+    let mut received = String::new();
+    while let Ok(r) = rx.recv() {
         if let PtyWrite::Write(v) = r {
-            println!("{:?}", v.len());
-            let s = std::str::from_utf8(&v).unwrap();
-            assert_eq!(s, "\x1b[1;1R");
+            received.push_str(&String::from_utf8(v).unwrap());
+            if received.contains("R") {
+                break;
+            }
         } else {
             panic!("unexpected response from rx: {:?}", r);
         }
     }
+
+    assert_eq!(received, "\x1b[1;1R");
 }

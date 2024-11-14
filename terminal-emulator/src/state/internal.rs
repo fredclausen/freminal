@@ -596,13 +596,10 @@ impl TerminalState {
     pub(crate) fn report_cursor_position(&self) {
         let x = self.cursor_state.pos.x + 1;
         let y = self.cursor_state.pos.y + 1;
-        println!("Cursor position: {x}, {y}");
         let formatted_string = format!("\x1b[{y};{x}R");
         let output = formatted_string.as_bytes();
-        println!("Cursor position report: {}", formatted_string.len());
 
         for byte in output {
-            println!("Byte: {byte}");
             self.write(&TerminalInput::Ascii(*byte))
                 .expect("Failed to write cursor position report");
         }
