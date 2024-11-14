@@ -50,7 +50,16 @@ repos:
     rev: v1.0
     hooks:
       - id: fmt
-      - id: cargo-check
+
+  - repo: local
+    hooks:
+      - id: xtask
+        name: Cargo xtask
+        entry: cargo xtask ci
+        language: rust
+        pass_filenames: false
+        # exclude all non-rust files
+        files: \.rs$
 
     # lint python formatting
   - repo: https://github.com/psf/black
