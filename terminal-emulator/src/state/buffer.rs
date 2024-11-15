@@ -557,9 +557,13 @@ impl TerminalBufferHolder {
         self.buf.clear();
     }
 
-    pub fn clear_visible(&mut self) -> std::ops::Range<usize> {
+    pub fn clear_visible(&mut self) -> Option<std::ops::Range<usize>> {
         let line_ranges = calc_line_ranges(&self.buf, self.width);
         let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, self.height);
+
+        if visible_line_ranges.is_empty() {
+            return None;
+        }
 
         // replace all NONE newlines with spaces
         for line in visible_line_ranges {
@@ -570,7 +574,7 @@ impl TerminalBufferHolder {
             });
         }
 
-        visible_line_ranges[0].start..usize::MAX
+        Some(visible_line_ranges[0].start..usize::MAX)
     }
 
     pub fn delete_forwards(

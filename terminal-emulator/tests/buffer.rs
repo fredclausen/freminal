@@ -1173,7 +1173,7 @@ fn test_clear_visible() {
         )
         .unwrap();
 
-    let response = canvas.clear_visible();
+    let response = canvas.clear_visible().unwrap();
     let expected: Vec<TChar> = vec![
         TChar::Space,
         TChar::Space,

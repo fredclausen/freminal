@@ -160,7 +160,9 @@ impl ReplayIo {
     }
 
     pub(crate) fn clear_visible(&mut self) {
-        let range = self.terminal_buffer.clear_visible();
+        let Some(range) = self.terminal_buffer.clear_visible() else {
+            return;
+        };
 
         if range.end > 0 {
             self.format_tracker.push_range(&self.cursor_state, range);
