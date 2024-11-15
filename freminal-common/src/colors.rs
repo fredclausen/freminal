@@ -79,6 +79,17 @@ pub enum TerminalColor {
     Custom(u8, u8, u8),
 }
 
+impl TerminalColor {
+    #[must_use]
+    pub const fn default_to_regular(self) -> Self {
+        match self {
+            Self::Default | Self::DefaultUnderlineColor => Self::White,
+            Self::DefaultBackground => Self::Black,
+            _ => self,
+        }
+    }
+}
+
 impl fmt::Display for TerminalColor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {

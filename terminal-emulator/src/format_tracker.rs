@@ -3,6 +3,8 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+use crate::state::cursor::StateColors;
+
 use super::{
     ansi_components::mode::Decawm,
     state::{
@@ -11,7 +13,6 @@ use super::{
     },
 };
 use anyhow::Result;
-use freminal_common::colors::TerminalColor;
 use std::ops::Range;
 
 #[must_use]
@@ -60,9 +61,7 @@ fn adjust_existing_format_range(
             ret.to_insert = Some(FormatTag {
                 start: range.end,
                 end: existing_elem.end,
-                color: existing_elem.color,
-                background_color: existing_elem.background_color,
-                underline_color: existing_elem.underline_color,
+                colors: existing_elem.colors.clone(),
                 font_weight: existing_elem.font_weight.clone(),
                 font_decorations: existing_elem.font_decorations.clone(),
                 line_wrap_mode: existing_elem.line_wrap_mode.clone(),
@@ -131,9 +130,7 @@ struct ColorRangeAdjustment {
 pub struct FormatTag {
     pub start: usize,
     pub end: usize,
-    pub color: TerminalColor,
-    pub background_color: TerminalColor,
-    pub underline_color: TerminalColor,
+    pub colors: StateColors,
     pub font_weight: FontWeight,
     pub font_decorations: Vec<FontDecorations>,
     pub line_wrap_mode: Decawm,
@@ -157,9 +154,7 @@ impl FormatTracker {
             color_info: vec![FormatTag {
                 start: 0,
                 end: usize::MAX,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -173,9 +168,7 @@ impl FormatTracker {
         self.color_info.push(FormatTag {
             start: range.start,
             end: range.end,
-            color: cursor.color,
-            background_color: cursor.background_color,
-            underline_color: cursor.underline_color,
+            colors: cursor.colors.clone(),
             font_weight: cursor.font_weight.clone(),
             font_decorations: cursor.font_decorations.clone(),
             line_wrap_mode: cursor.line_wrap_mode.clone(),

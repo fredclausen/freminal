@@ -5,8 +5,13 @@
 
 use freminal_common::colors::TerminalColor;
 use terminal_emulator::{
-    ansi_components::mode::Decawm, format_tracker::FormatTag,
-    interface::split_format_data_for_scrollback, state::fonts::FontWeight,
+    ansi_components::mode::Decawm,
+    format_tracker::FormatTag,
+    interface::split_format_data_for_scrollback,
+    state::{
+        cursor::{ReverseVideo, StateColors},
+        fonts::FontWeight,
+    },
 };
 
 fn get_tags() -> Vec<FormatTag> {
@@ -14,9 +19,12 @@ fn get_tags() -> Vec<FormatTag> {
         FormatTag {
             start: 0,
             end: 5,
-            color: TerminalColor::Blue,
-            background_color: TerminalColor::Black,
-            underline_color: TerminalColor::DefaultUnderlineColor,
+            colors: StateColors {
+                color: TerminalColor::Blue,
+                background_color: TerminalColor::Black,
+                underline_color: TerminalColor::DefaultUnderlineColor,
+                reverse_video: ReverseVideo::Off,
+            },
             font_weight: FontWeight::Normal,
             font_decorations: Vec::new(),
             line_wrap_mode: Decawm::default(),
@@ -24,9 +32,12 @@ fn get_tags() -> Vec<FormatTag> {
         FormatTag {
             start: 5,
             end: 7,
-            color: TerminalColor::Red,
-            background_color: TerminalColor::Black,
-            underline_color: TerminalColor::DefaultUnderlineColor,
+            colors: StateColors {
+                color: TerminalColor::Red,
+                background_color: TerminalColor::Black,
+                underline_color: TerminalColor::DefaultUnderlineColor,
+                reverse_video: ReverseVideo::Off,
+            },
             font_weight: FontWeight::Normal,
             font_decorations: Vec::new(),
             line_wrap_mode: Decawm::default(),
@@ -34,9 +45,12 @@ fn get_tags() -> Vec<FormatTag> {
         FormatTag {
             start: 7,
             end: 10,
-            color: TerminalColor::Blue,
-            background_color: TerminalColor::Black,
-            underline_color: TerminalColor::DefaultUnderlineColor,
+            colors: StateColors {
+                color: TerminalColor::Blue,
+                background_color: TerminalColor::Black,
+                underline_color: TerminalColor::DefaultUnderlineColor,
+                reverse_video: ReverseVideo::Off,
+            },
             font_weight: FontWeight::Normal,
             font_decorations: Vec::new(),
             line_wrap_mode: Decawm::default(),
@@ -44,9 +58,12 @@ fn get_tags() -> Vec<FormatTag> {
         FormatTag {
             start: 10,
             end: usize::MAX,
-            color: TerminalColor::Red,
-            background_color: TerminalColor::Black,
-            underline_color: TerminalColor::DefaultUnderlineColor,
+            colors: StateColors {
+                color: TerminalColor::Red,
+                background_color: TerminalColor::Black,
+                underline_color: TerminalColor::DefaultUnderlineColor,
+                reverse_video: ReverseVideo::Off,
+            },
             font_weight: FontWeight::Normal,
             font_decorations: Vec::new(),
             line_wrap_mode: Decawm::default(),
@@ -65,9 +82,12 @@ fn test_format_tracker_scrollback_split_on_boundary() {
         &[FormatTag {
             start: 0,
             end: usize::MAX,
-            color: TerminalColor::Red,
-            background_color: TerminalColor::Black,
-            underline_color: TerminalColor::DefaultUnderlineColor,
+            colors: StateColors {
+                color: TerminalColor::Red,
+                background_color: TerminalColor::Black,
+                underline_color: TerminalColor::DefaultUnderlineColor,
+                reverse_video: ReverseVideo::Off,
+            },
             font_weight: FontWeight::Normal,
             font_decorations: Vec::new(),
             line_wrap_mode: Decawm::default(),
@@ -87,9 +107,12 @@ fn test_format_tracker_scrollback_split_segment() {
             FormatTag {
                 start: 0,
                 end: 5,
-                color: TerminalColor::Blue,
-                background_color: TerminalColor::Black,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Blue,
+                    background_color: TerminalColor::Black,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -97,9 +120,12 @@ fn test_format_tracker_scrollback_split_segment() {
             FormatTag {
                 start: 5,
                 end: 7,
-                color: TerminalColor::Red,
-                background_color: TerminalColor::Black,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Red,
+                    background_color: TerminalColor::Black,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -107,9 +133,12 @@ fn test_format_tracker_scrollback_split_segment() {
             FormatTag {
                 start: 7,
                 end: 9,
-                color: TerminalColor::Blue,
-                background_color: TerminalColor::Black,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Blue,
+                    background_color: TerminalColor::Black,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -123,9 +152,12 @@ fn test_format_tracker_scrollback_split_segment() {
             FormatTag {
                 start: 0,
                 end: 1,
-                color: TerminalColor::Blue,
-                background_color: TerminalColor::Black,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Blue,
+                    background_color: TerminalColor::Black,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -133,9 +165,12 @@ fn test_format_tracker_scrollback_split_segment() {
             FormatTag {
                 start: 1,
                 end: usize::MAX,
-                color: TerminalColor::Red,
-                background_color: TerminalColor::Black,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Red,
+                    background_color: TerminalColor::Black,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),

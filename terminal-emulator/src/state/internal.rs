@@ -22,7 +22,7 @@ use crate::{
 
 use super::{
     buffer::{TerminalBufferHolder, TerminalBufferSetWinSizeResponse},
-    cursor::{CursorPos, CursorState},
+    cursor::{CursorPos, CursorState, ReverseVideo},
     data::TerminalSections,
     fonts::{FontDecorations, FontWeight},
     term_char::TChar,
@@ -38,7 +38,6 @@ pub struct TerminalState {
     pub format_tracker: FormatTracker,
     pub cursor_state: CursorState,
     pub modes: TerminalModes,
-    pub saved_color_state: Option<(TerminalColor, TerminalColor, TerminalColor)>,
     pub window_title: Option<String>,
     pub write_tx: crossbeam_channel::Sender<PtyWrite>,
     pub changed: bool,
@@ -53,7 +52,6 @@ impl PartialEq for TerminalState {
             && self.format_tracker == other.format_tracker
             && self.cursor_state == other.cursor_state
             && self.modes == other.modes
-            && self.saved_color_state == other.saved_color_state
             && self.window_title == other.window_title
             && self.changed == other.changed
             && self.ctx == other.ctx
@@ -73,7 +71,6 @@ impl TerminalState {
                 bracketed_paste: BracketedPaste::default(),
             },
             cursor_state: CursorState::default(),
-            saved_color_state: None,
             window_title: None,
             write_tx,
             changed: false,
@@ -130,7 +127,8 @@ impl TerminalState {
         split_format_data_for_scrollback(self.format_tracker.tags(), offset)
     }
 
-    pub(crate) fn cursor_pos(&self) -> CursorPos {
+    #[must_use]
+    pub fn cursor_pos(&self) -> CursorPos {
         self.cursor_state.pos.clone()
     }
 
@@ -348,12 +346,9 @@ impl TerminalState {
     }
 
     pub(crate) fn reset(&mut self) {
-        self.cursor_state.color = TerminalColor::Default;
-        self.cursor_state.background_color = TerminalColor::DefaultBackground;
-        self.cursor_state.underline_color = TerminalColor::DefaultUnderlineColor;
+        self.cursor_state.colors.set_default();
         self.cursor_state.font_weight = FontWeight::Normal;
         self.cursor_state.font_decorations.clear();
-        self.saved_color_state = None;
     }
 
     pub(crate) fn font_decordations_add_if_not_contains(&mut self, decoration: FontDecorations) {
@@ -369,15 +364,19 @@ impl TerminalState {
     }
 
     pub(crate) fn set_foreground(&mut self, color: TerminalColor) {
-        self.cursor_state.color = color;
+        self.cursor_state.colors.set_color(color);
     }
 
     pub(crate) fn set_background(&mut self, color: TerminalColor) {
-        self.cursor_state.background_color = color;
+        self.cursor_state.colors.set_background_color(color);
     }
 
     pub(crate) fn set_underline_color(&mut self, color: TerminalColor) {
-        self.cursor_state.underline_color = color;
+        self.cursor_state.colors.set_underline_color(color);
+    }
+
+    pub(crate) fn set_reverse_video(&mut self, reverse_video: ReverseVideo) {
+        self.cursor_state.colors.set_reverse_video(reverse_video);
     }
 
     pub(crate) fn sgr(&mut self, sgr: SelectGraphicRendition) {
@@ -414,36 +413,10 @@ impl TerminalState {
                 self.font_decorations_remove_if_contains(&FontDecorations::Strikethrough);
             }
             SelectGraphicRendition::ReverseVideo => {
-                let mut foreground = self.cursor_state.color;
-                let mut background = self.cursor_state.background_color;
-                let mut underline = self.cursor_state.underline_color;
-
-                self.saved_color_state = Some((foreground, background, underline));
-
-                if foreground == TerminalColor::Default {
-                    foreground = TerminalColor::White;
-                }
-
-                if underline == TerminalColor::DefaultUnderlineColor {
-                    underline = foreground;
-                }
-
-                if background == TerminalColor::DefaultBackground {
-                    background = TerminalColor::Black;
-                }
-
-                self.cursor_state.color = background;
-                self.cursor_state.background_color = foreground;
-                self.cursor_state.underline_color = underline;
+                self.set_reverse_video(ReverseVideo::On);
             }
             SelectGraphicRendition::ResetReverseVideo => {
-                if let Some((foreground, background, underline)) = self.saved_color_state {
-                    self.cursor_state.color = foreground;
-                    self.cursor_state.background_color = background;
-                    self.cursor_state.underline_color = underline;
-
-                    self.saved_color_state = None;
-                }
+                self.set_reverse_video(ReverseVideo::Off);
             }
             SelectGraphicRendition::Foreground(color) => self.set_foreground(color),
             SelectGraphicRendition::Background(color) => self.set_background(color),
@@ -625,13 +598,13 @@ impl TerminalState {
         for segment in parsed {
             // if segment is not data, we want to print out the segment
             if let TerminalOutput::Data(data) = &segment {
-                debug!(
+                println!(
                     "Incoming segment: {:?}",
                     str::from_utf8(data)
                         .unwrap_or("Failed to parse data for display as string: {data:?}")
                 );
             } else {
-                debug!("Incoming segment: {:?}", segment);
+                println!("Incoming segment: {segment:?}");
             }
 
             match segment {

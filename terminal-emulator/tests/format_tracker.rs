@@ -7,7 +7,10 @@ use freminal_common::colors::TerminalColor;
 use terminal_emulator::{
     ansi_components::mode::Decawm,
     format_tracker::{ranges_overlap, FormatTag, FormatTracker},
-    state::{cursor::CursorState, fonts::FontWeight},
+    state::{
+        cursor::{CursorState, ReverseVideo, StateColors},
+        fonts::FontWeight,
+    },
 };
 
 fn basic_color_test_one(format_tracker: &FormatTracker) {
@@ -19,9 +22,7 @@ fn basic_color_test_one(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 0,
                 end: 3,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -29,9 +30,7 @@ fn basic_color_test_one(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 3,
                 end: 10,
-                color: TerminalColor::Yellow,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default().with_color(TerminalColor::Yellow),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -39,9 +38,7 @@ fn basic_color_test_one(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 10,
                 end: usize::MAX,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -58,9 +55,7 @@ fn basic_color_test_two(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 0,
                 end: 3,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -68,9 +63,7 @@ fn basic_color_test_two(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 3,
                 end: 5,
-                color: TerminalColor::Yellow,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default().with_color(TerminalColor::Yellow),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -78,9 +71,7 @@ fn basic_color_test_two(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 5,
                 end: 7,
-                color: TerminalColor::Blue,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default().with_color(TerminalColor::Blue),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -88,9 +79,7 @@ fn basic_color_test_two(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 7,
                 end: 10,
-                color: TerminalColor::Yellow,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default().with_color(TerminalColor::Yellow),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -98,9 +87,7 @@ fn basic_color_test_two(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 10,
                 end: usize::MAX,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -117,9 +104,7 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 0,
                 end: 3,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -127,9 +112,7 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 3,
                 end: 5,
-                color: TerminalColor::Yellow,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default().with_color(TerminalColor::Yellow),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -137,9 +120,7 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 5,
                 end: 7,
-                color: TerminalColor::Blue,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default().with_color(TerminalColor::Blue),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -147,9 +128,7 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 7,
                 end: 9,
-                color: TerminalColor::Green,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default().with_color(TerminalColor::Green),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -157,9 +136,7 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 9,
                 end: 10,
-                color: TerminalColor::Yellow,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default().with_color(TerminalColor::Yellow),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -167,9 +144,7 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 10,
                 end: usize::MAX,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -186,9 +161,7 @@ fn basic_color_test_four(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 0,
                 end: 3,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -196,9 +169,7 @@ fn basic_color_test_four(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 3,
                 end: 5,
-                color: TerminalColor::Yellow,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default().with_color(TerminalColor::Yellow),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -206,9 +177,7 @@ fn basic_color_test_four(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 5,
                 end: 6,
-                color: TerminalColor::Blue,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default().with_color(TerminalColor::Blue),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -216,9 +185,7 @@ fn basic_color_test_four(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 6,
                 end: 11,
-                color: TerminalColor::Red,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default().with_color(TerminalColor::Red),
                 font_weight: FontWeight::Bold,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -226,9 +193,7 @@ fn basic_color_test_four(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 11,
                 end: usize::MAX,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -245,15 +210,15 @@ fn basic_color_tracker_test() {
     format_tracker.push_range(&cursor_state, 3..10);
     basic_color_test_one(&format_tracker);
 
-    cursor_state.color = TerminalColor::Blue;
+    cursor_state.colors.set_color(TerminalColor::Blue);
     format_tracker.push_range(&cursor_state, 5..7);
     basic_color_test_two(&format_tracker);
 
-    cursor_state.color = TerminalColor::Green;
+    cursor_state.colors.set_color(TerminalColor::Green);
     format_tracker.push_range(&cursor_state, 7..9);
     basic_color_test_three(&format_tracker);
 
-    cursor_state.color = TerminalColor::Red;
+    cursor_state.colors.set_color(TerminalColor::Red);
     cursor_state.font_weight = FontWeight::Bold;
     format_tracker.push_range(&cursor_state, 6..11);
     basic_color_test_four(&format_tracker);
@@ -276,9 +241,12 @@ fn del_range_test_one(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 0,
                 end: 8,
-                color: TerminalColor::Blue,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Blue,
+                    background_color: TerminalColor::DefaultBackground,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -286,9 +254,12 @@ fn del_range_test_one(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 8,
                 end: 18,
-                color: TerminalColor::Red,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Red,
+                    background_color: TerminalColor::DefaultBackground,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -296,9 +267,7 @@ fn del_range_test_one(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 18,
                 end: usize::MAX,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -314,9 +283,12 @@ fn del_range_test_two(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 0,
                 end: 6,
-                color: TerminalColor::Blue,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Blue,
+                    background_color: TerminalColor::DefaultBackground,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -324,9 +296,12 @@ fn del_range_test_two(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 6,
                 end: 16,
-                color: TerminalColor::Red,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Red,
+                    background_color: TerminalColor::DefaultBackground,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -334,9 +309,7 @@ fn del_range_test_two(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 16,
                 end: usize::MAX,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -352,9 +325,12 @@ fn del_range_test_three(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 0,
                 end: 4,
-                color: TerminalColor::Blue,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Blue,
+                    background_color: TerminalColor::DefaultBackground,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -362,9 +338,12 @@ fn del_range_test_three(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 4,
                 end: 14,
-                color: TerminalColor::Red,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Red,
+                    background_color: TerminalColor::DefaultBackground,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -372,9 +351,7 @@ fn del_range_test_three(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 14,
                 end: usize::MAX,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -390,9 +367,12 @@ fn del_range_test_four(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 0,
                 end: 2,
-                color: TerminalColor::Blue,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Blue,
+                    background_color: TerminalColor::DefaultBackground,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -400,9 +380,12 @@ fn del_range_test_four(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 2,
                 end: 9,
-                color: TerminalColor::Red,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Red,
+                    background_color: TerminalColor::DefaultBackground,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -410,9 +393,7 @@ fn del_range_test_four(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 9,
                 end: usize::MAX,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -426,7 +407,7 @@ fn test_format_tracker_del_range() {
     let mut format_tracker = FormatTracker::new();
     let mut cursor = CursorState::default().with_color(TerminalColor::Blue);
     format_tracker.push_range(&cursor, 0..10);
-    cursor.color = TerminalColor::Red;
+    cursor.colors.color = TerminalColor::Red;
     format_tracker.push_range(&cursor, 10..20);
 
     format_tracker.delete_range(0..2).unwrap();
@@ -449,9 +430,12 @@ fn range_adjustment_test_one(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 0,
                 end: 5,
-                color: TerminalColor::Blue,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Blue,
+                    background_color: TerminalColor::DefaultBackground,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -459,9 +443,12 @@ fn range_adjustment_test_one(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 5,
                 end: 10,
-                color: TerminalColor::Red,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Red,
+                    background_color: TerminalColor::DefaultBackground,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -469,9 +456,7 @@ fn range_adjustment_test_one(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 10,
                 end: usize::MAX,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -487,9 +472,12 @@ fn range_adjustment_test_two(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 0,
                 end: 8,
-                color: TerminalColor::Blue,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Blue,
+                    background_color: TerminalColor::DefaultBackground,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -497,9 +485,12 @@ fn range_adjustment_test_two(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 8,
                 end: 13,
-                color: TerminalColor::Red,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Red,
+                    background_color: TerminalColor::DefaultBackground,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -507,9 +498,7 @@ fn range_adjustment_test_two(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 13,
                 end: usize::MAX,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -525,9 +514,12 @@ fn range_adjustment_test_three(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 0,
                 end: 8,
-                color: TerminalColor::Blue,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Blue,
+                    background_color: TerminalColor::DefaultBackground,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -535,9 +527,12 @@ fn range_adjustment_test_three(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 8,
                 end: 15,
-                color: TerminalColor::Red,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors {
+                    color: TerminalColor::Red,
+                    background_color: TerminalColor::DefaultBackground,
+                    underline_color: TerminalColor::DefaultUnderlineColor,
+                    reverse_video: ReverseVideo::Off,
+                },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -545,9 +540,7 @@ fn range_adjustment_test_three(format_tracker: &FormatTracker) {
             FormatTag {
                 start: 15,
                 end: usize::MAX,
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
@@ -562,7 +555,7 @@ fn test_range_adjustment() {
     let mut cursor = CursorState::default().with_color(TerminalColor::Blue);
 
     format_tracker.push_range(&cursor, 0..5);
-    cursor.color = TerminalColor::Red;
+    cursor.colors.color = TerminalColor::Red;
     format_tracker.push_range(&cursor, 5..10);
     range_adjustment_test_one(&format_tracker);
 

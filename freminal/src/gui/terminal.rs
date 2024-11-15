@@ -252,9 +252,7 @@ fn create_terminal_output_layout_job(
         format_data_shifted.push(FormatTag {
             start,
             end,
-            color: tag.color,
-            background_color: tag.background_color,
-            underline_color: tag.underline_color,
+            colors: tag.colors.clone(),
             font_weight: tag.font_weight.clone(),
             font_decorations: tag.font_decorations.clone(),
             line_wrap_mode: tag.line_wrap_mode.clone(),
@@ -313,9 +311,9 @@ fn process_tags(
 
     for tag in adjusted_format_data {
         let mut range = tag.start..tag.end;
-        let color = tag.color;
-        let background_color = tag.background_color;
-        let underline_color = tag.underline_color;
+        let color = tag.colors.get_color();
+        let background_color = tag.colors.get_background_color();
+        let underline_color = tag.colors.get_underline_color();
 
         if range.end == usize::MAX {
             range.end = data_len;

@@ -6,13 +6,17 @@
 use eframe::egui::Context;
 use terminal_emulator::{
     ansi::FreminalAnsiParser,
-    ansi_components::mode::{BracketedPaste, Decckm, TerminalModes},
+    ansi_components::{
+        mode::{BracketedPaste, Decckm, TerminalModes},
+        sgr::SelectGraphicRendition,
+    },
     format_tracker::FormatTracker,
     interface::TerminalInput,
     io::PtyWrite,
     state::{
         buffer::TerminalBufferHolder,
-        cursor::{CursorPos, CursorState},
+        cursor::{CursorPos, CursorState, ReverseVideo},
+        fonts::{FontDecorations, FontWeight},
         internal::{TerminalState, TERMINAL_HEIGHT, TERMINAL_WIDTH},
         term_char::{display_vec_tchar_as_string, TChar},
     },
@@ -32,7 +36,6 @@ fn test_internal_terminal_state_new() {
             bracketed_paste: BracketedPaste::default(),
         },
         cursor_state: CursorState::default(),
-        saved_color_state: None,
         window_title: None,
         write_tx: tx,
         changed: false,
@@ -458,5 +461,80 @@ fn test_write_many() {
         }
     } else {
         panic!("no response from rx");
+    }
+}
+
+#[test]
+fn get_cursor_pos() {
+    let (tx, _rx) = crossbeam_channel::unbounded();
+    let mut terminal_state = TerminalState::new(tx.clone());
+
+    // ESC [ n
+    // "\0x1b[n" sends a cursor report
+    let data: [u8; 3] = [0x1b, 0x5b, 0x6e];
+    terminal_state.handle_incoming_data(&data);
+
+    let cursor_pos = terminal_state.cursor_pos();
+    assert_eq!(cursor_pos, CursorPos { x: 0, y: 0 });
+}
+
+#[test]
+fn test_sgr_sequences() {
+    let (tx, _rx) = crossbeam_channel::unbounded();
+    let mut terminal_state = TerminalState::new(tx.clone());
+
+    // // add some data
+    // let data = b"Hello, World!";
+    // terminal_state.handle_incoming_data(data);
+
+    // loop through all of the SGR sequences before the color
+    for i in 0..=3 {
+        // create the SGR sequence
+        // ESC [ Pn m
+        let i_as_byte = format!("{}", i);
+        let i_as_byte = i_as_byte.as_bytes();
+        let mut data = vec![0x1b, 0x5b];
+        //  insert the SGR sequence
+        data.extend_from_slice(i_as_byte);
+        data.push(0x6d);
+        println!("data: {:?}", data);
+        terminal_state.handle_incoming_data(&data);
+        let expectedsgr = SelectGraphicRendition::from_usize(i as usize);
+        // now verify that the SGR sequence changed the cursor state
+        match expectedsgr {
+            SelectGraphicRendition::Bold => {
+                assert_eq!(terminal_state.cursor_state.font_weight, FontWeight::Bold);
+            }
+            SelectGraphicRendition::Faint => {
+                assert!(terminal_state
+                    .cursor_state
+                    .font_decorations
+                    .contains(&FontDecorations::Faint));
+            }
+            SelectGraphicRendition::Italic => {
+                assert!(terminal_state
+                    .cursor_state
+                    .font_decorations
+                    .contains(&FontDecorations::Italic));
+            }
+            SelectGraphicRendition::Underline => {
+                assert!(terminal_state
+                    .cursor_state
+                    .font_decorations
+                    .contains(&FontDecorations::Underline));
+            }
+            SelectGraphicRendition::ReverseVideo => {
+                assert_eq!(
+                    terminal_state.cursor_state.colors.reverse_video,
+                    ReverseVideo::On
+                );
+            }
+            _ => {
+                assert_eq!(terminal_state.cursor_state, CursorState::default());
+            }
+        }
+
+        // reset the cursor state
+        terminal_state.cursor_state = CursorState::default();
     }
 }

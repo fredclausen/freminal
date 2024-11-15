@@ -19,7 +19,7 @@ use crate::ansi_components::mode::TerminalModes;
 use crate::ansi_components::mode::{Decawm, Decckm};
 use crate::format_tracker::FormatTag;
 use crate::interface::split_format_data_for_scrollback;
-use crate::state::cursor::CursorPos;
+use crate::state::cursor::{CursorPos, StateColors};
 use crate::state::data::TerminalSections;
 
 pub const TERMINAL_WIDTH: usize = 112;
@@ -51,9 +51,7 @@ impl ReplayIo {
                 pos: CursorPos::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                color: TerminalColor::Default,
-                background_color: TerminalColor::DefaultBackground,
-                underline_color: TerminalColor::DefaultUnderlineColor,
+                colors: StateColors::default(),
                 line_wrap_mode: Decawm::default(),
             },
             modes: TerminalModes {
@@ -251,8 +249,7 @@ impl ReplayIo {
     }
 
     fn reset(&mut self) {
-        self.cursor_state.color = TerminalColor::Default;
-        self.cursor_state.background_color = TerminalColor::Black;
+        self.cursor_state.colors = StateColors::default();
         self.cursor_state.font_weight = FontWeight::Normal;
         self.cursor_state.font_decorations.clear();
         self.saved_color_state = None;
@@ -271,15 +268,15 @@ impl ReplayIo {
     }
 
     fn set_foreground(&mut self, color: TerminalColor) {
-        self.cursor_state.color = color;
+        self.cursor_state.colors.set_color(color);
     }
 
     fn set_background(&mut self, color: TerminalColor) {
-        self.cursor_state.background_color = color;
+        self.cursor_state.colors.set_background_color(color);
     }
 
     fn set_underline_color(&mut self, color: TerminalColor) {
-        self.cursor_state.underline_color = color;
+        self.cursor_state.colors.set_underline_color(color);
     }
 
     fn sgr(&mut self, sgr: SelectGraphicRendition) {
@@ -321,35 +318,14 @@ impl ReplayIo {
                 self.font_decorations_remove_if_contains(&FontDecorations::Strikethrough);
             }
             SelectGraphicRendition::ReverseVideo => {
-                let mut foreground = self.cursor_state.color;
-                let mut background = self.cursor_state.background_color;
-                let mut underline = self.cursor_state.underline_color;
-                self.saved_color_state = Some((foreground, background, underline));
-
-                if foreground == TerminalColor::Default {
-                    foreground = TerminalColor::White;
-                }
-
-                if underline == TerminalColor::DefaultUnderlineColor {
-                    underline = foreground;
-                }
-
-                if background == TerminalColor::DefaultBackground {
-                    background = TerminalColor::Black;
-                }
-
-                self.cursor_state.color = background;
-                self.cursor_state.background_color = foreground;
-                self.cursor_state.underline_color = underline;
+                self.cursor_state
+                    .colors
+                    .set_reverse_video(crate::state::cursor::ReverseVideo::On);
             }
             SelectGraphicRendition::ResetReverseVideo => {
-                if let Some((foreground, background, underline)) = self.saved_color_state {
-                    self.cursor_state.color = foreground;
-                    self.cursor_state.background_color = background;
-                    self.cursor_state.underline_color = underline;
-
-                    self.saved_color_state = None;
-                }
+                self.cursor_state
+                    .colors
+                    .set_reverse_video(crate::state::cursor::ReverseVideo::Off);
             }
             SelectGraphicRendition::Foreground(color) => self.set_foreground(color),
             SelectGraphicRendition::Background(color) => self.set_background(color),
