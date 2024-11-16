@@ -59,7 +59,8 @@ pub fn run_terminal(
         // Consume the output from the child
         while let Ok(amount_read) = reader.read(buf) {
             if amount_read == 0 {
-                continue;
+                // PTY closed, exit(0)
+                std::process::exit(0);
             }
             let data = buf[..amount_read].to_vec();
 
