@@ -45,6 +45,14 @@ pub struct TerminalState {
     pub leftover_data: Option<Vec<u8>>,
 }
 
+impl Default for TerminalState {
+    /// This method should never really be used. It was added to allow the test suite to pass
+    /// The problem here is that you most likely really really want a rx channel to go with the tx channel
+    fn default() -> Self {
+        Self::new(crossbeam_channel::unbounded().0)
+    }
+}
+
 impl PartialEq for TerminalState {
     fn eq(&self, other: &Self) -> bool {
         self.parser == other.parser
@@ -598,13 +606,13 @@ impl TerminalState {
         for segment in parsed {
             // if segment is not data, we want to print out the segment
             if let TerminalOutput::Data(data) = &segment {
-                println!(
+                debug!(
                     "Incoming segment: {:?}",
                     str::from_utf8(data)
                         .unwrap_or("Failed to parse data for display as string: {data:?}")
                 );
             } else {
-                println!("Incoming segment: {segment:?}");
+                debug!("Incoming segment: {segment:?}");
             }
 
             match segment {

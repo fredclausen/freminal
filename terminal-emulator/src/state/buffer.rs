@@ -231,7 +231,7 @@ pub struct TerminalBufferSetWinSizeResponse {
     pub new_cursor_pos: CursorPos,
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Default)]
 pub struct TerminalBufferHolder {
     buf: Vec<TChar>,
     width: usize,

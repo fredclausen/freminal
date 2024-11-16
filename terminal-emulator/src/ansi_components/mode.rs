@@ -40,7 +40,7 @@ pub enum BracketedPaste {
     Enabled,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Default)]
 pub struct TerminalModes {
     pub cursor_key: Decckm,
     pub bracketed_paste: BracketedPaste,

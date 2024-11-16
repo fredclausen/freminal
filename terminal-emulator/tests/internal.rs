@@ -4,6 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use eframe::egui::Context;
+use freminal_common::colors::TerminalColor;
 use terminal_emulator::{
     ansi::FreminalAnsiParser,
     ansi_components::{
@@ -15,7 +16,7 @@ use terminal_emulator::{
     io::PtyWrite,
     state::{
         buffer::TerminalBufferHolder,
-        cursor::{CursorPos, CursorState, ReverseVideo},
+        cursor::{CursorPos, CursorState, ReverseVideo, StateColors},
         fonts::{FontDecorations, FontWeight},
         internal::{TerminalState, TERMINAL_HEIGHT, TERMINAL_WIDTH},
         term_char::{display_vec_tchar_as_string, TChar},
@@ -488,45 +489,195 @@ fn test_sgr_sequences() {
     // terminal_state.handle_incoming_data(data);
 
     // loop through all of the SGR sequences before the color
-    for i in 0..=3 {
+    for i in 0..=107 {
         // create the SGR sequence
         // ESC [ Pn m
         let i_as_byte = format!("{}", i);
         let i_as_byte = i_as_byte.as_bytes();
         let mut data = vec![0x1b, 0x5b];
+        let mut data_escaped = b"\\0x1b".to_vec();
         //  insert the SGR sequence
         data.extend_from_slice(i_as_byte);
+
+        // Some of the SGR sequences will need extra processing before we test them
+        //
+
+        match i {
+            // Reset. We'll need to add some data to the cursor state to test this
+            0 => {
+                terminal_state.cursor_state.font_weight = FontWeight::Bold;
+                terminal_state.cursor_state.font_decorations = vec![FontDecorations::Underline];
+                terminal_state.cursor_state.colors = StateColors {
+                    color: TerminalColor::Black,
+                    background_color: TerminalColor::Black,
+                    ..StateColors::default()
+                };
+            }
+            21 => {
+                terminal_state.cursor_state.font_weight = FontWeight::Bold;
+            }
+            22 => {
+                terminal_state.cursor_state.font_decorations = vec![FontDecorations::Faint];
+            }
+            23 => {
+                terminal_state.cursor_state.font_decorations = vec![FontDecorations::Italic];
+            }
+            24 => {
+                terminal_state.cursor_state.font_decorations = vec![FontDecorations::Underline];
+            }
+            27 => {
+                terminal_state.cursor_state.colors = StateColors {
+                    reverse_video: ReverseVideo::On,
+                    ..StateColors::default()
+                };
+            }
+            38 | 48 | 58 => {
+                // this requires extra data
+                data.extend_from_slice(b";5;0");
+            }
+            _ => (),
+        }
+
         data.push(0x6d);
-        println!("data: {:?}", data);
+        data_escaped.extend_from_slice(&data[1..]);
+        println!("data: {}", String::from_utf8(data_escaped).unwrap());
+
         terminal_state.handle_incoming_data(&data);
-        let expectedsgr = SelectGraphicRendition::from_usize(i as usize);
+        let expectedsgr = match i {
+            38 => SelectGraphicRendition::Foreground(TerminalColor::Custom(0, 0, 0)),
+            48 => SelectGraphicRendition::Background(TerminalColor::Custom(0, 0, 0)),
+            58 => SelectGraphicRendition::UnderlineColor(TerminalColor::Custom(0, 0, 0)),
+            _ => SelectGraphicRendition::from_usize(i as usize),
+        };
         // now verify that the SGR sequence changed the cursor state
         match expectedsgr {
             SelectGraphicRendition::Bold => {
-                assert_eq!(terminal_state.cursor_state.font_weight, FontWeight::Bold);
+                assert_eq!(
+                    terminal_state,
+                    TerminalState {
+                        cursor_state: CursorState {
+                            font_weight: FontWeight::Bold,
+                            ..CursorState::default()
+                        },
+                        write_tx: tx.clone(),
+                        ..Default::default()
+                    }
+                );
             }
             SelectGraphicRendition::Faint => {
-                assert!(terminal_state
-                    .cursor_state
-                    .font_decorations
-                    .contains(&FontDecorations::Faint));
+                assert_eq!(
+                    terminal_state,
+                    TerminalState {
+                        cursor_state: CursorState {
+                            font_decorations: vec![FontDecorations::Faint],
+                            ..CursorState::default()
+                        },
+                        write_tx: tx.clone(),
+                        ..Default::default()
+                    }
+                );
             }
             SelectGraphicRendition::Italic => {
-                assert!(terminal_state
-                    .cursor_state
-                    .font_decorations
-                    .contains(&FontDecorations::Italic));
+                assert_eq!(
+                    terminal_state,
+                    TerminalState {
+                        cursor_state: CursorState {
+                            font_decorations: vec![FontDecorations::Italic],
+                            ..CursorState::default()
+                        },
+                        write_tx: tx.clone(),
+                        ..Default::default()
+                    }
+                );
             }
             SelectGraphicRendition::Underline => {
-                assert!(terminal_state
-                    .cursor_state
-                    .font_decorations
-                    .contains(&FontDecorations::Underline));
+                assert_eq!(
+                    terminal_state,
+                    TerminalState {
+                        cursor_state: CursorState {
+                            font_decorations: vec![FontDecorations::Underline],
+                            ..CursorState::default()
+                        },
+                        write_tx: tx.clone(),
+                        ..Default::default()
+                    }
+                );
             }
             SelectGraphicRendition::ReverseVideo => {
                 assert_eq!(
-                    terminal_state.cursor_state.colors.reverse_video,
-                    ReverseVideo::On
+                    terminal_state,
+                    TerminalState {
+                        cursor_state: CursorState {
+                            colors: StateColors {
+                                reverse_video: ReverseVideo::On,
+                                ..StateColors::default()
+                            },
+                            ..CursorState::default()
+                        },
+                        write_tx: tx.clone(),
+                        ..Default::default()
+                    }
+                );
+            }
+            SelectGraphicRendition::Strikethrough => {
+                assert_eq!(
+                    terminal_state,
+                    TerminalState {
+                        cursor_state: CursorState {
+                            font_decorations: vec![FontDecorations::Strikethrough],
+                            ..CursorState::default()
+                        },
+                        write_tx: tx.clone(),
+                        ..Default::default()
+                    }
+                );
+            }
+            SelectGraphicRendition::Foreground(color) => {
+                assert_eq!(
+                    terminal_state,
+                    TerminalState {
+                        cursor_state: CursorState {
+                            colors: StateColors {
+                                color,
+                                ..StateColors::default()
+                            },
+                            ..CursorState::default()
+                        },
+                        write_tx: tx.clone(),
+                        ..Default::default()
+                    }
+                );
+            }
+            SelectGraphicRendition::Background(color) => {
+                assert_eq!(
+                    terminal_state,
+                    TerminalState {
+                        cursor_state: CursorState {
+                            colors: StateColors {
+                                background_color: color,
+                                ..StateColors::default()
+                            },
+                            ..CursorState::default()
+                        },
+                        write_tx: tx.clone(),
+                        ..Default::default()
+                    }
+                );
+            }
+            SelectGraphicRendition::UnderlineColor(color) => {
+                assert_eq!(
+                    terminal_state,
+                    TerminalState {
+                        cursor_state: CursorState {
+                            colors: StateColors {
+                                underline_color: color,
+                                ..StateColors::default()
+                            },
+                            ..CursorState::default()
+                        },
+                        write_tx: tx.clone(),
+                        ..Default::default()
+                    }
                 );
             }
             _ => {
