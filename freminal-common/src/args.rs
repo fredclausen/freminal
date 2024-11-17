@@ -8,6 +8,7 @@ use anyhow::Result;
 pub struct Args {
     pub recording: Option<String>,
     pub shell: Option<String>,
+    pub show_all_debug: bool,
 }
 
 impl Args {
@@ -22,6 +23,7 @@ impl Args {
         let mut recording_path = None;
         let mut shell = None;
         let mut error = false;
+        let mut show_all_debug = false;
 
         while let Some(arg) = it.next() {
             match arg {
@@ -48,6 +50,7 @@ impl Args {
                     );
                 }
                 arg if arg.as_str() == "--help" => Self::help(program_name.as_deref()),
+                arg if arg.as_str() == "--show-all-debug" => show_all_debug = true,
                 _ => {
                     println!("Invalid argument {arg}");
                     Self::help(program_name.as_deref());
@@ -63,6 +66,7 @@ impl Args {
         Ok(Self {
             recording: recording_path,
             shell,
+            show_all_debug,
         })
     }
 

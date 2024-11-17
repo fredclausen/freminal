@@ -11,6 +11,7 @@
     clippy::correctness,
     clippy::all
 )]
+// #![warn(missing_docs)]
 
 pub mod args;
 pub mod colors;
