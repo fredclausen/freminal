@@ -57,7 +57,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
         return;
     }
 
-    terminal_emulator.set_previous_pass_invalid();
+    let mut state_changed = false;
 
     for event in &input.raw.events {
         let inputs: Cow<'static, [TerminalInput]> = match event {
@@ -145,10 +145,16 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
         };
 
         for input in inputs.as_ref() {
+            state_changed = true;
             if let Err(e) = terminal_emulator.write(input) {
                 error!("Failed to write input to terminal emulator: {}", e);
             }
         }
+    }
+
+    if state_changed {
+        debug!("Inputs detected, setting previous pass invalid");
+        terminal_emulator.set_previous_pass_invalid();
     }
 }
 
@@ -531,6 +537,8 @@ impl DebugRenderer {
 
 pub struct FreminalTerminalWidget {
     font_size: f32,
+    character_size: (f32, f32),
+    previous_font_size: Option<f32>,
     debug_renderer: DebugRenderer,
     previous_pass: TerminalOutputRenderResponse,
     ctx: Context,
@@ -544,6 +552,8 @@ impl FreminalTerminalWidget {
 
         Self {
             font_size: 12.0,
+            character_size: (0.0, 0.0),
+            previous_font_size: None,
             debug_renderer: DebugRenderer::new(),
             previous_pass: TerminalOutputRenderResponse {
                 scrollback_area: Rect::NOTHING,
@@ -589,29 +599,37 @@ impl FreminalTerminalWidget {
         ui: &mut Ui,
         terminal_emulator: &mut TerminalEmulator<Io>,
     ) {
-        let character_size = get_char_size(ui.ctx(), self.font_size);
-        terminal_emulator.set_egui_ctx_if_missing(self.ctx.clone());
-
         let frame_response = egui::Frame::none().show(ui, |ui| {
-            let (width_chars, height_chars) = terminal_emulator.get_win_size();
-            let width_chars = match f32::value_from(width_chars) {
-                Ok(v) => v,
-                Err(e) => {
-                    error!("Failed to convert width chars to f32: {}", e);
-                    10.0
-                }
-            };
+            // if the previous font size is None, or the font size has changed, we need to update the font size
+            if self.previous_font_size.is_none()
+                || (self.previous_font_size.unwrap_or_default() - self.font_size).abs()
+                    > f32::EPSILON
+            {
+                debug!("Font size changed, updating character size");
+                self.character_size = get_char_size(ui.ctx(), self.font_size);
+                terminal_emulator.set_egui_ctx_if_missing(self.ctx.clone());
 
-            let height_chars = match f32::value_from(height_chars) {
-                Ok(v) => v,
-                Err(e) => {
-                    error!("Failed to convert height chars to f32: {}", e);
-                    10.0
-                }
-            };
+                let (width_chars, height_chars) = terminal_emulator.get_win_size();
+                let width_chars = match f32::value_from(width_chars) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        error!("Failed to convert width chars to f32: {}", e);
+                        10.0
+                    }
+                };
 
-            ui.set_width((width_chars + 0.5) * character_size.0);
-            ui.set_height((height_chars + 0.5) * character_size.1);
+                let height_chars = match f32::value_from(height_chars) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        error!("Failed to convert height chars to f32: {}", e);
+                        10.0
+                    }
+                };
+
+                ui.set_width((width_chars + 0.5) * self.character_size.0);
+                ui.set_height((height_chars + 0.5) * self.character_size.1);
+                self.previous_font_size = Some(self.font_size);
+            }
 
             if let Some(title) = terminal_emulator.get_window_title() {
                 ui.ctx()
@@ -624,7 +642,6 @@ impl FreminalTerminalWidget {
             });
 
             if terminal_emulator.needs_redraw() {
-                debug!("Redrawing terminal output");
                 self.previous_pass =
                     render_terminal_output(ui, terminal_emulator, self.font_size, None);
             } else {
@@ -645,7 +662,7 @@ impl FreminalTerminalWidget {
 
             paint_cursor(
                 self.previous_pass.canvas_area,
-                character_size,
+                self.character_size,
                 &terminal_emulator.cursor_pos(),
                 ui,
             );

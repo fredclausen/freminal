@@ -45,6 +45,11 @@ impl FreminalGui {
 
 impl eframe::App for FreminalGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // log the frame time
+        // time now
+        debug!("Starting new frame");
+        let now = std::time::Instant::now();
+
         let panel_response = CentralPanel::default().show(ctx, |ui| {
             let (width_chars, height_chars) = self.terminal_widget.calculate_available_size(ui);
             let (font_width, font_height) =
@@ -72,6 +77,15 @@ impl eframe::App for FreminalGui {
         panel_response.response.context_menu(|ui| {
             self.terminal_widget.show_options(ui);
         });
+
+        // log the frame time
+        let elapsed = now.elapsed();
+        // show either elapsed as micros or millis, depending on the duration
+        if elapsed.as_millis() > 0 {
+            debug!("Frame time: {}ms", elapsed.as_millis());
+        } else {
+            debug!("Frame time: {}μs", elapsed.as_micros());
+        }
     }
 }
 
