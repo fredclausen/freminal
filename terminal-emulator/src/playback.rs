@@ -14,9 +14,9 @@ use super::{
     ansi::{FreminalAnsiParser, TerminalOutput},
     format_tracker::FormatTracker,
 };
-use crate::ansi_components::mode::Mode;
 use crate::ansi_components::mode::TerminalModes;
 use crate::ansi_components::mode::{Decawm, Decckm};
+use crate::ansi_components::mode::{Dectem, Mode};
 use crate::format_tracker::FormatTag;
 use crate::interface::split_format_data_for_scrollback;
 use crate::state::cursor::{CursorPos, StateColors};
@@ -31,6 +31,7 @@ pub struct ReplayIo {
     format_tracker: FormatTracker,
     cursor_state: CursorState,
     modes: TerminalModes,
+    show_cursor: Dectem,
     saved_color_state: Option<(TerminalColor, TerminalColor, TerminalColor)>,
 }
 
@@ -59,6 +60,7 @@ impl ReplayIo {
                 bracketed_paste: BracketedPaste::default(),
             },
             saved_color_state: None,
+            show_cursor: Dectem::Show,
         }
     }
 
@@ -248,6 +250,20 @@ impl ReplayIo {
         }
     }
 
+    fn erase(&mut self, num_chars: usize) {
+        let deleted_buf_range = self
+            .terminal_buffer
+            .erase_forwards(&self.cursor_state.pos, num_chars);
+        if let Some(range) = deleted_buf_range {
+            match self.format_tracker.delete_range(range) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to delete range: {e}");
+                }
+            }
+        }
+    }
+
     fn reset(&mut self) {
         self.cursor_state.colors = StateColors::default();
         self.cursor_state.font_weight = FontWeight::Normal;
@@ -378,6 +394,9 @@ impl ReplayIo {
             Mode::Decawm => {
                 self.cursor_state.line_wrap_mode = Decawm::AutoWrap;
             }
+            Mode::Dectem => {
+                self.show_cursor = Dectem::Show;
+            }
             Mode::BracketedPaste => {
                 self.modes.bracketed_paste = BracketedPaste::Enabled;
             }
@@ -402,6 +421,9 @@ impl ReplayIo {
             }
             Mode::Decawm => {
                 self.cursor_state.line_wrap_mode = Decawm::NoAutoWrap;
+            }
+            Mode::Dectem => {
+                self.show_cursor = Dectem::Hide;
             }
             Mode::BracketedPaste => {
                 self.modes.bracketed_paste = BracketedPaste::Disabled;
@@ -429,6 +451,7 @@ impl ReplayIo {
                 TerminalOutput::Backspace => self.backspace(),
                 TerminalOutput::InsertLines(num_lines) => self.insert_lines(num_lines),
                 TerminalOutput::Delete(num_chars) => self.delete(num_chars),
+                TerminalOutput::Erase(num_chars) => self.erase(num_chars),
                 TerminalOutput::Sgr(sgr) => self.sgr(sgr),
                 TerminalOutput::SetMode(mode) => self.set_mode(&mode),
                 TerminalOutput::InsertSpaces(num_spaces) => self.insert_spaces(num_spaces),

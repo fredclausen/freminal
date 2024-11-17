@@ -660,12 +660,20 @@ impl FreminalTerminalWidget {
             self.debug_renderer
                 .render(ui, self.previous_pass.scrollback_area, Color32::YELLOW);
 
-            paint_cursor(
-                self.previous_pass.canvas_area,
-                self.character_size,
-                &terminal_emulator.cursor_pos(),
-                ui,
-            );
+            if terminal_emulator.show_cursor() {
+                paint_cursor(
+                    self.previous_pass.canvas_area,
+                    self.character_size,
+                    &terminal_emulator.cursor_pos(),
+                    ui,
+                );
+            }
+            // paint_cursor(
+            //     self.previous_pass.canvas_area,
+            //     self.character_size,
+            //     &terminal_emulator.cursor_pos(),
+            //     ui,
+            // );
         });
 
         terminal_emulator.set_previous_pass_valid();

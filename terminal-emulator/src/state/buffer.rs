@@ -599,6 +599,25 @@ impl TerminalBufferHolder {
         Some(delete_range)
     }
 
+    pub fn erase_forwards(
+        &mut self,
+        cursor_pos: &CursorPos,
+        num_chars: usize,
+    ) -> Option<Range<usize>> {
+        let (buf_pos, line_range) =
+            cursor_to_buf_pos(&self.buf, cursor_pos, self.width, self.height)?;
+
+        let mut erase_range = buf_pos..buf_pos + num_chars;
+
+        if erase_range.end > line_range.end {
+            erase_range.end = line_range.end;
+        }
+
+        // remove the range from the buffer
+        self.buf.drain(erase_range.clone());
+        Some(erase_range)
+    }
+
     #[must_use]
     pub fn data(&self) -> TerminalSections<Vec<TChar>> {
         let line_ranges = calc_line_ranges(&self.buf, self.width);

@@ -34,6 +34,7 @@ pub enum TerminalOutput {
     NormalKeypadMode,
     InsertLines(usize),
     Delete(usize),
+    Erase(usize),
     Sgr(SelectGraphicRendition),
     Data(Vec<u8>),
     SetMode(Mode),
@@ -70,6 +71,7 @@ impl std::fmt::Display for TerminalOutput {
             Self::Bell => write!(f, "Bell"),
             Self::InsertLines(n) => write!(f, "InsertLines({n})"),
             Self::Delete(n) => write!(f, "Delete({n})"),
+            Self::Erase(n) => write!(f, "Erase({n})"),
             Self::Sgr(sgr) => write!(f, "Sgr({sgr:?})"),
             Self::Data(data) => {
                 write!(f, "Data({})", String::from_utf8_lossy(data))

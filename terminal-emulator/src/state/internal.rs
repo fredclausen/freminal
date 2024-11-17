@@ -11,7 +11,7 @@ use freminal_common::colors::TerminalColor;
 use crate::{
     ansi::{FreminalAnsiParser, TerminalOutput},
     ansi_components::{
-        mode::{BracketedPaste, Decawm, Decckm, Mode, TerminalModes},
+        mode::{BracketedPaste, Decawm, Decckm, Dectem, Mode, TerminalModes},
         osc::{AnsiOscInternalType, AnsiOscType},
         sgr::SelectGraphicRendition,
     },
@@ -37,6 +37,7 @@ pub struct TerminalState {
     pub terminal_buffer: TerminalBufferHolder,
     pub format_tracker: FormatTracker,
     pub cursor_state: CursorState,
+    pub show_cursor: Dectem,
     pub modes: TerminalModes,
     pub window_title: Option<String>,
     pub write_tx: crossbeam_channel::Sender<PtyWrite>,
@@ -84,6 +85,7 @@ impl TerminalState {
             changed: false,
             ctx: None,
             leftover_data: None,
+            show_cursor: Dectem::Show,
         }
     }
 
@@ -353,6 +355,20 @@ impl TerminalState {
         }
     }
 
+    pub(crate) fn erase(&mut self, num_chars: usize) {
+        let deleted_buf_range = self
+            .terminal_buffer
+            .erase_forwards(&self.cursor_state.pos, num_chars);
+        if let Some(range) = deleted_buf_range {
+            match self.format_tracker.delete_range(range) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to delete range: {e}");
+                }
+            }
+        }
+    }
+
     pub(crate) fn reset(&mut self) {
         self.cursor_state.colors.set_default();
         self.cursor_state.font_weight = FontWeight::Normal;
@@ -477,6 +493,9 @@ impl TerminalState {
             Mode::Decawm => {
                 self.cursor_state.line_wrap_mode = Decawm::AutoWrap;
             }
+            Mode::Dectem => {
+                self.show_cursor = Dectem::Show;
+            }
             Mode::BracketedPaste => {
                 warn!("BracketedPaste Set is not supported");
                 self.modes.bracketed_paste = BracketedPaste::Enabled;
@@ -502,6 +521,9 @@ impl TerminalState {
             }
             Mode::Decawm => {
                 self.cursor_state.line_wrap_mode = Decawm::NoAutoWrap;
+            }
+            Mode::Dectem => {
+                self.show_cursor = Dectem::Hide;
             }
             Mode::BracketedPaste => {
                 warn!("BracketedPaste Reset is not supported");
@@ -631,6 +653,7 @@ impl TerminalState {
                 TerminalOutput::Backspace => self.backspace(),
                 TerminalOutput::InsertLines(num_lines) => self.insert_lines(num_lines),
                 TerminalOutput::Delete(num_chars) => self.delete(num_chars),
+                TerminalOutput::Erase(num_chars) => self.erase(num_chars),
                 TerminalOutput::Sgr(sgr) => self.sgr(sgr),
                 TerminalOutput::SetMode(mode) => self.set_mode(&mode),
                 TerminalOutput::InsertSpaces(num_spaces) => self.insert_spaces(num_spaces),

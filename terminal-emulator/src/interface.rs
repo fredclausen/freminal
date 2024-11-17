@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+use crate::ansi_components::mode::Dectem;
 use crate::format_tracker::FormatTag;
 use crate::io::FreminalPtyInputOutput;
 use crate::io::{FreminalTermInputOutput, FreminalTerminalSize, PtyRead, PtyWrite};
@@ -350,6 +351,16 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
             Err(e) => {
                 error!("Error getting cursor position: {e}");
                 CursorPos::default()
+            }
+        }
+    }
+
+    pub fn show_cursor(&self) -> bool {
+        match self.internal.lock() {
+            Ok(internal) => internal.show_cursor == Dectem::Show,
+            Err(e) => {
+                error!("Error getting cursor visibility: {e}");
+                true
             }
         }
     }

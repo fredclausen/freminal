@@ -7,6 +7,7 @@ use super::{
         cup::ansi_parser_inner_csi_finished_set_position_h,
         cuu::ansi_parser_inner_csi_finished_move_up,
         dch::ansi_parser_inner_csi_finished_set_position_p,
+        ech::ansi_parser_inner_csi_finished_set_position_x,
         ed::ansi_parser_inner_csi_finished_set_position_j,
         el::ansi_parser_inner_csi_finished_set_position_k, ict::ansi_parser_inner_csi_finished_ich,
         il::ansi_parser_inner_csi_finished_set_position_l,
@@ -137,6 +138,9 @@ impl AnsiCsiParser {
             }
             AnsiCsiParserState::Finished(b'P') => {
                 ansi_parser_inner_csi_finished_set_position_p(&self.params, output)
+            }
+            AnsiCsiParserState::Finished(b'X') => {
+                ansi_parser_inner_csi_finished_set_position_x(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'm') => {
                 ansi_parser_inner_csi_finished_sgr_ansi(&self.params, output)
