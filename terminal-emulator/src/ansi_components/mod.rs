@@ -5,6 +5,7 @@
 
 pub mod csi;
 pub mod csi_commands;
+pub mod line_draw;
 pub mod mode;
 pub mod osc;
 pub mod sgr;

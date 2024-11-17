@@ -8,6 +8,7 @@ use freminal_common::colors::TerminalColor;
 use terminal_emulator::{
     ansi::FreminalAnsiParser,
     ansi_components::{
+        line_draw::DecSpecialGraphics,
         mode::{BracketedPaste, Decckm, Dectem, TerminalModes},
         sgr::SelectGraphicRendition,
     },
@@ -43,6 +44,7 @@ fn test_internal_terminal_state_new() {
         ctx: None,
         leftover_data: None,
         show_cursor: Dectem::Show,
+        character_replace: DecSpecialGraphics::DontReplace,
     };
 
     assert_eq!(terminal_state, expected);

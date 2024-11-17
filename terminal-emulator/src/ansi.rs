@@ -6,6 +6,7 @@
 use crate::{
     ansi_components::{
         csi::AnsiCsiParser,
+        line_draw::{DecSpecialGraphics, DecSpecialGraphicsParser},
         mode::Mode,
         osc::{AnsiOscParser, AnsiOscType},
         sgr::SelectGraphicRendition,
@@ -45,6 +46,7 @@ pub enum TerminalOutput {
     CursorReport,
     Invalid,
     Skipped,
+    DecSpecialGraphics(DecSpecialGraphics),
 }
 
 // impl format display for TerminalOutput
@@ -80,6 +82,9 @@ impl std::fmt::Display for TerminalOutput {
             Self::ResetMode(mode) => write!(f, "ResetMode({mode:?})"),
             Self::InsertSpaces(n) => write!(f, "InsertSpaces({n})"),
             Self::OscResponse(n) => write!(f, "OscResponse({n})"),
+            Self::DecSpecialGraphics(dec_special_graphics) => {
+                write!(f, "DecSpecialGraphics({dec_special_graphics:?})")
+            }
             Self::Invalid => write!(f, "Invalid"),
             Self::CursorReport => write!(f, "CursorReport"),
             Self::Skipped => write!(f, "Skipped"),
@@ -135,6 +140,7 @@ pub enum ParserInner {
     Escape,
     Csi(AnsiCsiParser),
     Osc(AnsiOscParser),
+    DecSpecialGraphics(DecSpecialGraphicsParser),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -208,6 +214,9 @@ impl FreminalAnsiParser {
             }
             b']' => {
                 self.inner = ParserInner::Osc(AnsiOscParser::new());
+            }
+            b'(' => {
+                self.inner = ParserInner::DecSpecialGraphics(DecSpecialGraphicsParser::new());
             }
             b'=' => {
                 self.inner = ParserInner::Empty;
@@ -300,6 +309,23 @@ impl FreminalAnsiParser {
                             error!("Parser Error: {e}");
                             error!("OSC Sequence that threw an error: {output_string_sequence}");
                         }
+                    }
+                }
+                ParserInner::DecSpecialGraphics(parser) => {
+                    output_string_sequence.push(*b as char);
+                    match parser.ansi_parser_inner_line_draw(*b, &mut output) {
+                        Some(value) => {
+                            self.inner = value;
+
+                            // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
+
+                            if output.last() == Some(&TerminalOutput::Invalid) {
+                                error!(
+                                    "DecSpecialGraphics Sequence that threw an error: {output_string_sequence}",
+                                );
+                            }
+                        }
+                        None => continue,
                     }
                 }
             }

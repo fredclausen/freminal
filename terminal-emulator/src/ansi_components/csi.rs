@@ -1,3 +1,8 @@
+// Copyright (C) 2024 Fred Clausen
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file or at
+// https://opensource.org/licenses/MIT.
+
 use super::{
     csi_commands::{
         cha::ansi_parser_inner_csi_finished_set_position_g,

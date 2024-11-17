@@ -11,6 +11,7 @@ use freminal_common::colors::TerminalColor;
 use crate::{
     ansi::{FreminalAnsiParser, TerminalOutput},
     ansi_components::{
+        line_draw::DecSpecialGraphics,
         mode::{BracketedPaste, Decawm, Decckm, Dectem, Mode, TerminalModes},
         osc::{AnsiOscInternalType, AnsiOscType},
         sgr::SelectGraphicRendition,
@@ -44,6 +45,7 @@ pub struct TerminalState {
     pub changed: bool,
     pub ctx: Option<Context>,
     pub leftover_data: Option<Vec<u8>>,
+    pub character_replace: DecSpecialGraphics,
 }
 
 impl Default for TerminalState {
@@ -65,6 +67,8 @@ impl PartialEq for TerminalState {
             && self.changed == other.changed
             && self.ctx == other.ctx
             && self.leftover_data == other.leftover_data
+            && self.show_cursor == other.show_cursor
+            && self.character_replace == other.character_replace
     }
 }
 
@@ -86,6 +90,7 @@ impl TerminalState {
             ctx: None,
             leftover_data: None,
             show_cursor: Dectem::Show,
+            character_replace: DecSpecialGraphics::DontReplace,
         }
     }
 
@@ -165,9 +170,91 @@ impl TerminalState {
     }
 
     pub(crate) fn handle_data(&mut self, data: &[u8]) {
+        let data = match self.character_replace {
+            //  Code page 1090
+            // https://en.wikipedia.org/wiki/DEC_Special_Graphics / http://fileformats.archiveteam.org/wiki/DEC_Special_Graphics_Character_Set
+            // 0x5f Blank	 	U+00A0 NO-BREAK SPACE
+            // 0x60 Diamond	◆	U+25C6 BLACK DIAMOND
+            // 0x61 Checkerboard	▒	U+2592 MEDIUM SHADE
+            // 0x62 HT	␉	U+2409 SYMBOL FOR HORIZONTAL TABULATION
+            // 0x63 FF	␌	U+240C SYMBOL FOR FORM FEED
+            // 0x64 CR	␍	U+240D SYMBOL FOR CARRIAGE RETURN
+            // 0x65 LF	␊	U+240A SYMBOL FOR LINE FEED
+            // 0x66 Degree symbol	°	U+00B0 DEGREE SIGN
+            // 0x67 Plus/minus	±	U+00B1 PLUS-MINUS SIGN
+            // 0x68 NL	␤	U+2424 SYMBOL FOR NEWLINE
+            // 0x69 VT	␋	U+240B SYMBOL FOR VERTICAL TABULATION
+            // 0x6a Lower-right corner	┘	U+2518 BOX DRAWINGS LIGHT UP AND LEFT
+            // 0x6b Upper-right corner	┐	U+2510 BOX DRAWINGS LIGHT DOWN AND LEFT
+            // 0x6c Upper-left corner	┌	U+250C BOX DRAWINGS LIGHT DOWN AND RIGHT
+            // 0x6d Lower-left corner	└	U+2514 BOX DRAWINGS LIGHT UP AND RIGHT
+            // 0x6e Crossing Lines	┼	U+253C BOX DRAWINGS LIGHT VERTICAL AND HORIZONTAL
+            // 0x6f Horizontal line - scan 1	⎺	U+23BA HORIZONTAL SCAN LINE-1
+            // 0x70 Horizontal line - scan 3	⎻	U+23BB HORIZONTAL SCAN LINE-3
+            // 0x71 Horizontal line - scan 5	─	U+2500 BOX DRAWINGS LIGHT HORIZONTAL
+            // 0x72 Horizontal line - scan 7	⎼	U+23BC HORIZONTAL SCAN LINE-7
+            // 0x73 Horizontal line - scan 9	⎽	U+23BD HORIZONTAL SCAN LINE-9
+            // 0x74 Left "T"	├	U+251C BOX DRAWINGS LIGHT VERTICAL AND RIGHT
+            // 0x75 Right "T"	┤	U+2524 BOX DRAWINGS LIGHT VERTICAL AND LEFT
+            // 0x76 Bottom "T"	┴	U+2534 BOX DRAWINGS LIGHT UP AND HORIZONTAL
+            // 0x77 Top "T"	┬	U+252C BOX DRAWINGS LIGHT DOWN AND HORIZONTAL
+            // 0x78 Vertical bar	│	U+2502 BOX DRAWINGS LIGHT VERTICAL
+            // 0x79 Less than or equal to	≤	U+2264 LESS-THAN OR EQUAL TO
+            // 0x7a Greater than or equal to	≥	U+2265 GREATER-THAN OR EQUAL TO
+            // 0x7b Pi	π	U+03C0 GREEK SMALL LETTER PI
+            // 0x7c Not equal to	≠	U+2260 NOT EQUAL TO
+            // 0x7d UK pound symbol	£	U+00A3 POUND SIGN
+            // 0x7e Centered dot	·	U+00B7 MIDDLE DOT
+            DecSpecialGraphics::Replace => {
+                debug!("Replacing special graphics characters");
+                // iterate through the characters and replace them with the appropriate unicode character
+                let mut new_data = Vec::new();
+                for c in data {
+                    match c {
+                        0x5f => new_data.extend_from_slice("\u{00A0}".as_bytes()),
+                        0x60 => new_data.extend_from_slice("\u{25C6}".as_bytes()),
+                        0x61 => new_data.extend_from_slice("\u{2592}".as_bytes()),
+                        0x62 => new_data.extend_from_slice("\u{2409}".as_bytes()),
+                        0x63 => new_data.extend_from_slice("\u{240C}".as_bytes()),
+                        0x64 => new_data.extend_from_slice("\u{240D}".as_bytes()),
+                        0x65 => new_data.extend_from_slice("\u{240A}".as_bytes()),
+                        0x66 => new_data.extend_from_slice("\u{00B0}".as_bytes()),
+                        0x67 => new_data.extend_from_slice("\u{00B1}".as_bytes()),
+                        0x68 => new_data.extend_from_slice("\u{2424}".as_bytes()),
+                        0x69 => new_data.extend_from_slice("\u{240B}".as_bytes()),
+                        0x6a => new_data.extend_from_slice("\u{2518}".as_bytes()),
+                        0x6b => new_data.extend_from_slice("\u{2510}".as_bytes()),
+                        0x6c => new_data.extend_from_slice("\u{250C}".as_bytes()),
+                        0x6d => new_data.extend_from_slice("\u{2514}".as_bytes()),
+                        0x6e => new_data.extend_from_slice("\u{253C}".as_bytes()),
+                        0x6f => new_data.extend_from_slice("\u{23BA}".as_bytes()),
+                        0x70 => new_data.extend_from_slice("\u{23BB}".as_bytes()),
+                        0x71 => new_data.extend_from_slice("\u{2500}".as_bytes()),
+                        0x72 => new_data.extend_from_slice("\u{23BC}".as_bytes()),
+                        0x73 => new_data.extend_from_slice("\u{23BD}".as_bytes()),
+                        0x74 => new_data.extend_from_slice("\u{251C}".as_bytes()),
+                        0x75 => new_data.extend_from_slice("\u{2524}".as_bytes()),
+                        0x76 => new_data.extend_from_slice("\u{2534}".as_bytes()),
+                        0x77 => new_data.extend_from_slice("\u{252C}".as_bytes()),
+                        0x78 => new_data.extend_from_slice("\u{2502}".as_bytes()),
+                        0x79 => new_data.extend_from_slice("\u{2264}".as_bytes()),
+                        0x7a => new_data.extend_from_slice("\u{2265}".as_bytes()),
+                        0x7b => new_data.extend_from_slice("\u{03C0}".as_bytes()),
+                        0x7c => new_data.extend_from_slice("\u{2260}".as_bytes()),
+                        0x7d => new_data.extend_from_slice("\u{00A3}".as_bytes()),
+                        0x7e => new_data.extend_from_slice("\u{00B7}".as_bytes()),
+                        _ => new_data.push(*c),
+                    }
+                }
+
+                new_data
+            }
+            DecSpecialGraphics::DontReplace => data.to_vec(),
+        };
+
         let response = match self
             .terminal_buffer
-            .insert_data(&self.cursor_state.pos, data)
+            .insert_data(&self.cursor_state.pos, &data)
         {
             Ok(response) => response,
             Err(e) => {
@@ -659,6 +746,9 @@ impl TerminalState {
                 TerminalOutput::InsertSpaces(num_spaces) => self.insert_spaces(num_spaces),
                 TerminalOutput::ResetMode(mode) => self.reset_mode(&mode),
                 TerminalOutput::OscResponse(osc) => self.osc_response(osc),
+                TerminalOutput::DecSpecialGraphics(dec_special_graphics) => {
+                    self.character_replace = dec_special_graphics;
+                }
                 TerminalOutput::CursorReport => self.report_cursor_position(),
                 TerminalOutput::Skipped => (),
                 TerminalOutput::Bell

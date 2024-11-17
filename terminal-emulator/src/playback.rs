@@ -14,6 +14,7 @@ use super::{
     ansi::{FreminalAnsiParser, TerminalOutput},
     format_tracker::FormatTracker,
 };
+use crate::ansi_components::line_draw::DecSpecialGraphics;
 use crate::ansi_components::mode::TerminalModes;
 use crate::ansi_components::mode::{Decawm, Decckm};
 use crate::ansi_components::mode::{Dectem, Mode};
@@ -32,7 +33,7 @@ pub struct ReplayIo {
     cursor_state: CursorState,
     modes: TerminalModes,
     show_cursor: Dectem,
-    saved_color_state: Option<(TerminalColor, TerminalColor, TerminalColor)>,
+    replace_characters: DecSpecialGraphics,
 }
 
 impl Default for ReplayIo {
@@ -59,8 +60,8 @@ impl ReplayIo {
                 cursor_key: Decckm::default(),
                 bracketed_paste: BracketedPaste::default(),
             },
-            saved_color_state: None,
             show_cursor: Dectem::Show,
+            replace_characters: DecSpecialGraphics::DontReplace,
         }
     }
 
@@ -268,7 +269,6 @@ impl ReplayIo {
         self.cursor_state.colors = StateColors::default();
         self.cursor_state.font_weight = FontWeight::Normal;
         self.cursor_state.font_decorations.clear();
-        self.saved_color_state = None;
     }
 
     fn font_decordations_add_if_not_contains(&mut self, decoration: FontDecorations) {
@@ -456,6 +456,9 @@ impl ReplayIo {
                 TerminalOutput::SetMode(mode) => self.set_mode(&mode),
                 TerminalOutput::InsertSpaces(num_spaces) => self.insert_spaces(num_spaces),
                 TerminalOutput::ResetMode(mode) => self.reset_mode(&mode),
+                TerminalOutput::DecSpecialGraphics(dec_special_graphics) => {
+                    self.replace_characters = dec_special_graphics;
+                }
                 TerminalOutput::Bell
                 | TerminalOutput::Invalid
                 | TerminalOutput::OscResponse(_)
