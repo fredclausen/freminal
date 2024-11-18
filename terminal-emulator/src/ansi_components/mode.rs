@@ -33,7 +33,7 @@ pub enum Decawm {
 }
 
 /// Bracketed Paste Mode (DEC 2004)
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Clone)]
 pub enum BracketedPaste {
     #[default]
     /// Bracketed paste mode is disabled
