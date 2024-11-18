@@ -698,7 +698,6 @@ impl TerminalState {
                 self.get_current_buffer().show_cursor = Dectem::Show;
             }
             Mode::BracketedPaste => {
-                warn!("BracketedPaste Set is not supported");
                 self.modes.bracketed_paste = BracketedPaste::Enabled;
             }
             Mode::XtExtscrn => {
@@ -745,7 +744,6 @@ impl TerminalState {
                 self.get_current_buffer().show_cursor = Dectem::Hide;
             }
             Mode::BracketedPaste => {
-                warn!("BracketedPaste Reset is not supported");
                 self.modes.bracketed_paste = BracketedPaste::Disabled;
             }
             Mode::XtExtscrn => {
