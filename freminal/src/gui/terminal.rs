@@ -9,11 +9,12 @@ use terminal_emulator::{
     format_tracker::FormatTag,
     interface::TerminalInput,
     io::FreminalTermInputOutput,
-    state::{cursor::CursorPos, data, fonts::FontDecorations, term_char::TChar},
+    state::{cursor::CursorPos, fonts::FontDecorations, term_char::TChar},
 };
 
 use eframe::egui::{
-    self, scroll_area::ScrollBarVisibility, text::LayoutJob, Color32, Context, DragValue, Event, InputState, Key, Modifiers, Rect, Stroke, TextFormat, TextStyle, Ui
+    self, scroll_area::ScrollBarVisibility, text::LayoutJob, Color32, Context, DragValue, Event,
+    InputState, Key, Modifiers, Rect, Stroke, TextFormat, TextStyle, Ui,
 };
 
 use conv::{ConvUtil, ValueFrom};
@@ -193,13 +194,8 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     }
 }
 
-fn paint_cursor(label_rect: &[Rect], character_size: (f32, f32), cursor_pos: &CursorPos, ui: &Ui) {
+fn paint_cursor(label_rect: Rect, character_size: (f32, f32), cursor_pos: &CursorPos, ui: &Ui) {
     let painter = ui.painter();
-
-    // combine the rects into a single rect
-    let label_rect = label_rect
-        .iter()
-        .fold(Rect::NOTHING, |acc, rect| acc.union(*rect));
 
     let top = label_rect.top();
     let left = label_rect.left();
@@ -225,9 +221,9 @@ fn setup_bg_fill(ctx: &egui::Context) {
 fn create_terminal_output_layout_job(
     data: &[TChar],
     format_data: &[FormatTag],
-) -> Result<Vec<(String, Vec<FormatTag>)>, std::str::Utf8Error> {
+) -> Result<(String, Vec<FormatTag>), std::str::Utf8Error> {
     if data.is_empty() {
-        return Ok(Vec::new());
+        return Ok((String::new(), Vec::new()));
     }
     let mut offset = Vec::with_capacity(data.len());
 
@@ -256,50 +252,23 @@ fn create_terminal_output_layout_job(
         offset.push(data_converted.len() - offset_amount);
     }
 
-    // let data_utf8 = match std::str::from_utf8(&data_converted) {
-    //     Ok(v) => v,
-    //     Err(e) => {
-    //         error!(
-    //             "Create output job: Failed to convert terminal data to utf8: {}",
-    //             e
-    //         );
-    //         return Err(e);
-    //     }
-    // };
+    let data_utf8 = match std::str::from_utf8(&data_converted) {
+        Ok(v) => v,
+        Err(e) => {
+            error!(
+                "Create output job: Failed to convert terminal data to utf8: {}",
+                e
+            );
+            return Err(e);
+        }
+    };
 
     // Map the format data to the utf8 data
     // Shift the format data for the number of added bytes (utf8) for any TChar found in the input data
 
-    let mut format_data_shifted: Vec<FormatTag> = Vec::new();
-    let mut format_data_final: Vec<(String, Vec<FormatTag>)> = Vec::new();
-    let mut has_url = format_data[0].url.is_some();
-    let mut offset_amount = 0;
+    let mut format_data_shifted = Vec::with_capacity(format_data.len());
     for tag in format_data {
         // Adjust byte_offset based on the length of utf8 characters
-        // if the new tag url is not the same as the previous tag url, we need to push on to format_data_final and start a new vec
-        if tag.url.is_some() && !has_url || tag.url.is_none() && has_url {
-            let string_for_range_of_tags_in_format_data_shifted = match std::str::from_utf8(
-                &data_converted
-                    [offset_amount..format_data_shifted.last().unwrap().end + offset_amount],
-            ) {
-                Ok(v) => v.to_string(),
-                Err(e) => {
-                    error!(
-                        "Create output job: Failed to convert terminal data to utf8: {}",
-                        e
-                    );
-                    return Err(e);
-                }
-            };
-
-            offset_amount += string_for_range_of_tags_in_format_data_shifted.len();
-            format_data_final.push((
-                string_for_range_of_tags_in_format_data_shifted,
-                format_data_shifted,
-            ));
-            format_data_shifted = Vec::new();
-            has_url = tag.url.is_some();
-        }
 
         let start = if tag.start < offset.len() {
             offset[tag.start]
@@ -323,8 +292,8 @@ fn create_terminal_output_layout_job(
         );
 
         format_data_shifted.push(FormatTag {
-            start: start - offset_amount,
-            end: end - offset_amount,
+            start,
+            end,
             colors: tag.colors.clone(),
             font_weight: tag.font_weight.clone(),
             font_decorations: tag.font_decorations.clone(),
@@ -333,31 +302,13 @@ fn create_terminal_output_layout_job(
         });
     }
 
-    // push the last format data onto the final format data
-    let string_for_range_of_tags_in_format_data_shifted = match std::str::from_utf8(
-        &data_converted[offset_amount..data_converted.len() - 1],
-    ) {
-        Ok(v) => v.to_string(),
-        Err(e) => {
-            error!(
-                "Create output job: Failed to convert terminal data to utf8: {}",
-                e
-            );
-            return Err(e);
-        }
-    };
-
-    format_data_final.push((
-        string_for_range_of_tags_in_format_data_shifted,
-        format_data_shifted,
-    ));
-
-    Ok(format_data_final)
+    Ok((data_utf8.to_string(), format_data_shifted))
 }
 
 #[derive(Default, Clone, Debug)]
 pub struct UiJobAction {
-    adjusted_format_data: Vec<(String, Vec<FormatTag>)>,
+    text: String,
+    adjusted_format_data: Vec<FormatTag>,
 }
 
 #[derive(Debug)]
@@ -383,8 +334,8 @@ fn setup_job(ui: &Ui, data_utf8: &str) -> (egui::text::LayoutJob, egui::TextForm
         style.visuals.text_color(),
         width,
     );
-    let textformat = job.sections[0].format.clone();
     job.wrap.break_anywhere = true;
+    let textformat = job.sections[0].format.clone();
     job.sections.clear();
 
     (job, textformat)
@@ -413,7 +364,7 @@ fn process_tags(
 
         match range.start.cmp(&data_len) {
             std::cmp::Ordering::Greater => {
-                warn!("Skipping unusable format data: {}", range.start);
+                debug!("Skipping unusable format data");
                 continue;
             }
             std::cmp::Ordering::Equal => {
@@ -423,7 +374,7 @@ fn process_tags(
         }
 
         if range.end > data_len {
-            warn!("Truncating format data end");
+            debug!("Truncating format data end");
             range.end = data_len;
         }
 
@@ -474,13 +425,10 @@ fn add_terminal_data_to_ui(
     ui: &mut Ui,
     data: &UiData,
     font_size: f32,
-) -> Result<(Vec<egui::Rect>, Option<UiJobAction>), std::str::Utf8Error> {
-    //info!("new frame")  ;
-    let adjusted_format_data: Vec<(String, Vec<FormatTag>)> = match data {
-        UiData::NewPass(data) => create_terminal_output_layout_job(data.text, &data.format_data)?,
-        UiData::PreviousPass(data) => data.adjusted_format_data.clone(),
-    };
-    let mut responses = Vec::new();
+) -> Result<(egui::Response, Option<UiJobAction>), std::str::Utf8Error> {
+    let data_utf8: String;
+    let adjusted_format_data: Vec<FormatTag>;
+    let data_len: usize;
 
     match data {
         UiData::NewPass(data) => {
@@ -496,22 +444,34 @@ fn add_terminal_data_to_ui(
             data_len = data_utf8.len();
         }
     }
+    // let (data_utf8, adjusted_format_data) =
+    //     create_terminal_output_layout_job(data, format_data)?;
+
+    let (mut job, mut textformat) = setup_job(ui, &data_utf8);
+    process_tags(
+        &adjusted_format_data,
+        data_len,
+        &mut textformat,
+        font_size,
+        &mut job,
+    );
 
     match data {
         UiData::NewPass(_) => {
             let response = UiJobAction {
+                text: data_utf8,
                 adjusted_format_data,
             };
-            Ok((responses, Some(response)))
+            Ok((ui.label(job), Some(response)))
         }
-        UiData::PreviousPass(_) => Ok((responses, None)),
+        UiData::PreviousPass(_) => Ok((ui.label(job), None)),
     }
 }
 
 #[derive(Clone)]
 struct TerminalOutputRenderResponse {
-    scrollback_area: Vec<Rect>,
-    canvas_area: Vec<Rect>,
+    scrollback_area: Rect,
+    canvas_area: Rect,
     scrollback: UiJobAction,
     canvas: UiJobAction,
 }
@@ -529,18 +489,18 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
         .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
         .show(ui, |ui| {
             let error_logged_rect = |response: Result<
-                (Vec<egui::Rect>, Option<UiJobAction>),
+                (egui::Response, Option<UiJobAction>),
                 std::str::Utf8Error,
             >| match response {
-                Ok((v, action)) => (v, action),
+                Ok((v, action)) => (v.rect, action),
                 Err(e) => {
                     error!("failed to add terminal data to ui: {}", e);
-                    (vec![Rect::NOTHING], None)
+                    (Rect::NOTHING, None)
                 }
             };
 
-            let scrollback_response: (Vec<Rect>, Option<UiJobAction>);
-            let canvas_response: (Vec<Rect>, Option<UiJobAction>);
+            let scrollback_response: (Rect, Option<UiJobAction>);
+            let canvas_response: (Rect, Option<UiJobAction>);
 
             if let Some(previous_pass) = previous_pass {
                 _ = error_logged_rect(add_terminal_data_to_ui(
@@ -581,13 +541,11 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                     font_size,
                 ));
 
-                info!("canvas response: {:?}", canvas_response.0);
-
                 TerminalOutputRenderResponse {
                     scrollback_area: scrollback_response.0,
                     canvas_area: canvas_response.0,
-                    scrollback: scrollback_response.1.unwrap_or_default(),
-                    canvas: canvas_response.1.unwrap_or_default(),
+                    scrollback: scrollback_response.1.unwrap(),
+                    canvas: canvas_response.1.unwrap(),
                 }
             }
         });
@@ -604,18 +562,7 @@ impl DebugRenderer {
         Self { enable: false }
     }
 
-    fn render_multiple(&self, ui: &Ui, rects: Vec<Rect>, color: Color32) {
-        if !self.enable {
-            return;
-        }
-
-        let color = color.gamma_multiply(0.25);
-        for rect in rects {
-            ui.painter().rect_filled(rect, 0.0, color);
-        }
-    }
-
-    fn render_single(&self, ui: &Ui, rect: Rect, color: Color32) {
+    fn render(&self, ui: &Ui, rect: Rect, color: Color32) {
         if !self.enable {
             return;
         }
@@ -646,8 +593,8 @@ impl FreminalTerminalWidget {
             previous_font_size: None,
             debug_renderer: DebugRenderer::new(),
             previous_pass: TerminalOutputRenderResponse {
-                scrollback_area: vec![Rect::NOTHING],
-                canvas_area: vec![Rect::NOTHING],
+                scrollback_area: Rect::NOTHING,
+                canvas_area: Rect::NOTHING,
                 scrollback: UiJobAction::default(),
                 canvas: UiJobAction::default(),
             },
@@ -690,7 +637,6 @@ impl FreminalTerminalWidget {
         terminal_emulator: &mut TerminalEmulator<Io>,
     ) {
         let frame_response = egui::Frame::none().show(ui, |ui| {
-            ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 0.0);
             // if the previous font size is None, or the font size has changed, we need to update the font size
             if self.previous_font_size.is_none()
                 || (self.previous_font_size.unwrap_or_default() - self.font_size).abs()
@@ -745,21 +691,15 @@ impl FreminalTerminalWidget {
                 );
             }
 
-            self.debug_renderer.render_multiple(
-                ui,
-                self.previous_pass.canvas_area.clone(),
-                Color32::BLUE,
-            );
+            self.debug_renderer
+                .render(ui, self.previous_pass.canvas_area, Color32::BLUE);
 
-            self.debug_renderer.render_multiple(
-                ui,
-                self.previous_pass.scrollback_area.clone(),
-                Color32::YELLOW,
-            );
+            self.debug_renderer
+                .render(ui, self.previous_pass.scrollback_area, Color32::YELLOW);
 
             if terminal_emulator.show_cursor() {
                 paint_cursor(
-                    &self.previous_pass.canvas_area,
+                    self.previous_pass.canvas_area,
                     self.character_size,
                     &terminal_emulator.cursor_pos(),
                     ui,
@@ -770,7 +710,7 @@ impl FreminalTerminalWidget {
         terminal_emulator.set_previous_pass_valid();
 
         self.debug_renderer
-            .render_single(ui, frame_response.response.rect, Color32::RED);
+            .render(ui, frame_response.response.rect, Color32::RED);
     }
 
     pub fn show_options(&mut self, ui: &mut Ui) {
