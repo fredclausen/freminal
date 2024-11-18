@@ -49,6 +49,7 @@ fn control_key(key: Key) -> Option<Cow<'static, [TerminalInput]>> {
     None
 }
 
+#[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
 fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     input: &InputState,
     terminal_emulator: &mut TerminalEmulator<Io>,
@@ -60,6 +61,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     let mut state_changed = false;
 
     for event in &input.raw.events {
+        debug!("event: {:?}", event);
         let inputs: Cow<'static, [TerminalInput]> = match event {
             Event::Text(text) => collect_text(text),
             Event::Key {
@@ -139,6 +141,20 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 pressed: true,
                 ..
             } => [TerminalInput::PageDown].as_ref().into(),
+            Event::Key {
+                key: Key::Tab,
+                pressed: true,
+                ..
+            } => [TerminalInput::Tab].as_ref().into(),
+            // log any Event::Key that we don't handle
+            // Event::Key { key, pressed: true, .. } => {
+            //     warn!("Unhandled key event: {:?}", key);
+            //     continue;
+            // }
+            Event::Paste(text) => {
+                // FIXME: we need to handle bracketed paste mode
+                collect_text(text)
+            }
             _ => {
                 continue;
             }

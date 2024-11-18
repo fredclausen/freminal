@@ -50,6 +50,7 @@ pub enum TerminalInput {
     Insert,
     PageUp,
     PageDown,
+    Tab,
 }
 
 impl TerminalInput {
@@ -105,6 +106,7 @@ impl TerminalInput {
                     TerminalInputPayload::Many(b"\x1b[F")
                 }
             }
+            Self::Tab => TerminalInputPayload::Single(b'\t'),
             // Why \e[3~? It seems like we are emulating the vt510. Other terminals do it, so we
             // can too
             // https://web.archive.org/web/20160304024035/http://www.vt100.net/docs/vt510-rm/chapter8
