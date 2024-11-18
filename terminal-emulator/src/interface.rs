@@ -51,17 +51,20 @@ pub enum TerminalInput {
     PageUp,
     PageDown,
     Tab,
+    Escape,
+    KeyPad(u8),
 }
 
 impl TerminalInput {
     #[must_use]
-    pub const fn to_payload(&self, decckm_mode: bool) -> TerminalInputPayload {
+    pub fn to_payload(&self, decckm_mode: bool, keypad_mode: bool) -> TerminalInputPayload {
         match self {
             Self::Ascii(c) => TerminalInputPayload::Single(*c),
             Self::Ctrl(c) => TerminalInputPayload::Single(char_to_ctrl_code(*c)),
             Self::Enter => TerminalInputPayload::Single(b'\n'),
             // Hard to tie back, but check default VERASE in terminfo definition
             Self::Backspace => TerminalInputPayload::Single(0x7f),
+            Self::Escape => TerminalInputPayload::Single(0x1b),
             // https://vt100.net/docs/vt100-ug/chapter3.html
             // Table 3-6
             Self::ArrowRight => {
@@ -104,6 +107,32 @@ impl TerminalInput {
                     TerminalInputPayload::Many(b"\x1bOF")
                 } else {
                     TerminalInputPayload::Many(b"\x1b[F")
+                }
+            }
+            Self::KeyPad(c) => {
+                if keypad_mode {
+                    TerminalInputPayload::Single(*c)
+                } else {
+                    match c {
+                        0 => TerminalInputPayload::Many(b"\x1b[Op"),
+                        1 => TerminalInputPayload::Many(b"\x1b[Oq"),
+                        2 => TerminalInputPayload::Many(b"\x1b[Or"),
+                        3 => TerminalInputPayload::Many(b"\x1b[Os"),
+                        4 => TerminalInputPayload::Many(b"\x1b[Ot"),
+                        5 => TerminalInputPayload::Many(b"\x1b[Ou"),
+                        6 => TerminalInputPayload::Many(b"\x1b[Ov"),
+                        7 => TerminalInputPayload::Many(b"\x1b[Ow"),
+                        8 => TerminalInputPayload::Many(b"\x1b[Ox"),
+                        9 => TerminalInputPayload::Many(b"\x1b[Oy"),
+                        b'-' => TerminalInputPayload::Many(b"\x1b[Om"),
+                        b',' => TerminalInputPayload::Many(b"\x1b[Ol"),
+                        b'.' => TerminalInputPayload::Many(b"\x1b[On"),
+                        b'\n' => TerminalInputPayload::Many(b"\x1b[OM"),
+                        _ => {
+                            warn!("Unknown keypad key: {c}");
+                            TerminalInputPayload::Single(*c)
+                        }
+                    }
                 }
             }
             Self::Tab => TerminalInputPayload::Single(b'\t'),

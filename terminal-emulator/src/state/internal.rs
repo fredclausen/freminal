@@ -903,10 +903,11 @@ impl TerminalState {
                 }
                 TerminalOutput::CursorReport => self.report_cursor_position(),
                 TerminalOutput::Skipped => (),
-                TerminalOutput::Bell
-                | TerminalOutput::Invalid
-                | TerminalOutput::ApplicationKeypadMode
-                | TerminalOutput::NormalKeypadMode => {
+                TerminalOutput::ApplicationKeypadMode => {
+                    self.modes.cursor_key = Decckm::Application;
+                }
+                TerminalOutput::NormalKeypadMode => self.modes.cursor_key = Decckm::Ansi,
+                TerminalOutput::Bell | TerminalOutput::Invalid => {
                     info!("Unhandled terminal output: {segment:?}");
                 }
             }
@@ -918,7 +919,10 @@ impl TerminalState {
     /// # Errors
     /// Will return an error if the write fails
     pub fn write(&self, to_write: &TerminalInput) -> Result<()> {
-        match to_write.to_payload(self.get_cursor_key_mode() == Decckm::Application) {
+        match to_write.to_payload(
+            self.get_cursor_key_mode() == Decckm::Application,
+            self.get_cursor_key_mode() == Decckm::Application,
+        ) {
             TerminalInputPayload::Single(c) => {
                 self.write_tx.send(PtyWrite::Write(vec![c]))?;
             }

@@ -64,6 +64,8 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     for event in &input.raw.events {
         debug!("event: {:?}", event);
         let inputs: Cow<'static, [TerminalInput]> = match event {
+            // FIXME: We don't support separating out numpad vs regular keys
+            // This is an egui issue. See: https://github.com/emilk/egui/issues/3653
             Event::Text(text) => collect_text(text),
             Event::Key {
                 key: Key::Enter,
@@ -152,6 +154,11 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
             //     warn!("Unhandled key event: {:?}", key);
             //     continue;
             // }
+            Event::Key {
+                key: Key::Escape,
+                pressed: true,
+                ..
+            } => [TerminalInput::Escape].as_ref().into(),
             Event::Paste(text) => {
                 let bracked_paste_mode = terminal_emulator
                     .internal
@@ -436,6 +443,7 @@ fn add_terminal_data_to_ui(
             adjusted_format_data = data.adjusted_format_data.clone();
             data_len = data_utf8.len();
         }
+
     }
     // let (data_utf8, adjusted_format_data) =
     //     create_terminal_output_layout_job(data, format_data)?;
