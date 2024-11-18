@@ -537,8 +537,8 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                 TerminalOutputRenderResponse {
                     scrollback_area: scrollback_response.0,
                     canvas_area: canvas_response.0,
-                    scrollback: scrollback_response.1.unwrap(),
-                    canvas: canvas_response.1.unwrap(),
+                    scrollback: scrollback_response.1.unwrap_or_default(),
+                    canvas: canvas_response.1.unwrap_or_default(),
                 }
             }
         });
