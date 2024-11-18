@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::state::cursor::StateColors;
+use crate::{ansi_components::osc::Url, state::cursor::StateColors};
 
 use super::{
     ansi_components::mode::Decawm,
@@ -65,6 +65,7 @@ fn adjust_existing_format_range(
                 font_weight: existing_elem.font_weight.clone(),
                 font_decorations: existing_elem.font_decorations.clone(),
                 line_wrap_mode: existing_elem.line_wrap_mode.clone(),
+                url: existing_elem.url.clone(),
             });
         }
 
@@ -134,6 +135,7 @@ pub struct FormatTag {
     pub font_weight: FontWeight,
     pub font_decorations: Vec<FontDecorations>,
     pub line_wrap_mode: Decawm,
+    pub url: Option<Url>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -158,6 +160,7 @@ impl FormatTracker {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             }],
         }
     }
@@ -172,6 +175,7 @@ impl FormatTracker {
             font_weight: cursor.font_weight.clone(),
             font_decorations: cursor.font_decorations.clone(),
             line_wrap_mode: cursor.line_wrap_mode.clone(),
+            url: cursor.url.clone(),
         });
 
         // FIXME: Insertion sort

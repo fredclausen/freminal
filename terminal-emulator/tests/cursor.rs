@@ -52,6 +52,7 @@ fn test_cursor_state_with() {
             font_decorations: Vec::new(),
             colors: StateColors::default(),
             line_wrap_mode: Decawm::default(),
+            url: None,
         }
     );
 
@@ -64,6 +65,7 @@ fn test_cursor_state_with() {
             font_decorations: vec![FontDecorations::Underline],
             colors: StateColors::default(),
             line_wrap_mode: Decawm::default(),
+            url: None,
         }
     );
 
@@ -76,6 +78,7 @@ fn test_cursor_state_with() {
             font_decorations: Vec::new(),
             colors: StateColors::default(),
             line_wrap_mode: Decawm::default(),
+            url: None,
         }
     );
 }

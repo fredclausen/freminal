@@ -28,6 +28,7 @@ fn get_tags() -> Vec<FormatTag> {
             font_weight: FontWeight::Normal,
             font_decorations: Vec::new(),
             line_wrap_mode: Decawm::default(),
+            url: None,
         },
         FormatTag {
             start: 5,
@@ -41,6 +42,7 @@ fn get_tags() -> Vec<FormatTag> {
             font_weight: FontWeight::Normal,
             font_decorations: Vec::new(),
             line_wrap_mode: Decawm::default(),
+            url: None,
         },
         FormatTag {
             start: 7,
@@ -54,6 +56,7 @@ fn get_tags() -> Vec<FormatTag> {
             font_weight: FontWeight::Normal,
             font_decorations: Vec::new(),
             line_wrap_mode: Decawm::default(),
+            url: None,
         },
         FormatTag {
             start: 10,
@@ -67,6 +70,7 @@ fn get_tags() -> Vec<FormatTag> {
             font_weight: FontWeight::Normal,
             font_decorations: Vec::new(),
             line_wrap_mode: Decawm::default(),
+            url: None,
         },
     ]
 }
@@ -91,6 +95,7 @@ fn test_format_tracker_scrollback_split_on_boundary() {
             font_weight: FontWeight::Normal,
             font_decorations: Vec::new(),
             line_wrap_mode: Decawm::default(),
+            url: None,
         },]
     );
 }
@@ -116,6 +121,7 @@ fn test_format_tracker_scrollback_split_segment() {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 5,
@@ -129,6 +135,7 @@ fn test_format_tracker_scrollback_split_segment() {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 7,
@@ -142,6 +149,7 @@ fn test_format_tracker_scrollback_split_segment() {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
         ]
     );
@@ -161,6 +169,7 @@ fn test_format_tracker_scrollback_split_segment() {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 1,
@@ -174,6 +183,7 @@ fn test_format_tracker_scrollback_split_segment() {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
         ]
     );

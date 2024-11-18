@@ -26,6 +26,7 @@ fn basic_color_test_one(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 3,
@@ -34,6 +35,7 @@ fn basic_color_test_one(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 10,
@@ -42,6 +44,7 @@ fn basic_color_test_one(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
         ]
     );
@@ -59,6 +62,7 @@ fn basic_color_test_two(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 3,
@@ -67,6 +71,7 @@ fn basic_color_test_two(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 5,
@@ -75,6 +80,7 @@ fn basic_color_test_two(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 7,
@@ -83,6 +89,7 @@ fn basic_color_test_two(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 10,
@@ -91,6 +98,7 @@ fn basic_color_test_two(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
         ]
     );
@@ -108,6 +116,7 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 3,
@@ -116,6 +125,7 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 5,
@@ -124,6 +134,7 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 7,
@@ -132,6 +143,7 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 9,
@@ -140,6 +152,7 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 10,
@@ -148,6 +161,7 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
         ]
     );
@@ -165,6 +179,7 @@ fn basic_color_test_four(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 3,
@@ -173,6 +188,7 @@ fn basic_color_test_four(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 5,
@@ -181,6 +197,7 @@ fn basic_color_test_four(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 6,
@@ -189,6 +206,7 @@ fn basic_color_test_four(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Bold,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 11,
@@ -197,6 +215,7 @@ fn basic_color_test_four(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
         ]
     );
@@ -250,6 +269,7 @@ fn del_range_test_one(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 8,
@@ -263,6 +283,7 @@ fn del_range_test_one(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 18,
@@ -271,6 +292,7 @@ fn del_range_test_one(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             }
         ]
     );
@@ -292,6 +314,7 @@ fn del_range_test_two(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 6,
@@ -305,6 +328,7 @@ fn del_range_test_two(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 16,
@@ -313,6 +337,7 @@ fn del_range_test_two(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             }
         ]
     );
@@ -334,6 +359,7 @@ fn del_range_test_three(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 4,
@@ -347,6 +373,7 @@ fn del_range_test_three(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 14,
@@ -355,6 +382,7 @@ fn del_range_test_three(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             }
         ]
     );
@@ -376,6 +404,7 @@ fn del_range_test_four(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 2,
@@ -389,6 +418,7 @@ fn del_range_test_four(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 9,
@@ -397,6 +427,7 @@ fn del_range_test_four(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             }
         ]
     );
@@ -439,6 +470,7 @@ fn range_adjustment_test_one(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 5,
@@ -452,6 +484,7 @@ fn range_adjustment_test_one(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 10,
@@ -460,6 +493,7 @@ fn range_adjustment_test_one(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
         ]
     );
@@ -481,6 +515,7 @@ fn range_adjustment_test_two(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 8,
@@ -494,6 +529,7 @@ fn range_adjustment_test_two(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 13,
@@ -502,6 +538,7 @@ fn range_adjustment_test_two(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
         ]
     );
@@ -523,6 +560,7 @@ fn range_adjustment_test_three(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 8,
@@ -536,6 +574,7 @@ fn range_adjustment_test_three(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             FormatTag {
                 start: 15,
@@ -544,6 +583,7 @@ fn range_adjustment_test_three(format_tracker: &FormatTracker) {
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
         ]
     );

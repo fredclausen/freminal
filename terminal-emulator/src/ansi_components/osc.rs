@@ -1,3 +1,4 @@
+use std::fmt;
 use std::str::FromStr;
 
 //use eframe::egui::Color32;
@@ -58,6 +59,7 @@ enum OscTarget {
     // https://iterm2.com/documentation-escape-codes.html
     Ftcs,
     RemoteHost,
+    Url,
     Unknown,
 }
 
@@ -67,11 +69,69 @@ impl From<AnsiOscToken> for OscTarget {
             AnsiOscToken::U8(0 | 2) => Self::TitleBar,
             AnsiOscToken::U8(1) => Self::IconName,
             AnsiOscToken::U8(7) => Self::RemoteHost,
+            AnsiOscToken::U8(8) => Self::Url,
             AnsiOscToken::U8(11) => Self::Background,
             AnsiOscToken::U8(10) => Self::Foreground,
             AnsiOscToken::U8(133) => Self::Ftcs,
             _ => Self::Unknown,
         }
+    }
+}
+
+#[derive(Eq, PartialEq, Debug, Clone)]
+pub enum UrlResponse {
+    Url(Url),
+    End,
+}
+
+impl std::fmt::Display for UrlResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Url(url) => write!(f, "Url({url})"),
+            Self::End => write!(f, "End"),
+        }
+    }
+}
+
+impl From<Vec<Option<AnsiOscToken>>> for UrlResponse {
+    fn from(value: Vec<Option<AnsiOscToken>>) -> Self {
+        // There are two tokens that we care about
+        // if BOTH tokens are None, then it is the end of the URL
+
+        // Otherwise, the first token is the ID, and the second token is the URL
+        match value.as_slice() {
+            [Some(AnsiOscToken::U8(8)), Some(AnsiOscToken::String(id)), Some(AnsiOscToken::String(url))] => {
+                Self::Url(Url {
+                    id: Some(id.clone()),
+                    url: url.clone(),
+                })
+            }
+            [Some(AnsiOscToken::U8(8)), None, Some(AnsiOscToken::String(url))] => Self::Url(Url {
+                id: None,
+                url: url.clone(),
+            }),
+            _ => Self::End,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Url {
+    // Ostensibly, the ID is a key/value pair that is used to identify the URL
+    // However, the current spec (https://iterm2.com/documentation-escape-codes.html) only
+    // defines the ID as the only valid parameter
+    pub id: Option<String>,
+    pub url: String,
+}
+
+impl fmt::Display for Url {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Url {{ id: {}, url: {} }}",
+            self.id.clone().unwrap_or_else(|| "None".to_string()),
+            self.url
+        )
     }
 }
 
@@ -83,6 +143,7 @@ pub enum AnsiOscType {
     // FIXME: We're handling 0 and 2 as just title bar for now
     // if we go tabbed, we'll need to handle 2 differently
     SetTitleBar(String),
+    Url(UrlResponse),
 }
 
 impl std::fmt::Display for AnsiOscType {
@@ -94,6 +155,7 @@ impl std::fmt::Display for AnsiOscType {
             Self::RequestColorQueryForeground(value) => {
                 write!(f, "RequestColorQueryForeground({value:?})")
             }
+            Self::Url(url) => write!(f, "Url({url})"),
             Self::SetTitleBar(value) => write!(f, "SetTitleBar({value:?})"),
             Self::Ftcs(value) => write!(f, "Ftcs ({value:?})"),
         }
@@ -198,7 +260,7 @@ impl AnsiOscParser {
                     };
 
                     let osc_target = OscTarget::from(type_number.clone());
-                    let osc_internal_type = AnsiOscInternalType::from(params);
+                    let osc_internal_type = AnsiOscInternalType::from(params.clone());
 
                     match osc_target {
                         OscTarget::Background => {
@@ -210,10 +272,6 @@ impl AnsiOscParser {
                             output.push(TerminalOutput::OscResponse(
                                 AnsiOscType::RequestColorQueryForeground(osc_internal_type),
                             ));
-                        }
-                        OscTarget::Unknown => {
-                            warn!("Unknown OSC target: {:?}", type_number);
-                            output.push(TerminalOutput::Invalid);
                         }
                         OscTarget::TitleBar => {
                             output.push(TerminalOutput::OscResponse(AnsiOscType::SetTitleBar(
@@ -233,6 +291,15 @@ impl AnsiOscParser {
                         OscTarget::RemoteHost => {
                             warn!("RemoteHost is not supported");
                             output.push(TerminalOutput::Skipped);
+                        }
+                        OscTarget::Url => {
+                            let url_response = UrlResponse::from(params);
+                            output
+                                .push(TerminalOutput::OscResponse(AnsiOscType::Url(url_response)));
+                        }
+                        OscTarget::Unknown => {
+                            warn!("Unknown OSC target: {:?}", type_number);
+                            output.push(TerminalOutput::Invalid);
                         }
                     }
                 } else {

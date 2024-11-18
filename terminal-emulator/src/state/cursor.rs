@@ -5,7 +5,7 @@
 
 use freminal_common::colors::TerminalColor;
 
-use crate::ansi_components::mode::Decawm;
+use crate::ansi_components::{mode::Decawm, osc::Url};
 
 use super::fonts::{FontDecorations, FontWeight};
 
@@ -130,6 +130,7 @@ pub struct CursorState {
     pub font_decorations: Vec<FontDecorations>,
     pub colors: StateColors,
     pub line_wrap_mode: Decawm,
+    pub url: Option<Url>,
 }
 
 // FIXME: it would be cool to not lint this out

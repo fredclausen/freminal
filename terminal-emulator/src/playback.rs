@@ -55,6 +55,7 @@ impl ReplayIo {
                 font_decorations: Vec::new(),
                 colors: StateColors::default(),
                 line_wrap_mode: Decawm::default(),
+                url: None,
             },
             modes: TerminalModes {
                 cursor_key: Decckm::default(),

@@ -13,7 +13,7 @@ use crate::{
     ansi_components::{
         line_draw::DecSpecialGraphics,
         mode::{BracketedPaste, Decawm, Decckm, Dectem, Mode, TerminalModes},
-        osc::{AnsiOscInternalType, AnsiOscType},
+        osc::{AnsiOscInternalType, AnsiOscType, UrlResponse},
         sgr::SelectGraphicRendition,
     },
     format_tracker::{FormatTag, FormatTracker},
@@ -764,6 +764,14 @@ impl TerminalState {
 
     pub(crate) fn osc_response(&mut self, osc: AnsiOscType) {
         match osc {
+            AnsiOscType::Url(url) => match url {
+                UrlResponse::End => {
+                    self.get_current_buffer().cursor_state.url = None;
+                }
+                UrlResponse::Url(url_value) => {
+                    self.get_current_buffer().cursor_state.url = Some(url_value);
+                }
+            },
             AnsiOscType::RequestColorQueryBackground(color) => {
                 match color {
                     // OscInternalType::SetColor(_) => {
