@@ -400,6 +400,9 @@ impl ReplayIo {
             Mode::BracketedPaste => {
                 self.modes.bracketed_paste = BracketedPaste::Enabled;
             }
+            Mode::XtExtscrn => {
+                warn!("Unhandled set mode: {mode:?}");
+            }
             Mode::Unknown(_) => {
                 warn!("unhandled set mode: {mode:?}");
             }
@@ -427,6 +430,9 @@ impl ReplayIo {
             }
             Mode::BracketedPaste => {
                 self.modes.bracketed_paste = BracketedPaste::Disabled;
+            }
+            Mode::XtExtscrn => {
+                warn!("Unhandled reset mode: {mode:?}");
             }
             Mode::Unknown(_) => {}
         }

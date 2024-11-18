@@ -7,6 +7,7 @@ pub enum Mode {
     Decckm,
     Decawm,
     Dectem,
+    XtExtscrn,
     BracketedPaste,
     Unknown(Vec<u8>),
 }
@@ -42,10 +43,19 @@ pub enum BracketedPaste {
 }
 
 /// Show cursor (DECTCEM)
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Default)]
 pub enum Dectem {
+    #[default]
     Show,
     Hide,
+}
+
+/// Alternate Screen (`XT_EXTSCRN`)
+#[derive(Debug, Eq, PartialEq, Default)]
+pub enum XtExtscrn {
+    #[default]
+    Primary,
+    Alternate,
 }
 
 #[derive(Debug, Eq, PartialEq, Default)]
@@ -60,6 +70,7 @@ impl fmt::Debug for Mode {
             Self::Decckm => f.write_str("Decckm"),
             Self::Decawm => f.write_str("Decawm"),
             Self::Dectem => f.write_str("Dectem"),
+            Self::XtExtscrn => f.write_str("XtExtscrn"),
             Self::BracketedPaste => f.write_str("BracketedPasteMode"),
             Self::Unknown(params) => {
                 let params_s = std::str::from_utf8(params)
@@ -77,6 +88,7 @@ pub fn terminal_mode_from_params(params: &[u8]) -> Mode {
         b"?1" => Mode::Decckm,
         b"?7" => Mode::Decawm,
         b"?25" => Mode::Dectem,
+        b"?1049" => Mode::XtExtscrn,
         b"?2004" => Mode::BracketedPaste,
         _ => Mode::Unknown(params.to_vec()),
     }

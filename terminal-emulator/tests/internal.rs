@@ -9,17 +9,15 @@ use terminal_emulator::{
     ansi::FreminalAnsiParser,
     ansi_components::{
         line_draw::DecSpecialGraphics,
-        mode::{BracketedPaste, Decckm, Dectem, TerminalModes},
+        mode::{BracketedPaste, Decckm, TerminalModes},
         sgr::SelectGraphicRendition,
     },
-    format_tracker::FormatTracker,
     interface::TerminalInput,
     io::PtyWrite,
     state::{
-        buffer::TerminalBufferHolder,
         cursor::{CursorPos, CursorState, ReverseVideo, StateColors},
         fonts::{FontDecorations, FontWeight},
-        internal::{TerminalState, TERMINAL_HEIGHT, TERMINAL_WIDTH},
+        internal::{Buffer, CurrentBuffer, TerminalState, TERMINAL_HEIGHT, TERMINAL_WIDTH},
         term_char::{display_vec_tchar_as_string, TChar},
     },
 };
@@ -31,20 +29,19 @@ fn test_internal_terminal_state_new() {
     let ctx = Context::default();
     let expected = TerminalState {
         parser: FreminalAnsiParser::new(),
-        terminal_buffer: TerminalBufferHolder::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
-        format_tracker: FormatTracker::new(),
+        primary_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
+        alternate_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
         modes: TerminalModes {
             cursor_key: Decckm::default(),
             bracketed_paste: BracketedPaste::default(),
         },
-        cursor_state: CursorState::default(),
         window_title: None,
         write_tx: tx,
         changed: false,
         ctx: None,
         leftover_data: None,
-        show_cursor: Dectem::Show,
         character_replace: DecSpecialGraphics::DontReplace,
+        current_buffer: CurrentBuffer::Primary,
     };
 
     assert_eq!(terminal_state, expected);
@@ -84,33 +81,33 @@ fn test_internal_terminal_state_new() {
     assert_eq!(cursor_key_mode, Decckm::default());
 
     terminal_state.set_cursor_pos(Some(5), Some(5));
-    let cursor_pos = terminal_state.cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
     let expected = CursorPos { x: 4, y: 4 };
     assert_eq!(cursor_pos, expected);
 
     terminal_state.set_cursor_pos(Some(1), None);
-    let cursor_pos = terminal_state.cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
     let expected = CursorPos { x: 0, y: 4 };
     assert_eq!(cursor_pos, expected);
 
     terminal_state.set_cursor_pos(None, Some(10));
-    let cursor_pos = terminal_state.cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
     let expected = CursorPos { x: 0, y: 9 };
     assert_eq!(cursor_pos, expected);
 
     // set cursor rel
     terminal_state.set_cursor_pos_rel(Some(1), Some(1));
-    let cursor_pos = terminal_state.cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
     let expected = CursorPos { x: 1, y: 10 };
     assert_eq!(cursor_pos, expected);
 
     terminal_state.set_cursor_pos_rel(Some(1), None);
-    let cursor_pos = terminal_state.cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
     let expected = CursorPos { x: 2, y: 10 };
     assert_eq!(cursor_pos, expected);
 
     terminal_state.set_cursor_pos_rel(None, Some(-8));
-    let cursor_pos = terminal_state.cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
     let expected = CursorPos { x: 2, y: 2 };
     assert_eq!(cursor_pos, expected);
 }
@@ -124,14 +121,14 @@ fn test_internal_terminal_state_data() {
     let data = b"Hello, World!";
     terminal_state.handle_incoming_data(data);
     // verify that the data was written to the buffer
-    let buffer = terminal_state.terminal_buffer.data();
+    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
     let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
     assert_eq!(buffer.visible, expected);
 
     // test leftover data
     terminal_state.leftover_data = Some(b"Hello, World!".to_vec());
     terminal_state.handle_incoming_data(b"\n");
-    let buffer = terminal_state.terminal_buffer.data();
+    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
 
     let expected = TChar::from_vec(b"Hello, World!Hello, World!\n").unwrap();
     // combine the two buffers in to one vec of TChar
@@ -155,18 +152,18 @@ fn test_set_cursor_pos() {
         0x72, 0x6c, 0x64, 0x21,
     ];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.terminal_buffer.data();
+    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
     let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
     assert_eq!(buffer.visible, expected);
     // verify that the cursor position is set to the end of the string
-    let cursor_pos = terminal_state.cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
     let expected = CursorPos { x: 13, y: 0 };
     assert_eq!(cursor_pos, expected);
 
     // test cursor movement
     let data: [u8; 6] = [0x1b, 0x5b, 0x31, 0x3b, 0x31, 0x48];
     terminal_state.handle_incoming_data(&data);
-    let cursor_pos = terminal_state.cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
     let expected = CursorPos { x: 0, y: 0 };
     assert_eq!(cursor_pos, expected);
 }
@@ -182,7 +179,7 @@ fn test_set_cursor_pos_rel() {
     // "\0x1b[3D" moves the cursor right by 3
     let data: [u8; 4] = [0x1b, 0x5b, 0x33, 0x44];
     terminal_state.handle_incoming_data(&data);
-    let cursor_pos = terminal_state.cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
     let expected = CursorPos { x: 10, y: 0 };
     assert_eq!(cursor_pos, expected);
 }
@@ -205,7 +202,7 @@ fn test_clear_display_from_cursor_to_end_of_display() {
 
     let data: [u8; 4] = [0x1b, 0x5b, 0x30, 0x4a];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.terminal_buffer.data();
+    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
     let expected = TChar::from_vec(b"Hello, Wor\n").unwrap();
     assert_eq!(buffer.visible, expected);
 }
@@ -228,7 +225,7 @@ fn test_clear_display_from_start_of_display_to_cursor() {
 
     let data: [u8; 4] = [0x1b, 0x5b, 0x31, 0x4a];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.terminal_buffer.data();
+    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
     let expected = TChar::from_vec(b"          ld!\n").unwrap();
     assert_eq!(buffer.visible, expected);
 }
@@ -243,7 +240,7 @@ fn test_clear_display() {
     // "\0x1b[3J" clears everything
     let data: [u8; 4] = [0x1b, 0x5b, 0x33, 0x4a];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.terminal_buffer.data();
+    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
     // verify both the visible and scrollback buffers are empty
     assert!(buffer.visible.is_empty());
     assert!(buffer.scrollback.is_empty());
@@ -255,7 +252,7 @@ fn test_clear_display() {
     terminal_state.handle_incoming_data(data);
 
     // ensure the scrollback and visible buffers are are correct
-    let buffer = terminal_state.terminal_buffer.data();
+    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
     let expected_visible =
         b"Hello, World!\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n";
     let expected_visible = TChar::from_vec(expected_visible).unwrap();
@@ -277,11 +274,11 @@ fn test_clear_display() {
         display_vec_tchar_as_string(&scrollback_expected)
     );
 
-    let old_cursor_pos = terminal_state.cursor_state.pos.clone();
+    let old_cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
     // clear just the visible buffer
     let data: [u8; 4] = [0x1b, 0x5b, 0x32, 0x4a];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.terminal_buffer.data();
+    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
     // expected visible is the previous expected visible with all the characters replaced with spaces, unless the TChar is a newline
     let expected_visible = expected_visible
         .iter()
@@ -300,7 +297,10 @@ fn test_clear_display() {
         display_vec_tchar_as_string(&buffer.visible)
     );
     // verify the cursor position is unchanged
-    assert_eq!(old_cursor_pos, terminal_state.cursor_state.pos);
+    assert_eq!(
+        old_cursor_pos,
+        terminal_state.get_current_buffer().cursor_state.pos
+    );
 }
 
 #[test]
@@ -317,7 +317,7 @@ fn test_clear_lines() {
     let data: [u8; 4] = [0x1b, 0x5b, 0x32, 0x4b];
     terminal_state.handle_incoming_data(&data);
 
-    let buffer = terminal_state.terminal_buffer.data();
+    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
     let expected_visible =
         b"Hello, World!\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n\n";
     let expected_visible = TChar::from_vec(expected_visible).unwrap();
@@ -336,7 +336,7 @@ fn test_clear_lines() {
     let data: [u8; 4] = [0x1b, 0x5b, 0x31, 0x4b];
     terminal_state.handle_incoming_data(&data);
 
-    let buffer = terminal_state.terminal_buffer.data();
+    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
     let expected = b"o, World!\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n\n";
     let expected = TChar::from_vec(expected).unwrap();
     assert_eq!(
@@ -349,7 +349,7 @@ fn test_clear_lines() {
     // now delete to the right of the cursor
     let data: [u8; 4] = [0x1b, 0x5b, 0x30, 0x4b];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.terminal_buffer.data();
+    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
 
     let expected = b"o, W\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n\n";
     let expected = TChar::from_vec(expected).unwrap();
@@ -373,7 +373,7 @@ fn test_invalid_sequence() {
     // send an invalid sequence
     let data: [u8; 2] = [0x1b, 0x69];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.terminal_buffer.data();
+    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
     let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
     assert_eq!(buffer.visible, expected);
 }
@@ -388,12 +388,12 @@ fn test_backspace_and_delete_and_spaces() {
     terminal_state.handle_incoming_data(data);
 
     // send a backspace
-    let previous_cursor_pos = terminal_state.cursor_state.pos.clone();
+    let previous_cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
     let data: [u8; 1] = [0x08];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.terminal_buffer.data();
+    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
     let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
-    let new_cursor_pos = terminal_state.cursor_state.pos.clone();
+    let new_cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
     assert_eq!(buffer.visible, expected);
     assert_eq!(
         new_cursor_pos,
@@ -408,7 +408,7 @@ fn test_backspace_and_delete_and_spaces() {
 
     let data: [u8; 4] = [0x1b, 0x5b, 0x31, 0x50];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.terminal_buffer.data();
+    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
     let expected = TChar::from_vec(b"Hello, World\n").unwrap();
     assert_eq!(buffer.visible, expected);
 
@@ -416,7 +416,7 @@ fn test_backspace_and_delete_and_spaces() {
     // ESC [ Pn @
     let data: [u8; 4] = [0x1b, 0x5b, 0x31, 0x40];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.terminal_buffer.data();
+    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
     let expected = TChar::from_vec(b"Hello, World \n").unwrap();
     assert_eq!(buffer.visible, expected);
 }
@@ -508,28 +508,40 @@ fn test_sgr_sequences() {
         match i {
             // Reset. We'll need to add some data to the cursor state to test this
             0 => {
-                terminal_state.cursor_state.font_weight = FontWeight::Bold;
-                terminal_state.cursor_state.font_decorations = vec![FontDecorations::Underline];
-                terminal_state.cursor_state.colors = StateColors {
+                terminal_state.get_current_buffer().cursor_state.font_weight = FontWeight::Bold;
+                terminal_state
+                    .get_current_buffer()
+                    .cursor_state
+                    .font_decorations = vec![FontDecorations::Underline];
+                terminal_state.get_current_buffer().cursor_state.colors = StateColors {
                     color: TerminalColor::Black,
                     background_color: TerminalColor::Black,
                     ..StateColors::default()
                 };
             }
             21 => {
-                terminal_state.cursor_state.font_weight = FontWeight::Bold;
+                terminal_state.get_current_buffer().cursor_state.font_weight = FontWeight::Bold;
             }
             22 => {
-                terminal_state.cursor_state.font_decorations = vec![FontDecorations::Faint];
+                terminal_state
+                    .get_current_buffer()
+                    .cursor_state
+                    .font_decorations = vec![FontDecorations::Faint];
             }
             23 => {
-                terminal_state.cursor_state.font_decorations = vec![FontDecorations::Italic];
+                terminal_state
+                    .get_current_buffer()
+                    .cursor_state
+                    .font_decorations = vec![FontDecorations::Italic];
             }
             24 => {
-                terminal_state.cursor_state.font_decorations = vec![FontDecorations::Underline];
+                terminal_state
+                    .get_current_buffer()
+                    .cursor_state
+                    .font_decorations = vec![FontDecorations::Underline];
             }
             27 => {
-                terminal_state.cursor_state.colors = StateColors {
+                terminal_state.get_current_buffer().cursor_state.colors = StateColors {
                     reverse_video: ReverseVideo::On,
                     ..StateColors::default()
                 };
@@ -558,9 +570,12 @@ fn test_sgr_sequences() {
                 assert_eq!(
                     terminal_state,
                     TerminalState {
-                        cursor_state: CursorState {
-                            font_weight: FontWeight::Bold,
-                            ..CursorState::default()
+                        primary_buffer: Buffer {
+                            cursor_state: CursorState {
+                                font_weight: FontWeight::Bold,
+                                ..CursorState::default()
+                            },
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
                         ..Default::default()
@@ -571,9 +586,12 @@ fn test_sgr_sequences() {
                 assert_eq!(
                     terminal_state,
                     TerminalState {
-                        cursor_state: CursorState {
-                            font_decorations: vec![FontDecorations::Faint],
-                            ..CursorState::default()
+                        primary_buffer: Buffer {
+                            cursor_state: CursorState {
+                                font_decorations: vec![FontDecorations::Faint],
+                                ..CursorState::default()
+                            },
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
                         ..Default::default()
@@ -584,9 +602,12 @@ fn test_sgr_sequences() {
                 assert_eq!(
                     terminal_state,
                     TerminalState {
-                        cursor_state: CursorState {
-                            font_decorations: vec![FontDecorations::Italic],
-                            ..CursorState::default()
+                        primary_buffer: Buffer {
+                            cursor_state: CursorState {
+                                font_decorations: vec![FontDecorations::Italic],
+                                ..CursorState::default()
+                            },
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
                         ..Default::default()
@@ -597,9 +618,12 @@ fn test_sgr_sequences() {
                 assert_eq!(
                     terminal_state,
                     TerminalState {
-                        cursor_state: CursorState {
-                            font_decorations: vec![FontDecorations::Underline],
-                            ..CursorState::default()
+                        primary_buffer: Buffer {
+                            cursor_state: CursorState {
+                                font_decorations: vec![FontDecorations::Underline],
+                                ..CursorState::default()
+                            },
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
                         ..Default::default()
@@ -610,12 +634,15 @@ fn test_sgr_sequences() {
                 assert_eq!(
                     terminal_state,
                     TerminalState {
-                        cursor_state: CursorState {
-                            colors: StateColors {
-                                reverse_video: ReverseVideo::On,
-                                ..StateColors::default()
+                        primary_buffer: Buffer {
+                            cursor_state: CursorState {
+                                colors: StateColors {
+                                    reverse_video: ReverseVideo::On,
+                                    ..StateColors::default()
+                                },
+                                ..CursorState::default()
                             },
-                            ..CursorState::default()
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
                         ..Default::default()
@@ -626,9 +653,12 @@ fn test_sgr_sequences() {
                 assert_eq!(
                     terminal_state,
                     TerminalState {
-                        cursor_state: CursorState {
-                            font_decorations: vec![FontDecorations::Strikethrough],
-                            ..CursorState::default()
+                        primary_buffer: Buffer {
+                            cursor_state: CursorState {
+                                font_decorations: vec![FontDecorations::Strikethrough],
+                                ..CursorState::default()
+                            },
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
                         ..Default::default()
@@ -639,12 +669,15 @@ fn test_sgr_sequences() {
                 assert_eq!(
                     terminal_state,
                     TerminalState {
-                        cursor_state: CursorState {
-                            colors: StateColors {
-                                color,
-                                ..StateColors::default()
+                        primary_buffer: Buffer {
+                            cursor_state: CursorState {
+                                colors: StateColors {
+                                    color,
+                                    ..StateColors::default()
+                                },
+                                ..CursorState::default()
                             },
-                            ..CursorState::default()
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
                         ..Default::default()
@@ -655,12 +688,15 @@ fn test_sgr_sequences() {
                 assert_eq!(
                     terminal_state,
                     TerminalState {
-                        cursor_state: CursorState {
-                            colors: StateColors {
-                                background_color: color,
-                                ..StateColors::default()
+                        primary_buffer: Buffer {
+                            cursor_state: CursorState {
+                                colors: StateColors {
+                                    background_color: color,
+                                    ..StateColors::default()
+                                },
+                                ..CursorState::default()
                             },
-                            ..CursorState::default()
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
                         ..Default::default()
@@ -671,12 +707,15 @@ fn test_sgr_sequences() {
                 assert_eq!(
                     terminal_state,
                     TerminalState {
-                        cursor_state: CursorState {
-                            colors: StateColors {
-                                underline_color: color,
-                                ..StateColors::default()
+                        primary_buffer: Buffer {
+                            cursor_state: CursorState {
+                                colors: StateColors {
+                                    underline_color: color,
+                                    ..StateColors::default()
+                                },
+                                ..CursorState::default()
                             },
-                            ..CursorState::default()
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
                         ..Default::default()
@@ -684,11 +723,14 @@ fn test_sgr_sequences() {
                 );
             }
             _ => {
-                assert_eq!(terminal_state.cursor_state, CursorState::default());
+                assert_eq!(
+                    terminal_state.get_current_buffer().cursor_state,
+                    CursorState::default()
+                );
             }
         }
 
         // reset the cursor state
-        terminal_state.cursor_state = CursorState::default();
+        terminal_state.get_current_buffer().cursor_state = CursorState::default();
     }
 }

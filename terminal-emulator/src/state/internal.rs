@@ -32,13 +32,41 @@ use super::{
 pub const TERMINAL_WIDTH: usize = 50;
 pub const TERMINAL_HEIGHT: usize = 16;
 
-#[derive(Debug)]
-pub struct TerminalState {
-    pub parser: FreminalAnsiParser,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CurrentBuffer {
+    #[default]
+    Primary,
+    Alternate,
+}
+
+#[derive(Debug, PartialEq, Eq, Default)]
+pub struct Buffer {
     pub terminal_buffer: TerminalBufferHolder,
     pub format_tracker: FormatTracker,
     pub cursor_state: CursorState,
     pub show_cursor: Dectem,
+    pub saved_cursor_position: Option<CursorPos>,
+}
+
+impl Buffer {
+    #[must_use]
+    pub fn new(width: usize, height: usize) -> Self {
+        Self {
+            terminal_buffer: TerminalBufferHolder::new(width, height),
+            format_tracker: FormatTracker::new(),
+            cursor_state: CursorState::default(),
+            show_cursor: Dectem::default(),
+            saved_cursor_position: None,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct TerminalState {
+    pub parser: FreminalAnsiParser,
+    pub current_buffer: CurrentBuffer,
+    pub primary_buffer: Buffer,
+    pub alternate_buffer: Buffer,
     pub modes: TerminalModes,
     pub window_title: Option<String>,
     pub write_tx: crossbeam_channel::Sender<PtyWrite>,
@@ -59,15 +87,13 @@ impl Default for TerminalState {
 impl PartialEq for TerminalState {
     fn eq(&self, other: &Self) -> bool {
         self.parser == other.parser
-            && self.terminal_buffer == other.terminal_buffer
-            && self.format_tracker == other.format_tracker
-            && self.cursor_state == other.cursor_state
+            && self.primary_buffer == other.primary_buffer
+            && self.alternate_buffer == other.alternate_buffer
             && self.modes == other.modes
             && self.window_title == other.window_title
             && self.changed == other.changed
             && self.ctx == other.ctx
             && self.leftover_data == other.leftover_data
-            && self.show_cursor == other.show_cursor
             && self.character_replace == other.character_replace
     }
 }
@@ -77,19 +103,18 @@ impl TerminalState {
     pub fn new(write_tx: crossbeam_channel::Sender<PtyWrite>) -> Self {
         Self {
             parser: FreminalAnsiParser::new(),
-            terminal_buffer: TerminalBufferHolder::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
-            format_tracker: FormatTracker::new(),
+            current_buffer: CurrentBuffer::Primary,
+            primary_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
+            alternate_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
             modes: TerminalModes {
                 cursor_key: Decckm::default(),
                 bracketed_paste: BracketedPaste::default(),
             },
-            cursor_state: CursorState::default(),
             window_title: None,
             write_tx,
             changed: false,
             ctx: None,
             leftover_data: None,
-            show_cursor: Dectem::Show,
             character_replace: DecSpecialGraphics::DontReplace,
         }
     }
@@ -123,9 +148,16 @@ impl TerminalState {
         }
     }
 
+    pub fn get_current_buffer(&mut self) -> &mut Buffer {
+        match self.current_buffer {
+            CurrentBuffer::Primary => &mut self.primary_buffer,
+            CurrentBuffer::Alternate => &mut self.alternate_buffer,
+        }
+    }
+
     #[must_use]
-    pub const fn get_win_size(&self) -> (usize, usize) {
-        self.terminal_buffer.get_win_size()
+    pub fn get_win_size(&mut self) -> (usize, usize) {
+        self.get_current_buffer().terminal_buffer.get_win_size()
     }
 
     #[must_use]
@@ -133,18 +165,23 @@ impl TerminalState {
         self.window_title.clone()
     }
 
-    pub(crate) fn data(&self) -> TerminalSections<Vec<TChar>> {
-        self.terminal_buffer.data()
+    pub(crate) fn data(&mut self) -> TerminalSections<Vec<TChar>> {
+        self.get_current_buffer().terminal_buffer.data()
     }
 
-    pub(crate) fn format_data(&self) -> TerminalSections<Vec<FormatTag>> {
-        let offset = self.terminal_buffer.data().scrollback.len();
-        split_format_data_for_scrollback(self.format_tracker.tags(), offset)
+    pub(crate) fn format_data(&mut self) -> TerminalSections<Vec<FormatTag>> {
+        let offset = self
+            .get_current_buffer()
+            .terminal_buffer
+            .data()
+            .scrollback
+            .len();
+        split_format_data_for_scrollback(self.get_current_buffer().format_tracker.tags(), offset)
     }
 
     #[must_use]
-    pub fn cursor_pos(&self) -> CursorPos {
-        self.cursor_state.pos.clone()
+    pub fn cursor_pos(&mut self) -> CursorPos {
+        self.get_current_buffer().cursor_state.pos.clone()
     }
 
     pub fn clear_window_title(&mut self) {
@@ -156,10 +193,13 @@ impl TerminalState {
         width: usize,
         height: usize,
     ) -> TerminalBufferSetWinSizeResponse {
-        let response = self
-            .terminal_buffer
-            .set_win_size(width, height, &self.cursor_state.pos);
-        self.cursor_state.pos = response.new_cursor_pos.clone();
+        let current_buffer = self.get_current_buffer();
+        let response = current_buffer.terminal_buffer.set_win_size(
+            width,
+            height,
+            &current_buffer.cursor_state.pos,
+        );
+        self.get_current_buffer().cursor_state.pos = response.new_cursor_pos.clone();
 
         response
     }
@@ -252,46 +292,55 @@ impl TerminalState {
             DecSpecialGraphics::DontReplace => data.to_vec(),
         };
 
-        let response = match self
-            .terminal_buffer
-            .insert_data(&self.cursor_state.pos, &data)
-        {
-            Ok(response) => response,
-            Err(e) => {
-                error!("Failed to insert data: {e}");
-                return;
-            }
+        let left_over = {
+            let current_buffer = self.get_current_buffer();
+
+            let response = match current_buffer
+                .terminal_buffer
+                .insert_data(&current_buffer.cursor_state.pos, &data)
+            {
+                Ok(response) => response,
+                Err(e) => {
+                    error!("Failed to insert data: {e}");
+                    return;
+                }
+            };
+
+            current_buffer
+                .format_tracker
+                .push_range_adjustment(response.insertion_range);
+            current_buffer
+                .format_tracker
+                .push_range(&current_buffer.cursor_state, response.written_range);
+            current_buffer.cursor_state.pos = response.new_cursor_pos;
+            self.set_state_changed();
+            self.request_redraw();
+            response.left_over
         };
 
         // FIXME: I think this is wrong.....the incoming "bad" data should be coming from the parsing?
         // Or maybe this is right, but we need to ALSO get the bad data from the parser?
-        if !response.left_over.is_empty() {
+        if !left_over.is_empty() {
             warn!("Leftover data from incoming buffer");
-            self.leftover_data = Some(response.left_over);
+            self.leftover_data = Some(left_over);
         }
-
-        self.format_tracker
-            .push_range_adjustment(response.insertion_range);
-        self.format_tracker
-            .push_range(&self.cursor_state, response.written_range);
-        self.cursor_state.pos = response.new_cursor_pos;
-        self.set_state_changed();
-        self.request_redraw();
     }
 
     pub fn set_cursor_pos(&mut self, x: Option<usize>, y: Option<usize>) {
+        let current_buffer = self.get_current_buffer();
         if let Some(x) = x {
-            self.cursor_state.pos.x = x - 1;
+            current_buffer.cursor_state.pos.x = x - 1;
         }
         if let Some(y) = y {
-            self.cursor_state.pos.y = y - 1;
+            current_buffer.cursor_state.pos.y = y - 1;
         }
     }
 
     pub fn set_cursor_pos_rel(&mut self, x: Option<i32>, y: Option<i32>) {
+        let current_buffer = self.get_current_buffer();
         if let Some(x) = x {
             let x: i64 = x.into();
-            let current_x: i64 = match self.cursor_state.pos.x.try_into() {
+            let current_x: i64 = match current_buffer.cursor_state.pos.x.try_into() {
                 Ok(x) => x,
                 Err(e) => {
                     error!("Failed to convert x position to i64: {e}");
@@ -299,11 +348,12 @@ impl TerminalState {
                 }
             };
 
-            self.cursor_state.pos.x = usize::try_from((current_x + x).max(0)).unwrap_or(0);
+            current_buffer.cursor_state.pos.x =
+                usize::try_from((current_x + x).max(0)).unwrap_or(0);
         }
         if let Some(y) = y {
             let y: i64 = y.into();
-            let current_y: i64 = match self.cursor_state.pos.y.try_into() {
+            let current_y: i64 = match current_buffer.cursor_state.pos.y.try_into() {
                 Ok(y) => y,
                 Err(e) => {
                     error!("Failed to convert y position to i64: {e}");
@@ -311,15 +361,21 @@ impl TerminalState {
                 }
             };
             // ensure y is not negative, and throw an error if it is
-            self.cursor_state.pos.y = usize::try_from((current_y + y).max(0)).unwrap_or(0);
+            current_buffer.cursor_state.pos.y =
+                usize::try_from((current_y + y).max(0)).unwrap_or(0);
         }
     }
 
     pub(crate) fn clear_forwards(&mut self) {
-        match self.terminal_buffer.clear_forwards(&self.cursor_state.pos) {
+        let current_buffer = self.get_current_buffer();
+        match current_buffer
+            .terminal_buffer
+            .clear_forwards(&current_buffer.cursor_state.pos)
+        {
             Ok(Some(buf_pos)) => {
-                self.format_tracker
-                    .push_range(&self.cursor_state, buf_pos..usize::MAX);
+                current_buffer
+                    .format_tracker
+                    .push_range(&current_buffer.cursor_state, buf_pos..usize::MAX);
             }
             // FIXME: why on god's green earth are we having an option type here?
             Ok(None) => (),
@@ -330,9 +386,15 @@ impl TerminalState {
     }
 
     pub(crate) fn clear_backwards(&mut self) {
-        match self.terminal_buffer.clear_backwards(&self.cursor_state.pos) {
+        let current_buffer = self.get_current_buffer();
+        match current_buffer
+            .terminal_buffer
+            .clear_backwards(&current_buffer.cursor_state.pos)
+        {
             Ok(Some(buf_pos)) => {
-                self.format_tracker.push_range(&self.cursor_state, buf_pos);
+                current_buffer
+                    .format_tracker
+                    .push_range(&current_buffer.cursor_state, buf_pos);
             }
             Ok(None) => (),
             Err(e) => {
@@ -342,27 +404,35 @@ impl TerminalState {
     }
 
     pub(crate) fn clear_all(&mut self) {
-        self.format_tracker
-            .push_range(&self.cursor_state, 0..usize::MAX);
-        self.terminal_buffer.clear_all();
+        let current_buffer = self.get_current_buffer();
+        current_buffer
+            .format_tracker
+            .push_range(&current_buffer.cursor_state, 0..usize::MAX);
+        current_buffer.terminal_buffer.clear_all();
     }
 
     pub(crate) fn clear_visible(&mut self) {
-        let Some(range) = self.terminal_buffer.clear_visible() else {
+        let current_buffer = self.get_current_buffer();
+
+        let Some(range) = current_buffer.terminal_buffer.clear_visible() else {
             return;
         };
 
         if range.end > 0 {
-            self.format_tracker.push_range(&self.cursor_state, range);
+            current_buffer
+                .format_tracker
+                .push_range(&current_buffer.cursor_state, range);
         }
     }
 
     pub(crate) fn clear_line_forwards(&mut self) {
-        if let Some(range) = self
+        let current_buffer = self.get_current_buffer();
+
+        if let Some(range) = current_buffer
             .terminal_buffer
-            .clear_line_forwards(&self.cursor_state.pos)
+            .clear_line_forwards(&current_buffer.cursor_state.pos)
         {
-            match self.format_tracker.delete_range(range) {
+            match current_buffer.format_tracker.delete_range(range) {
                 Ok(()) => (),
                 Err(e) => {
                     error!("Failed to delete range: {e}");
@@ -372,11 +442,13 @@ impl TerminalState {
     }
 
     pub(crate) fn clear_line_backwards(&mut self) {
-        if let Some(range) = self
+        let current_buffer = self.get_current_buffer();
+
+        if let Some(range) = current_buffer
             .terminal_buffer
-            .clear_line_backwards(&self.cursor_state.pos)
+            .clear_line_backwards(&current_buffer.cursor_state.pos)
         {
-            match self.format_tracker.delete_range(range) {
+            match current_buffer.format_tracker.delete_range(range) {
                 Ok(()) => (),
                 Err(e) => {
                     error!("Failed to delete range: {e}");
@@ -386,8 +458,13 @@ impl TerminalState {
     }
 
     pub(crate) fn clear_line(&mut self) {
-        if let Some(range) = self.terminal_buffer.clear_line(&self.cursor_state.pos) {
-            match self.format_tracker.delete_range(range) {
+        let current_buffer = self.get_current_buffer();
+
+        if let Some(range) = current_buffer
+            .terminal_buffer
+            .clear_line(&current_buffer.cursor_state.pos)
+        {
+            match current_buffer.format_tracker.delete_range(range) {
                 Ok(()) => (),
                 Err(e) => {
                     error!("Failed to delete range: {e}");
@@ -397,16 +474,18 @@ impl TerminalState {
     }
 
     pub(crate) fn carriage_return(&mut self) {
-        self.cursor_state.pos.x = 0;
+        self.get_current_buffer().cursor_state.pos.x = 0;
     }
 
     pub(crate) fn new_line(&mut self) {
-        self.cursor_state.pos.y += 1;
+        self.get_current_buffer().cursor_state.pos.y += 1;
     }
 
     pub(crate) fn backspace(&mut self) {
-        if self.cursor_state.pos.x >= 1 {
-            self.cursor_state.pos.x -= 1;
+        let current_buffer = self.get_current_buffer();
+
+        if current_buffer.cursor_state.pos.x >= 1 {
+            current_buffer.cursor_state.pos.x -= 1;
         } else {
             // FIXME: this is not correct, we should move to the end of the previous line
             warn!("FIXME: Backspace at the beginning of the line. Not wrapping");
@@ -414,26 +493,34 @@ impl TerminalState {
     }
 
     pub(crate) fn insert_lines(&mut self, num_lines: usize) {
-        let response = self
+        let current_buffer = self.get_current_buffer();
+
+        let response = current_buffer
             .terminal_buffer
-            .insert_lines(&self.cursor_state.pos, num_lines);
-        match self.format_tracker.delete_range(response.deleted_range) {
+            .insert_lines(&current_buffer.cursor_state.pos, num_lines);
+        match current_buffer
+            .format_tracker
+            .delete_range(response.deleted_range)
+        {
             Ok(()) => (),
             Err(e) => {
                 error!("Failed to delete range: {e}");
                 return;
             }
         };
-        self.format_tracker
+        current_buffer
+            .format_tracker
             .push_range_adjustment(response.inserted_range);
     }
 
     pub(crate) fn delete(&mut self, num_chars: usize) {
-        let deleted_buf_range = self
+        let current_buffer = self.get_current_buffer();
+
+        let deleted_buf_range = current_buffer
             .terminal_buffer
-            .delete_forwards(&self.cursor_state.pos, num_chars);
+            .delete_forwards(&current_buffer.cursor_state.pos, num_chars);
         if let Some(range) = deleted_buf_range {
-            match self.format_tracker.delete_range(range) {
+            match current_buffer.format_tracker.delete_range(range) {
                 Ok(()) => (),
                 Err(e) => {
                     error!("Failed to delete range: {e}");
@@ -443,11 +530,13 @@ impl TerminalState {
     }
 
     pub(crate) fn erase(&mut self, num_chars: usize) {
-        let deleted_buf_range = self
+        let current_buffer = self.get_current_buffer();
+
+        let deleted_buf_range = current_buffer
             .terminal_buffer
-            .erase_forwards(&self.cursor_state.pos, num_chars);
+            .erase_forwards(&current_buffer.cursor_state.pos, num_chars);
         if let Some(range) = deleted_buf_range {
-            match self.format_tracker.delete_range(range) {
+            match current_buffer.format_tracker.delete_range(range) {
                 Ok(()) => (),
                 Err(e) => {
                     error!("Failed to delete range: {e}");
@@ -457,44 +546,69 @@ impl TerminalState {
     }
 
     pub(crate) fn reset(&mut self) {
-        self.cursor_state.colors.set_default();
-        self.cursor_state.font_weight = FontWeight::Normal;
-        self.cursor_state.font_decorations.clear();
+        // FIXME: move these to the buffer struct
+        let current_buffer = self.get_current_buffer();
+
+        current_buffer.cursor_state.colors.set_default();
+        current_buffer.cursor_state.font_weight = FontWeight::Normal;
+        current_buffer.cursor_state.font_decorations.clear();
     }
 
     pub(crate) fn font_decordations_add_if_not_contains(&mut self, decoration: FontDecorations) {
-        if !self.cursor_state.font_decorations.contains(&decoration) {
-            self.cursor_state.font_decorations.push(decoration);
+        let current_buffer = self.get_current_buffer();
+
+        if !current_buffer
+            .cursor_state
+            .font_decorations
+            .contains(&decoration)
+        {
+            current_buffer
+                .cursor_state
+                .font_decorations
+                .push(decoration);
         }
     }
 
     pub(crate) fn font_decorations_remove_if_contains(&mut self, decoration: &FontDecorations) {
-        self.cursor_state
+        self.get_current_buffer()
+            .cursor_state
             .font_decorations
             .retain(|d| *d != *decoration);
     }
 
     pub(crate) fn set_foreground(&mut self, color: TerminalColor) {
-        self.cursor_state.colors.set_color(color);
+        self.get_current_buffer()
+            .cursor_state
+            .colors
+            .set_color(color);
     }
 
     pub(crate) fn set_background(&mut self, color: TerminalColor) {
-        self.cursor_state.colors.set_background_color(color);
+        self.get_current_buffer()
+            .cursor_state
+            .colors
+            .set_background_color(color);
     }
 
     pub(crate) fn set_underline_color(&mut self, color: TerminalColor) {
-        self.cursor_state.colors.set_underline_color(color);
+        self.get_current_buffer()
+            .cursor_state
+            .colors
+            .set_underline_color(color);
     }
 
     pub(crate) fn set_reverse_video(&mut self, reverse_video: ReverseVideo) {
-        self.cursor_state.colors.set_reverse_video(reverse_video);
+        self.get_current_buffer()
+            .cursor_state
+            .colors
+            .set_reverse_video(reverse_video);
     }
 
     pub(crate) fn sgr(&mut self, sgr: SelectGraphicRendition) {
         match sgr {
             SelectGraphicRendition::Reset => self.reset(),
             SelectGraphicRendition::Bold => {
-                self.cursor_state.font_weight = FontWeight::Bold;
+                self.get_current_buffer().cursor_state.font_weight = FontWeight::Bold;
             }
             SelectGraphicRendition::Underline => {
                 self.font_decordations_add_if_not_contains(FontDecorations::Underline);
@@ -509,7 +623,7 @@ impl TerminalState {
                 self.font_decordations_add_if_not_contains(FontDecorations::Faint);
             }
             SelectGraphicRendition::ResetBold => {
-                self.cursor_state.font_weight = FontWeight::Normal;
+                self.get_current_buffer().cursor_state.font_weight = FontWeight::Normal;
             }
             SelectGraphicRendition::NormalIntensity => {
                 self.font_decorations_remove_if_contains(&FontDecorations::Faint);
@@ -578,14 +692,29 @@ impl TerminalState {
                 self.modes.cursor_key = Decckm::Application;
             }
             Mode::Decawm => {
-                self.cursor_state.line_wrap_mode = Decawm::AutoWrap;
+                self.get_current_buffer().cursor_state.line_wrap_mode = Decawm::AutoWrap;
             }
             Mode::Dectem => {
-                self.show_cursor = Dectem::Show;
+                self.get_current_buffer().show_cursor = Dectem::Show;
             }
             Mode::BracketedPaste => {
                 warn!("BracketedPaste Set is not supported");
                 self.modes.bracketed_paste = BracketedPaste::Enabled;
+            }
+            Mode::XtExtscrn => {
+                info!("Switching to alternate screen buffer");
+                // SPEC Steps:
+                // 1. Save the cursor position
+                // 2. Switch to the alternate screen buffer
+                // 3. Clear the screen
+
+                // TODO: We're supposed to save the cursor POS here. Do we assign the current cursor pos to the saved cursor pos?
+                // I don't see why we need to explicitly do that, as the cursor pos is already saved in the buffer
+                // Do we copy the cursor pos to the new buffer?
+                // Also, the "clear screen" bit implies to me that the buffer we switch to is *always* new, but is that correct?
+                // This is why we're making a "new" buffer here
+                self.current_buffer = CurrentBuffer::Alternate;
+                self.alternate_buffer = Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT);
             }
             Mode::Unknown(_) => {
                 warn!("unhandled set mode: {mode:?}");
@@ -594,10 +723,13 @@ impl TerminalState {
     }
 
     pub(crate) fn insert_spaces(&mut self, num_spaces: usize) {
-        let response = self
+        let current_buffer = self.get_current_buffer();
+
+        let response = current_buffer
             .terminal_buffer
-            .insert_spaces(&self.cursor_state.pos, num_spaces);
-        self.format_tracker
+            .insert_spaces(&current_buffer.cursor_state.pos, num_spaces);
+        current_buffer
+            .format_tracker
             .push_range_adjustment(response.insertion_range);
     }
 
@@ -607,14 +739,24 @@ impl TerminalState {
                 self.modes.cursor_key = Decckm::Ansi;
             }
             Mode::Decawm => {
-                self.cursor_state.line_wrap_mode = Decawm::NoAutoWrap;
+                self.get_current_buffer().cursor_state.line_wrap_mode = Decawm::NoAutoWrap;
             }
             Mode::Dectem => {
-                self.show_cursor = Dectem::Hide;
+                self.get_current_buffer().show_cursor = Dectem::Hide;
             }
             Mode::BracketedPaste => {
                 warn!("BracketedPaste Reset is not supported");
                 self.modes.bracketed_paste = BracketedPaste::Disabled;
+            }
+            Mode::XtExtscrn => {
+                info!("Switching to primary screen buffer");
+                // SPEC Steps:
+                // 1. Restore the cursor position
+                // 2. Switch to the primary screen buffer
+                // 3. Clear the screen
+                // See set mode for notes on the cursor pos
+
+                self.current_buffer = CurrentBuffer::Primary;
             }
             Mode::Unknown(_) => {}
         }
@@ -685,9 +827,11 @@ impl TerminalState {
         }
     }
 
-    pub(crate) fn report_cursor_position(&self) {
-        let x = self.cursor_state.pos.x + 1;
-        let y = self.cursor_state.pos.y + 1;
+    pub(crate) fn report_cursor_position(&mut self) {
+        let current_buffer = self.get_current_buffer();
+
+        let x = current_buffer.cursor_state.pos.x + 1;
+        let y = current_buffer.cursor_state.pos.y + 1;
         let formatted_string = format!("\x1b[{y};{x}R");
         let output = formatted_string.as_bytes();
 

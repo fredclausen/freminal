@@ -242,8 +242,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         !self.previous_pass_valid || internal
     }
 
-    pub fn get_win_size(&self) -> (usize, usize) {
-        match self.internal.lock() {
+    pub fn get_win_size(&mut self) -> (usize, usize) {
+        match &mut self.internal.lock() {
             Ok(internal) => internal.get_win_size(),
             Err(e) => {
                 error!("Error getting window size: {e}. Using default values");
@@ -318,7 +318,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
 
     pub fn data(&self) -> TerminalSections<Vec<TChar>> {
         // FIXME: should this propagate the error?
-        match self.internal.lock() {
+        match &mut self.internal.lock() {
             Ok(internal) => internal.data(),
             Err(e) => {
                 error!("Error getting terminal data: {e}");
@@ -332,7 +332,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
 
     pub fn format_data(&self) -> TerminalSections<Vec<FormatTag>> {
         // FIXME: should this propagate the error?
-        match self.internal.lock() {
+        match &mut self.internal.lock() {
             Ok(internal) => internal.format_data(),
             Err(e) => {
                 error!("Error getting terminal format data: {e}");
@@ -346,7 +346,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
 
     pub fn cursor_pos(&self) -> CursorPos {
         // FIXME: should this propagate the error?
-        match self.internal.lock() {
+        match &mut self.internal.lock() {
             Ok(internal) => internal.cursor_pos(),
             Err(e) => {
                 error!("Error getting cursor position: {e}");
@@ -356,8 +356,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     }
 
     pub fn show_cursor(&self) -> bool {
-        match self.internal.lock() {
-            Ok(internal) => internal.show_cursor == Dectem::Show,
+        match &mut self.internal.lock() {
+            Ok(internal) => internal.get_current_buffer().show_cursor == Dectem::Show,
             Err(e) => {
                 error!("Error getting cursor visibility: {e}");
                 true
