@@ -293,19 +293,16 @@ fn create_terminal_output_layout_job(
     let mut format_data_shifted = Vec::with_capacity(format_data.len());
     for tag in format_data {
         // Adjust byte_offset based on the length of utf8 characters
-
         let start = if tag.start < offset.len() {
             offset[tag.start]
         } else {
-            data_converted.len() - 1
+            offset[offset.len() - 1]
         };
 
         let end = if tag.start == tag.end {
             start
-        } else if tag.end == usize::MAX {
-            data_converted.len() - 1
-        } else if tag.end >= offset.len() {
-            offset.last().unwrap().to_owned()
+        } else if tag.end == usize::MAX || tag.end >= offset.len() {
+            data_converted.len()
         } else {
             offset[tag.end]
         };
@@ -344,7 +341,6 @@ fn create_terminal_output_layout_job(
 // This is likely not needed
 #[cfg(any(feature = "validation", debug_assertions))]
 fn validate_tags_to_buffer(buffer: &[u8], tags: &[FormatTag]) -> Result<()> {
-    info!("Validating tags to buffer");
     // loop over the tags and validate that the start and end are within the bounds of the buffer
     for tag in tags {
         if tag.start >= buffer.len() {
@@ -357,25 +353,13 @@ fn validate_tags_to_buffer(buffer: &[u8], tags: &[FormatTag]) -> Result<()> {
             continue;
         }
 
-        let end = if tag.end >= buffer.len() {
-            warn!(
-                "Tag end is greater than buffer length: end: {end}, buffer length: {buffer_len}",
-                end = tag.end,
-                buffer_len = buffer.len()
-            );
-
-            buffer.len() - 1
-        } else {
-            tag.end
-        };
-
         // now verify that the slice represented by the range tag.start..end is valid utf8
 
-        if let Err(e) = std::str::from_utf8(&buffer[tag.start..end]) {
+        if let Err(e) = std::str::from_utf8(&buffer[tag.start..tag.end]) {
             error!(
                 "Tag range is not valid utf8: start: {start}, end: {end}, buffer length: {buffer_len}, error: {error}",
                 start = tag.start,
-                end = end,
+                end = tag.end,
                 buffer_len = buffer.len(),
                 error = e
             );
@@ -429,6 +413,7 @@ fn process_tags(
     textformat: &mut TextFormat,
     font_size: f32,
     job: &mut LayoutJob,
+    #[cfg(any(feature = "validation", debug_assertions))] buffer: &[u8],
 ) {
     let default_color = textformat.color;
     let default_background = textformat.background;
@@ -446,7 +431,8 @@ fn process_tags(
 
         match range.start.cmp(&data_len) {
             std::cmp::Ordering::Greater => {
-                debug!("Skipping unusable format data");
+                #[cfg(any(feature = "validation", debug_assertions))]
+                warn!("Skipping unusable format data");
                 continue;
             }
             std::cmp::Ordering::Equal => {
@@ -456,7 +442,8 @@ fn process_tags(
         }
 
         if range.end > data_len {
-            debug!("Truncating format data end");
+            #[cfg(any(feature = "validation", debug_assertions))]
+            warn!("Truncating format data end");
             range.end = data_len;
         }
 
@@ -495,6 +482,13 @@ fn process_tags(
             textformat.strikethrough = Stroke::new(0.0, textformat.color);
         }
 
+        // Validate the range is valid utf8
+        #[cfg(any(feature = "validation", debug_assertions))]
+        if std::str::from_utf8(&buffer[range.clone()]).is_err() {
+            warn!("Range is not valid utf8");
+            continue;
+        }
+
         job.sections.push(egui::text::LayoutSection {
             leading_space: 0.0f32,
             byte_range: range,
@@ -526,8 +520,6 @@ fn add_terminal_data_to_ui(
             data_len = data_utf8.len();
         }
     }
-    // let (data_utf8, adjusted_format_data) =
-    //     create_terminal_output_layout_job(data, format_data)?;
 
     let (mut job, mut textformat) = setup_job(ui, &data_utf8);
     process_tags(
@@ -536,6 +528,8 @@ fn add_terminal_data_to_ui(
         &mut textformat,
         font_size,
         &mut job,
+        #[cfg(any(feature = "validation", debug_assertions))]
+        data_utf8.as_bytes(),
     );
 
     match data {
@@ -620,12 +614,22 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                     font_size,
                 ));
 
-                TerminalOutputRenderResponse {
+                // We want the program to crash here if we're testing
+                #[cfg(any(feature = "validation", debug_assertions))]
+                return TerminalOutputRenderResponse {
                     scrollback_area: scrollback_response.0,
                     canvas_area: canvas_response.0,
                     scrollback: scrollback_response.1.unwrap(),
                     canvas: canvas_response.1.unwrap(),
-                }
+                };
+
+                #[cfg(not(any(feature = "validation", debug_assertions)))]
+                return TerminalOutputRenderResponse {
+                    scrollback_area: scrollback_response.0,
+                    canvas_area: canvas_response.0,
+                    scrollback: scrollback_response.1.unwrap_or_default(),
+                    canvas: canvas_response.1.unwrap_or_default(),
+                };
             }
         });
 
