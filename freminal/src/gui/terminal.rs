@@ -13,8 +13,9 @@ use terminal_emulator::{
 };
 
 use eframe::egui::{
-    self, scroll_area::ScrollBarVisibility, text::LayoutJob, Color32, Context, DragValue, Event,
-    InputState, Key, Modifiers, Rect, Stroke, TextFormat, TextStyle, Ui,
+    self, scroll_area::ScrollBarVisibility, text::LayoutJob, Color32, Context, CursorIcon,
+    DragValue, Event, InputState, Key, Modifiers, OpenUrl, PointerButton, Rect, Stroke, TextFormat,
+    TextStyle, Ui,
 };
 
 use conv::{ConvUtil, ValueFrom};
@@ -54,12 +55,14 @@ fn control_key(key: Key) -> Option<Cow<'static, [TerminalInput]>> {
 fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     input: &InputState,
     terminal_emulator: &mut TerminalEmulator<Io>,
-) {
+) -> bool {
     if input.raw.events.is_empty() {
-        return;
+        return false;
     }
 
     let mut state_changed = false;
+
+    let mut left_mouse_button_pressed = false;
 
     for event in &input.raw.events {
         debug!("event: {:?}", event);
@@ -175,6 +178,31 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                     collect_text(text)
                 }
             }
+            Event::PointerGone => {
+                terminal_emulator.set_mouse_position(&None);
+                continue;
+            }
+            Event::WindowFocused(focused) => {
+                terminal_emulator.set_window_focused(*focused);
+                continue;
+            }
+            // Event::MouseMoved(position) => {
+            //     terminal_emulator.set_mouse_position(&Some(*position));
+            //     continue;
+            // }
+            Event::PointerMoved(position) => {
+                terminal_emulator.set_mouse_position_from_move_event(position);
+                continue;
+            }
+            Event::PointerButton {
+                button: PointerButton::Primary,
+                pressed: true,
+                ..
+            } => {
+                left_mouse_button_pressed = true;
+
+                continue;
+            }
             _ => {
                 continue;
             }
@@ -192,6 +220,8 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
         debug!("Inputs detected, setting previous pass invalid");
         terminal_emulator.set_previous_pass_invalid();
     }
+
+    left_mouse_button_pressed
 }
 
 fn paint_cursor(label_rect: Rect, character_size: (f32, f32), cursor_pos: &CursorPos, ui: &Ui) {
@@ -674,9 +704,8 @@ impl FreminalTerminalWidget {
                 terminal_emulator.clear_window_title();
             }
 
-            ui.input(|input_state| {
-                write_input_to_terminal(input_state, terminal_emulator);
-            });
+            let left_mouse_button_pressed =
+                ui.input(|input_state| write_input_to_terminal(input_state, terminal_emulator));
 
             if terminal_emulator.needs_redraw() {
                 self.previous_pass =
@@ -704,6 +733,45 @@ impl FreminalTerminalWidget {
                     &terminal_emulator.cursor_pos(),
                     ui,
                 );
+            }
+
+            // lets see if we're hovering over a URL
+            if let Some(mouse_position) = terminal_emulator.get_mouse_position() {
+                // convert the mouse position x and y to character positions
+                let mut x = ((mouse_position.x / self.character_size.0).floor())
+                    .approx_as::<usize>()
+                    .unwrap_or_default();
+                let mut y = ((mouse_position.y / self.character_size.1).floor())
+                    .approx_as::<usize>()
+                    .unwrap_or_default();
+
+                x = x.saturating_sub(1);
+                y = y.saturating_sub(1);
+
+                let cursor_pos = CursorPos { x, y };
+
+                if let Some(url) = terminal_emulator.is_mouse_hovered_on_url(&cursor_pos) {
+                    debug!("Mouse is hovering over a URL");
+                    if left_mouse_button_pressed {
+                        ui.ctx().output_mut(|output| {
+                            output.cursor_icon = CursorIcon::Wait;
+                            output.open_url = Some(OpenUrl {
+                                url: url.to_string(),
+                                new_tab: true,
+                            });
+                        });
+                    } else {
+                        ui.ctx().output_mut(|output| {
+                            output.cursor_icon = CursorIcon::PointingHand;
+                        });
+                    }
+                }
+            } else {
+                debug!("No mouse position");
+
+                ui.ctx().output_mut(|output| {
+                    output.cursor_icon = CursorIcon::Default;
+                });
             }
         });
 

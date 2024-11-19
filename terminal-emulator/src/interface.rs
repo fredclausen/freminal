@@ -187,6 +187,8 @@ pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
     write_tx: crossbeam_channel::Sender<PtyWrite>,
     ctx: Option<egui::Context>,
     previous_pass_valid: bool,
+    mouse_position: Option<egui::Pos2>,
+    window_focused: bool,
 }
 
 impl TerminalEmulator<FreminalPtyInputOutput> {
@@ -220,12 +222,48 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
             write_tx,
             ctx: None,
             previous_pass_valid: false,
+            mouse_position: None,
+            window_focused: true,
         };
         Ok((ret, pty_rx))
     }
 }
 
 impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
+    pub fn set_mouse_position_from_move_event(&mut self, pos: &egui::Pos2) {
+        self.mouse_position = Some(*pos);
+    }
+
+    pub fn set_mouse_position(&mut self, pos: &Option<egui::Vec2>) {
+        // info!("Setting mouse position: {pos:?}");
+        self.mouse_position = pos.map(|pos| egui::Pos2 {
+            x: pos[0],
+            y: pos[1],
+        });
+    }
+
+    pub const fn get_mouse_position(&self) -> Option<egui::Pos2> {
+        self.mouse_position
+    }
+
+    pub fn is_mouse_hovered_on_url(&self, mouse_position: &CursorPos) -> Option<String> {
+        match &mut self.internal.lock() {
+            Ok(internal) => internal.is_mouse_hovered_on_url(mouse_position),
+            Err(e) => {
+                error!("Error checking if mouse is hovered on url: {e}");
+                None
+            }
+        }
+    }
+
+    pub fn set_window_focused(&mut self, focused: bool) {
+        self.window_focused = focused;
+
+        if !focused {
+            self.mouse_position = None;
+        }
+    }
+
     pub fn set_egui_ctx_if_missing(&mut self, ctx: egui::Context) {
         if self.ctx.is_none() {
             self.ctx = Some(ctx.clone());

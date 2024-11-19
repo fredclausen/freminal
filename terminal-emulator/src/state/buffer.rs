@@ -74,6 +74,25 @@ fn buf_to_cursor_pos(buf: &[TChar], width: usize, height: usize, buf_pos: usize)
     }
 }
 
+#[must_use]
+pub fn cursor_pos_to_buf_pos(
+    buf: &[TChar],
+    (width, height): (usize, usize),
+    cursor_pos: &CursorPos,
+) -> Option<usize> {
+    let line_ranges = calc_line_ranges(buf, width);
+    let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, height);
+
+    let line_range = visible_line_ranges.get(cursor_pos.y)?;
+
+    let buf_pos = line_range.start + cursor_pos.x;
+    if buf_pos >= line_range.end {
+        None
+    } else {
+        Some(buf_pos)
+    }
+}
+
 fn unwrapped_line_end_pos(buf: &[TChar], start_pos: usize) -> usize {
     buf.iter()
         .enumerate()
@@ -641,6 +660,11 @@ impl TerminalBufferHolder {
             scrollback: self.buf[..start].to_vec(),
             visible: self.buf[start..].to_vec(),
         }
+    }
+
+    #[must_use]
+    pub fn get_raw_buffer(&self) -> &[TChar] {
+        &self.buf
     }
 
     #[must_use]

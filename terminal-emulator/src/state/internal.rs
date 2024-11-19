@@ -22,7 +22,7 @@ use crate::{
 };
 
 use super::{
-    buffer::{TerminalBufferHolder, TerminalBufferSetWinSizeResponse},
+    buffer::{cursor_pos_to_buf_pos, TerminalBufferHolder, TerminalBufferSetWinSizeResponse},
     cursor::{CursorPos, CursorState, ReverseVideo},
     data::TerminalSections,
     fonts::{FontDecorations, FontWeight},
@@ -167,6 +167,32 @@ impl TerminalState {
 
     pub(crate) fn data(&mut self) -> TerminalSections<Vec<TChar>> {
         self.get_current_buffer().terminal_buffer.data()
+    }
+
+    pub fn is_mouse_hovered_on_url(&mut self, pos: &CursorPos) -> Option<String> {
+        let size = self.get_win_size();
+        let buf_pos = cursor_pos_to_buf_pos(
+            self.get_current_buffer().terminal_buffer.get_raw_buffer(),
+            size,
+            pos,
+        )?;
+
+        let tags = self.get_current_buffer().format_tracker.tags();
+
+        for tag in tags {
+            if tag.url.is_none() {
+                continue;
+            }
+
+            // check if the cursor pos is within the range of the tag
+            if tag.start <= buf_pos && buf_pos < tag.end {
+                if let Some(url) = &tag.url {
+                    return Some(url.url.clone());
+                }
+            }
+        }
+
+        None
     }
 
     pub(crate) fn format_data(&mut self) -> TerminalSections<Vec<FormatTag>> {

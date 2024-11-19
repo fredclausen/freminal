@@ -169,6 +169,10 @@ impl AnsiCsiParser {
                 output.push(TerminalOutput::CursorReport);
                 Ok(Some(ParserInner::Empty))
             }
+            AnsiCsiParserState::Finished(b't') => {
+                output.push(TerminalOutput::Skipped);
+                Ok(Some(ParserInner::Empty))
+            }
             AnsiCsiParserState::Finished(esc) => {
                 warn!(
                     "Unhandled csi code: {:?} {esc:x} {}/{}",
