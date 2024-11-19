@@ -98,10 +98,10 @@ impl ReplayIo {
 
     fn set_cursor_pos(&mut self, x: Option<usize>, y: Option<usize>) {
         if let Some(x) = x {
-            self.cursor_state.pos.x = x - 1;
+            self.cursor_state.pos.x = x;
         }
         if let Some(y) = y {
-            self.cursor_state.pos.y = y - 1;
+            self.cursor_state.pos.y = y;
         }
     }
 
