@@ -25,3 +25,7 @@ freminal-common = { path = "../freminal-common" }
 
 [build-dependencies]
 tar = "0.4.43"
+
+[features]
+default = []
+validation = []

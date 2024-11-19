@@ -18,13 +18,13 @@ use eframe::egui::{
     TextStyle, Ui,
 };
 
-use conv::{ConvUtil, ValueFrom};
-use std::borrow::Cow;
-
 use super::{
     colors::internal_color_to_egui,
     fonts::{get_char_size, setup_font_files, TerminalFont},
 };
+use anyhow::Result;
+use conv::{ConvUtil, ValueFrom};
+use std::borrow::Cow;
 
 fn collect_text(text: &String) -> Cow<'static, [TerminalInput]> {
     text.as_bytes()
@@ -245,7 +245,7 @@ fn setup_bg_fill(ctx: &egui::Context) {
 fn create_terminal_output_layout_job(
     data: &[TChar],
     format_data: &[FormatTag],
-) -> Result<(String, Vec<FormatTag>), std::str::Utf8Error> {
+) -> Result<(String, Vec<FormatTag>)> {
     if data.is_empty() {
         return Ok((String::new(), Vec::new()));
     }
@@ -283,7 +283,7 @@ fn create_terminal_output_layout_job(
                 "Create output job: Failed to convert terminal data to utf8: {}",
                 e
             );
-            return Err(e);
+            return Err(e.into());
         }
     };
 
@@ -326,7 +326,65 @@ fn create_terminal_output_layout_job(
         });
     }
 
+    #[cfg(any(feature = "validation", debug_assertions))]
+    match validate_tags_to_buffer(data_utf8.as_bytes(), &format_data_shifted) {
+        Ok(()) => Ok((data_utf8.to_string(), format_data_shifted)),
+        Err(e) => {
+            error!("Failed to validate tags to buffer: {}", e);
+            Err(e)
+        }
+    }
+
+    #[cfg(not(any(feature = "validation", debug_assertions)))]
     Ok((data_utf8.to_string(), format_data_shifted))
+}
+
+// Small function to help validate the tags to the buffer
+// We don't want this normally, as it's a performance hit and once the kinks are worked out
+// This is likely not needed
+#[cfg(any(feature = "validation", debug_assertions))]
+fn validate_tags_to_buffer(buffer: &[u8], tags: &[FormatTag]) -> Result<()> {
+    info!("Validating tags to buffer");
+    // loop over the tags and validate that the start and end are within the bounds of the buffer
+    for tag in tags {
+        if tag.start >= buffer.len() {
+            warn!(
+                "Tag start is greater than buffer length: start: {start}, buffer length: {buffer_len}",
+                start = tag.start,
+                buffer_len = buffer.len()
+            );
+
+            continue;
+        }
+
+        let end = if tag.end >= buffer.len() {
+            warn!(
+                "Tag end is greater than buffer length: end: {end}, buffer length: {buffer_len}",
+                end = tag.end,
+                buffer_len = buffer.len()
+            );
+
+            buffer.len() - 1
+        } else {
+            tag.end
+        };
+
+        // now verify that the slice represented by the range tag.start..end is valid utf8
+
+        if let Err(e) = std::str::from_utf8(&buffer[tag.start..end]) {
+            error!(
+                "Tag range is not valid utf8: start: {start}, end: {end}, buffer length: {buffer_len}, error: {error}",
+                start = tag.start,
+                end = end,
+                buffer_len = buffer.len(),
+                error = e
+            );
+
+            Err(e)?;
+        }
+    }
+
+    Ok(())
 }
 
 #[derive(Default, Clone, Debug)]
@@ -449,7 +507,7 @@ fn add_terminal_data_to_ui(
     ui: &mut Ui,
     data: &UiData,
     font_size: f32,
-) -> Result<(egui::Response, Option<UiJobAction>), std::str::Utf8Error> {
+) -> Result<(egui::Response, Option<UiJobAction>)> {
     let data_utf8: String;
     let adjusted_format_data: Vec<FormatTag>;
     let data_len: usize;
@@ -512,16 +570,14 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
         .animated(false)
         .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
         .show(ui, |ui| {
-            let error_logged_rect = |response: Result<
-                (egui::Response, Option<UiJobAction>),
-                std::str::Utf8Error,
-            >| match response {
-                Ok((v, action)) => (v.rect, action),
-                Err(e) => {
-                    error!("failed to add terminal data to ui: {}", e);
-                    (Rect::NOTHING, None)
-                }
-            };
+            let error_logged_rect =
+                |response: Result<(egui::Response, Option<UiJobAction>)>| match response {
+                    Ok((v, action)) => (v.rect, action),
+                    Err(e) => {
+                        error!("failed to add terminal data to ui: {}", e);
+                        (Rect::NOTHING, None)
+                    }
+                };
 
             let scrollback_response: (Rect, Option<UiJobAction>);
             let canvas_response: (Rect, Option<UiJobAction>);
