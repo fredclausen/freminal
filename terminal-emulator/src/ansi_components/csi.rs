@@ -106,6 +106,7 @@ impl AnsiCsiParser {
     ///
     /// # Errors
     /// Will return an error if the parser encounters an invalid state
+    #[allow(clippy::too_many_lines)]
     pub fn ansiparser_inner_csi(
         &mut self,
         b: u8,
@@ -170,15 +171,57 @@ impl AnsiCsiParser {
                 Ok(Some(ParserInner::Empty))
             }
             AnsiCsiParserState::Finished(b't') => {
+                warn!(
+                    "Unhandled (known) csi code: {:?}",
+                    std::char::from_u32(u32::from(b))
+                );
+                output.push(TerminalOutput::Skipped);
+                Ok(Some(ParserInner::Empty))
+            }
+            AnsiCsiParserState::Finished(b'p') => {
+                warn!(
+                    "Unhandled (known) csi code: {:?}",
+                    std::char::from_u32(u32::from(b))
+                );
+                output.push(TerminalOutput::Skipped);
+                Ok(Some(ParserInner::Empty))
+            }
+            AnsiCsiParserState::Finished(b'q') => {
+                warn!(
+                    "Unhandled (known) csi code: {:?}",
+                    std::char::from_u32(u32::from(b))
+                );
+                output.push(TerminalOutput::Skipped);
+                Ok(Some(ParserInner::Empty))
+            }
+            AnsiCsiParserState::Finished(b'r') => {
+                warn!(
+                    "Unhandled (known) csi code: {:?}",
+                    std::char::from_u32(u32::from(b))
+                );
+                output.push(TerminalOutput::Skipped);
+                Ok(Some(ParserInner::Empty))
+            }
+            AnsiCsiParserState::Finished(b'c') => {
+                warn!(
+                    "Unhandled (known) csi code: {:?}",
+                    std::char::from_u32(u32::from(b))
+                );
+                output.push(TerminalOutput::Skipped);
+                Ok(Some(ParserInner::Empty))
+            }
+            AnsiCsiParserState::Finished(b'u') => {
+                warn!(
+                    "Unhandled (known) csi code: {:?}",
+                    std::char::from_u32(u32::from(b))
+                );
                 output.push(TerminalOutput::Skipped);
                 Ok(Some(ParserInner::Empty))
             }
             AnsiCsiParserState::Finished(esc) => {
                 warn!(
-                    "Unhandled csi code: {:?} {esc:x} {}/{}",
+                    "Unhandled csi code: {:?}",
                     std::char::from_u32(u32::from(esc)),
-                    esc >> 4,
-                    esc & 0xf,
                 );
                 output.push(TerminalOutput::Invalid);
 
