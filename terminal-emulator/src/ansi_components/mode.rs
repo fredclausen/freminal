@@ -8,6 +8,7 @@ pub enum Mode {
     Decawm,
     Dectem,
     XtExtscrn,
+    XtMseWin,
     BracketedPaste,
     Unknown(Vec<u8>),
 }
@@ -58,10 +59,21 @@ pub enum XtExtscrn {
     Alternate,
 }
 
+/// Focus reporting mode (`XT_MSE_WIN`)
+#[derive(Debug, Eq, PartialEq, Default)]
+pub enum XtMseWin {
+    #[default]
+    /// Focus reporting is disabled
+    Disabled,
+    /// Focus reporting is enabled
+    Enabled,
+}
+
 #[derive(Debug, Eq, PartialEq, Default)]
 pub struct TerminalModes {
     pub cursor_key: Decckm,
     pub bracketed_paste: BracketedPaste,
+    pub focus_reporting: XtMseWin,
 }
 
 impl fmt::Debug for Mode {
@@ -71,6 +83,7 @@ impl fmt::Debug for Mode {
             Self::Decawm => f.write_str("Decawm"),
             Self::Dectem => f.write_str("Dectem"),
             Self::XtExtscrn => f.write_str("XtExtscrn"),
+            Self::XtMseWin => f.write_str("XtMseWin"),
             Self::BracketedPaste => f.write_str("BracketedPasteMode"),
             Self::Unknown(params) => {
                 let params_s = std::str::from_utf8(params)
@@ -88,6 +101,7 @@ pub fn terminal_mode_from_params(params: &[u8]) -> Mode {
         b"?1" => Mode::Decckm,
         b"?7" => Mode::Decawm,
         b"?25" => Mode::Dectem,
+        b"?1004" => Mode::XtMseWin,
         b"?1049" => Mode::XtExtscrn,
         b"?2004" => Mode::BracketedPaste,
         _ => Mode::Unknown(params.to_vec()),

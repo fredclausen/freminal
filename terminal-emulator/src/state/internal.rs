@@ -5,14 +5,14 @@
 
 use anyhow::Result;
 use core::str;
-use eframe::egui::{Color32, Context};
+use eframe::egui::{self, Color32, Context};
 use freminal_common::colors::TerminalColor;
 
 use crate::{
     ansi::{FreminalAnsiParser, TerminalOutput},
     ansi_components::{
         line_draw::DecSpecialGraphics,
-        mode::{BracketedPaste, Decawm, Decckm, Dectem, Mode, TerminalModes},
+        mode::{BracketedPaste, Decawm, Decckm, Dectem, Mode, TerminalModes, XtMseWin},
         osc::{AnsiOscInternalType, AnsiOscType, UrlResponse},
         sgr::SelectGraphicRendition,
     },
@@ -74,6 +74,8 @@ pub struct TerminalState {
     pub ctx: Option<Context>,
     pub leftover_data: Option<Vec<u8>>,
     pub character_replace: DecSpecialGraphics,
+    pub mouse_position: Option<egui::Pos2>,
+    pub window_focused: bool,
 }
 
 impl Default for TerminalState {
@@ -106,16 +108,15 @@ impl TerminalState {
             current_buffer: CurrentBuffer::Primary,
             primary_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
             alternate_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
-            modes: TerminalModes {
-                cursor_key: Decckm::default(),
-                bracketed_paste: BracketedPaste::default(),
-            },
+            modes: TerminalModes::default(),
             window_title: None,
             write_tx,
             changed: false,
             ctx: None,
             leftover_data: None,
             character_replace: DecSpecialGraphics::DontReplace,
+            mouse_position: None,
+            window_focused: true,
         }
     }
 
@@ -254,6 +255,26 @@ impl TerminalState {
     #[must_use]
     pub fn get_cursor_key_mode(&self) -> Decckm {
         self.modes.cursor_key.clone()
+    }
+
+    pub fn set_window_focused(&mut self, focused: bool) {
+        self.window_focused = focused;
+
+        if self.modes.focus_reporting == XtMseWin::Disabled {
+            return;
+        }
+
+        let to_write = if focused {
+            TerminalInput::InFocus
+        } else {
+            TerminalInput::LostFocus
+        };
+
+        if let Err(e) = self.write(&to_write) {
+            error!("Failed to write focus change: {e}");
+        }
+
+        debug!("Reported focus change to terminal");
     }
 
     pub(crate) fn handle_data(&mut self, data: &[u8]) {
@@ -740,41 +761,6 @@ impl TerminalState {
         }
     }
 
-    pub(crate) fn set_mode(&mut self, mode: &Mode) {
-        match mode {
-            Mode::Decckm => {
-                self.modes.cursor_key = Decckm::Application;
-            }
-            Mode::Decawm => {
-                self.get_current_buffer().cursor_state.line_wrap_mode = Decawm::AutoWrap;
-            }
-            Mode::Dectem => {
-                self.get_current_buffer().show_cursor = Dectem::Show;
-            }
-            Mode::BracketedPaste => {
-                self.modes.bracketed_paste = BracketedPaste::Enabled;
-            }
-            Mode::XtExtscrn => {
-                info!("Switching to alternate screen buffer");
-                // SPEC Steps:
-                // 1. Save the cursor position
-                // 2. Switch to the alternate screen buffer
-                // 3. Clear the screen
-
-                // TODO: We're supposed to save the cursor POS here. Do we assign the current cursor pos to the saved cursor pos?
-                // I don't see why we need to explicitly do that, as the cursor pos is already saved in the buffer
-                // Do we copy the cursor pos to the new buffer?
-                // Also, the "clear screen" bit implies to me that the buffer we switch to is *always* new, but is that correct?
-                // This is why we're making a "new" buffer here
-                self.current_buffer = CurrentBuffer::Alternate;
-                self.alternate_buffer = Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT);
-            }
-            Mode::Unknown(_) => {
-                warn!("unhandled set mode: {mode:?}");
-            }
-        }
-    }
-
     pub(crate) fn insert_spaces(&mut self, num_spaces: usize) {
         let current_buffer = self.get_current_buffer();
 
@@ -810,7 +796,61 @@ impl TerminalState {
 
                 self.current_buffer = CurrentBuffer::Primary;
             }
+            Mode::XtMseWin => {
+                self.modes.focus_reporting = XtMseWin::Disabled;
+            }
             Mode::Unknown(_) => {}
+        }
+    }
+
+    pub(crate) fn set_mode(&mut self, mode: &Mode) {
+        match mode {
+            Mode::Decckm => {
+                self.modes.cursor_key = Decckm::Application;
+            }
+            Mode::Decawm => {
+                self.get_current_buffer().cursor_state.line_wrap_mode = Decawm::AutoWrap;
+            }
+            Mode::Dectem => {
+                self.get_current_buffer().show_cursor = Dectem::Show;
+            }
+            Mode::BracketedPaste => {
+                self.modes.bracketed_paste = BracketedPaste::Enabled;
+            }
+            Mode::XtExtscrn => {
+                info!("Switching to alternate screen buffer");
+                // SPEC Steps:
+                // 1. Save the cursor position
+                // 2. Switch to the alternate screen buffer
+                // 3. Clear the screen
+
+                // TODO: We're supposed to save the cursor POS here. Do we assign the current cursor pos to the saved cursor pos?
+                // I don't see why we need to explicitly do that, as the cursor pos is already saved in the buffer
+                // Do we copy the cursor pos to the new buffer?
+                // Also, the "clear screen" bit implies to me that the buffer we switch to is *always* new, but is that correct?
+                // This is why we're making a "new" buffer here
+                self.current_buffer = CurrentBuffer::Alternate;
+                self.alternate_buffer = Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT);
+            }
+            Mode::XtMseWin => {
+                debug!("Setting focus reporting");
+                self.modes.focus_reporting = XtMseWin::Enabled;
+
+                let to_write = if self.window_focused {
+                    TerminalInput::InFocus
+                } else {
+                    TerminalInput::LostFocus
+                };
+
+                if let Err(e) = self.write(&to_write) {
+                    error!("Failed to write focus change: {e}");
+                }
+
+                debug!("Reported current focus {:?} to terminal", to_write);
+            }
+            Mode::Unknown(_) => {
+                warn!("unhandled set mode: {mode:?}");
+            }
         }
     }
 
@@ -973,12 +1013,12 @@ impl TerminalState {
                     self.character_replace = dec_special_graphics;
                 }
                 TerminalOutput::CursorReport => self.report_cursor_position(),
-                TerminalOutput::Skipped => (),
+                TerminalOutput::Skipped | TerminalOutput::Bell => (),
                 TerminalOutput::ApplicationKeypadMode => {
                     self.modes.cursor_key = Decckm::Application;
                 }
                 TerminalOutput::NormalKeypadMode => self.modes.cursor_key = Decckm::Ansi,
-                TerminalOutput::Bell | TerminalOutput::Invalid => {
+                TerminalOutput::Invalid => {
                     info!("Unhandled terminal output: {segment:?}");
                 }
             }

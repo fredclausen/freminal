@@ -9,7 +9,7 @@ use terminal_emulator::{
     ansi::FreminalAnsiParser,
     ansi_components::{
         line_draw::DecSpecialGraphics,
-        mode::{BracketedPaste, Decckm, TerminalModes},
+        mode::{Decckm, TerminalModes},
         sgr::SelectGraphicRendition,
     },
     interface::TerminalInput,
@@ -31,10 +31,7 @@ fn test_internal_terminal_state_new() {
         parser: FreminalAnsiParser::new(),
         primary_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
         alternate_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
-        modes: TerminalModes {
-            cursor_key: Decckm::default(),
-            bracketed_paste: BracketedPaste::default(),
-        },
+        modes: TerminalModes::default(),
         window_title: None,
         write_tx: tx,
         changed: false,
@@ -42,6 +39,8 @@ fn test_internal_terminal_state_new() {
         leftover_data: None,
         character_replace: DecSpecialGraphics::DontReplace,
         current_buffer: CurrentBuffer::Primary,
+        mouse_position: None,
+        window_focused: true,
     };
 
     assert_eq!(terminal_state, expected);
