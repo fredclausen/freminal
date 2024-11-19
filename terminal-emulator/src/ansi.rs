@@ -264,6 +264,7 @@ impl FreminalAnsiParser {
                     {
                         error!("Parser Error: {e}");
                         error!("Escape Sequence that threw an error: {output_string_sequence}");
+                        self.inner = ParserInner::Empty;
                     }
                 }
                 ParserInner::Csi(parser) => {
@@ -287,6 +288,7 @@ impl FreminalAnsiParser {
                         Err(e) => {
                             error!("Parser Error: {e}");
                             error!("CSI Sequence that threw an error: {output_string_sequence}");
+                            self.inner = ParserInner::Empty;
                         }
                     }
                 }
@@ -308,6 +310,7 @@ impl FreminalAnsiParser {
                         Err(e) => {
                             error!("Parser Error: {e}");
                             error!("OSC Sequence that threw an error: {output_string_sequence}");
+                            self.inner = ParserInner::Empty;
                         }
                     }
                 }
