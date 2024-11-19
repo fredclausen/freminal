@@ -16,7 +16,6 @@ use crate::state::{
 use anyhow::Result;
 use crossbeam_channel::{unbounded, Receiver};
 use eframe::egui;
-use std::sync::{Arc, Mutex};
 
 use freminal_common::args::Args;
 
@@ -182,7 +181,7 @@ pub fn split_format_data_for_scrollback(
 }
 
 pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
-    pub internal: Arc<Mutex<TerminalState>>,
+    pub internal: TerminalState,
     _io: Io,
     write_tx: crossbeam_channel::Sender<PtyWrite>,
     ctx: Option<egui::Context>,
@@ -217,7 +216,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
         }
 
         let ret = Self {
-            internal: Mutex::new(TerminalState::new(write_tx.clone())).into(),
+            internal: TerminalState::new(write_tx.clone()),
             _io: io,
             write_tx,
             ctx: None,
@@ -246,14 +245,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         self.mouse_position
     }
 
-    pub fn is_mouse_hovered_on_url(&self, mouse_position: &CursorPos) -> Option<String> {
-        match &mut self.internal.lock() {
-            Ok(internal) => internal.is_mouse_hovered_on_url(mouse_position),
-            Err(e) => {
-                error!("Error checking if mouse is hovered on url: {e}");
-                None
-            }
-        }
+    pub fn is_mouse_hovered_on_url(&mut self, mouse_position: &CursorPos) -> Option<String> {
+        self.internal.is_mouse_hovered_on_url(mouse_position)
     }
 
     pub fn set_window_focused(&mut self, focused: bool) {
@@ -267,12 +260,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     pub fn set_egui_ctx_if_missing(&mut self, ctx: egui::Context) {
         if self.ctx.is_none() {
             self.ctx = Some(ctx.clone());
-            match self.internal.lock() {
-                Ok(mut internal) => internal.set_ctx(ctx),
-                Err(e) => {
-                    error!("Error setting egui context: {e}");
-                }
-            }
+            self.internal.set_ctx(ctx);
         }
     }
 
@@ -290,55 +278,28 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     pub fn set_previous_pass_valid(&mut self) {
         self.previous_pass_valid = true;
     }
-    pub fn needs_redraw(&self) -> bool {
-        let internal = match self.internal.lock() {
-            Ok(internal) => internal.is_changed(),
-            Err(e) => {
-                error!("Error checking if terminal needs redraw: {e}");
-                true
-            }
+    pub fn needs_redraw(&mut self) -> bool {
+        let internal = if self.internal.is_changed() {
+            self.internal.clear_changed();
+            true
+        } else {
+            false
         };
-
-        if internal {
-            match self.internal.lock() {
-                Ok(mut internal) => internal.clear_changed(),
-                Err(e) => {
-                    error!("Error setting terminal as not changed: {e}");
-                }
-            }
-        }
 
         !self.previous_pass_valid || internal
     }
 
     pub fn get_win_size(&mut self) -> (usize, usize) {
-        match &mut self.internal.lock() {
-            Ok(internal) => internal.get_win_size(),
-            Err(e) => {
-                error!("Error getting window size: {e}. Using default values");
-                (TERMINAL_WIDTH, TERMINAL_HEIGHT)
-            }
-        }
+        self.internal.get_win_size()
     }
 
     pub fn get_window_title(&self) -> Option<String> {
-        match self.internal.lock() {
-            Ok(internal) => internal.get_window_title(),
-            Err(e) => {
-                error!("Error getting window title: {e}");
-                None
-            }
-        }
+        self.internal.get_window_title()
     }
 
     #[allow(dead_code)]
-    pub fn clear_window_title(&self) {
-        match self.internal.lock() {
-            Ok(mut internal) => internal.clear_window_title(),
-            Err(e) => {
-                error!("Error clearing window title: {e}");
-            }
-        }
+    pub fn clear_window_title(&mut self) {
+        self.internal.clear_window_title();
     }
 
     /// Set the window title
@@ -352,13 +313,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         font_pixel_width: usize,
         font_pixel_height: usize,
     ) -> Result<()> {
-        let response = match self.internal.lock() {
-            Ok(mut internal) => internal.set_win_size(width_chars, height_chars),
-            Err(e) => {
-                error!("Error setting window size: {e}");
-                return Err(anyhow::anyhow!("Error setting window size: {e}"));
-            }
-        };
+        let response = self.internal.set_win_size(width_chars, height_chars);
 
         if response.changed {
             self.write_tx.send(PtyWrite::Resize(FreminalTerminalSize {
@@ -379,58 +334,31 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     /// # Errors
     /// Will error if the terminal cannot be locked
     pub fn write(&self, to_write: &TerminalInput) -> Result<()> {
-        match self.internal.lock() {
-            Ok(internal) => internal.write(to_write),
-            Err(e) => Err(anyhow::anyhow!("Error writing to terminal: {e}")),
-        }
+        self.internal.write(to_write)
     }
 
-    pub fn data(&self) -> TerminalSections<Vec<TChar>> {
-        // FIXME: should this propagate the error?
-        match &mut self.internal.lock() {
-            Ok(internal) => internal.data(),
-            Err(e) => {
-                error!("Error getting terminal data: {e}");
-                TerminalSections {
-                    scrollback: Vec::new(),
-                    visible: Vec::new(),
-                }
-            }
-        }
+    pub fn data(&mut self) -> TerminalSections<Vec<TChar>> {
+        self.internal.data()
     }
 
-    pub fn format_data(&self) -> TerminalSections<Vec<FormatTag>> {
-        // FIXME: should this propagate the error?
-        match &mut self.internal.lock() {
-            Ok(internal) => internal.format_data(),
-            Err(e) => {
-                error!("Error getting terminal format data: {e}");
-                TerminalSections {
-                    scrollback: Vec::new(),
-                    visible: Vec::new(),
-                }
-            }
-        }
+    pub fn data_and_format_data(
+        &mut self,
+    ) -> (
+        TerminalSections<Vec<TChar>>,
+        TerminalSections<Vec<FormatTag>>,
+    ) {
+        self.internal.data_and_format_data()
     }
 
-    pub fn cursor_pos(&self) -> CursorPos {
-        // FIXME: should this propagate the error?
-        match &mut self.internal.lock() {
-            Ok(internal) => internal.cursor_pos(),
-            Err(e) => {
-                error!("Error getting cursor position: {e}");
-                CursorPos::default()
-            }
-        }
+    pub fn format_data(&mut self) -> TerminalSections<Vec<FormatTag>> {
+        self.internal.format_data()
     }
 
-    pub fn show_cursor(&self) -> bool {
-        match &mut self.internal.lock() {
-            Ok(internal) => internal.get_current_buffer().show_cursor == Dectem::Show,
-            Err(e) => {
-                error!("Error getting cursor visibility: {e}");
-                true
-            }
-        }
+    pub fn cursor_pos(&mut self) -> CursorPos {
+        self.internal.cursor_pos()
+    }
+
+    pub fn show_cursor(&mut self) -> bool {
+        self.internal.get_current_buffer().show_cursor == Dectem::Show
     }
 }

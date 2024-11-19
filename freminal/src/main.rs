@@ -16,7 +16,10 @@
 #[macro_use]
 extern crate tracing;
 
-use std::process;
+use std::{
+    process,
+    sync::{Arc, Mutex},
+};
 use terminal_emulator::interface::TerminalEmulator;
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -59,16 +62,25 @@ fn main() {
 
     let res = match TerminalEmulator::new(&args) {
         Ok((terminal, rx)) => {
-            let internal = terminal.internal.clone();
+            let terminal = Arc::new(Mutex::new(terminal));
+            let terminal_clone = Arc::clone(&terminal);
 
-            let _ = std::thread::spawn(move || loop {
+            std::thread::spawn(move || loop {
                 if let Ok(read) = rx.recv() {
                     let incoming = &read.buf[0..read.read_amount];
-                    internal.lock().unwrap().handle_incoming_data(incoming);
+                    match &mut terminal.clone().lock() {
+                        Ok(terminal) => {
+                            terminal.internal.handle_incoming_data(incoming);
+                        }
+                        Err(e) => {
+                            error!("Failed to lock terminal: {}", e);
+                            std::process::exit(1);
+                        }
+                    }
                 }
             });
 
-            gui::run(terminal)
+            gui::run(terminal_clone)
         }
         Err(e) => {
             error!("Failed to create terminal emulator: {}", e);

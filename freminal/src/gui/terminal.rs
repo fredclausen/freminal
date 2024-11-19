@@ -163,13 +163,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 ..
             } => [TerminalInput::Escape].as_ref().into(),
             Event::Paste(text) => {
-                let bracked_paste_mode = terminal_emulator
-                    .internal
-                    .lock()
-                    .unwrap()
-                    .modes
-                    .bracketed_paste
-                    .clone();
+                let bracked_paste_mode = terminal_emulator.internal.modes.bracketed_paste.clone();
                 if bracked_paste_mode == BracketedPaste::Enabled {
                     // ESC [ 200 ~, followed by the pasted text, followed by ESC [ 201 ~.
 
@@ -508,7 +502,7 @@ struct TerminalOutputRenderResponse {
 
 fn render_terminal_output<Io: FreminalTermInputOutput>(
     ui: &mut egui::Ui,
-    terminal_emulator: &TerminalEmulator<Io>,
+    terminal_emulator: &mut TerminalEmulator<Io>,
     font_size: f32,
     previous_pass: Option<&TerminalOutputRenderResponse>,
 ) -> TerminalOutputRenderResponse {
@@ -546,10 +540,9 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
 
                 (*previous_pass).clone()
             } else {
-                let terminal_data = terminal_emulator.data();
+                let (terminal_data, format_data) = terminal_emulator.data_and_format_data();
                 let scrollback_data = terminal_data.scrollback;
                 let mut canvas_data = terminal_data.visible;
-                let format_data = terminal_emulator.format_data();
 
                 if canvas_data.ends_with(&[TChar::NewLine]) {
                     canvas_data = canvas_data[0..canvas_data.len() - 1].to_vec();

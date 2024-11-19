@@ -39,7 +39,7 @@ pub enum CurrentBuffer {
     Alternate,
 }
 
-#[derive(Debug, PartialEq, Eq, Default)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct Buffer {
     pub terminal_buffer: TerminalBufferHolder,
     pub format_tracker: FormatTracker,
@@ -195,6 +195,27 @@ impl TerminalState {
         None
     }
 
+    pub(crate) fn data_and_format_data(
+        &mut self,
+    ) -> (
+        TerminalSections<Vec<TChar>>,
+        TerminalSections<Vec<FormatTag>>,
+    ) {
+        let offset = self
+            .get_current_buffer()
+            .terminal_buffer
+            .data()
+            .scrollback
+            .len();
+        let data = self.get_current_buffer().terminal_buffer.data();
+        let format_data = split_format_data_for_scrollback(
+            self.get_current_buffer().format_tracker.tags(),
+            offset,
+        );
+
+        (data, format_data)
+    }
+
     pub(crate) fn format_data(&mut self) -> TerminalSections<Vec<FormatTag>> {
         let offset = self
             .get_current_buffer()
@@ -344,11 +365,18 @@ impl TerminalState {
             response.left_over
         };
 
-        // FIXME: I think this is wrong.....the incoming "bad" data should be coming from the parsing?
-        // Or maybe this is right, but we need to ALSO get the bad data from the parser?
+        // Is this even necessary? Before the data ever gets to here (in handle_incoming_data)
+        // it's already been checked for utf8 validity. It's probably *not* wrong, just in case
+        // character substitution above fucks something, but that seems unlikely
         if !left_over.is_empty() {
             warn!("Leftover data from incoming buffer");
-            self.leftover_data = Some(left_over);
+
+            match self.leftover_data {
+                Some(ref mut self_leftover) => {
+                    self_leftover.splice(0..0, left_over);
+                }
+                None => self.leftover_data = Some(left_over),
+            }
         }
     }
 
@@ -875,17 +903,36 @@ impl TerminalState {
 
     pub fn handle_incoming_data(&mut self, incoming: &[u8]) {
         // if we have leftover data, prepend it to the incoming data
-        let incoming = self.leftover_data.take().map_or_else(
+        let mut incoming = self.leftover_data.take().map_or_else(
             || incoming.to_vec(),
             |leftover_data| {
-                info!("We have leftover data: {:?}", leftover_data);
+                debug!("We have leftover data: {:?}", leftover_data);
                 let mut new_data = Vec::with_capacity(leftover_data.len() + incoming.len());
                 new_data.extend_from_slice(&leftover_data);
                 new_data.extend_from_slice(incoming);
+                trace!("Reassembled buffer: {:?}", new_data);
                 self.leftover_data = None;
                 new_data
             },
         );
+
+        let mut leftover_bytes = vec![];
+        while let Err(_e) = String::from_utf8(incoming.clone()) {
+            let Some(p) = incoming.pop() else { break };
+            leftover_bytes.insert(0, p);
+        }
+
+        if !leftover_bytes.is_empty() {
+            match self.leftover_data {
+                Some(ref mut self_leftover) => {
+                    // this should be at the start of the leftover data
+                    self_leftover.splice(0..0, leftover_bytes);
+                }
+                None => self.leftover_data = Some(leftover_bytes),
+            }
+        }
+
+        // verify that the incoming data is utf-8
 
         let parsed = self.parser.push(&incoming);
         for segment in parsed {

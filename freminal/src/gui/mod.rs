@@ -3,6 +3,8 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+use std::sync::{Arc, Mutex};
+
 use anyhow::Result;
 use eframe::egui::{self, CentralPanel};
 use fonts::get_char_size;
@@ -25,14 +27,14 @@ fn set_egui_options(ctx: &egui::Context) {
     // ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
 }
 struct FreminalGui {
-    terminal_emulator: TerminalEmulator<FreminalPtyInputOutput>,
+    terminal_emulator: Arc<Mutex<TerminalEmulator<FreminalPtyInputOutput>>>,
     terminal_widget: FreminalTerminalWidget,
 }
 
 impl FreminalGui {
     fn new(
         cc: &eframe::CreationContext<'_>,
-        terminal_emulator: TerminalEmulator<FreminalPtyInputOutput>,
+        terminal_emulator: Arc<Mutex<TerminalEmulator<FreminalPtyInputOutput>>>,
     ) -> Self {
         set_egui_options(&cc.egui_ctx);
 
@@ -62,16 +64,24 @@ impl eframe::App for FreminalGui {
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let font_height = font_height.round() as usize;
 
-            if let Err(e) = self.terminal_emulator.set_win_size(
-                width_chars,
-                height_chars,
-                font_width,
-                font_height,
-            ) {
-                error!("failed to set window size {e}");
-            }
+            match self.terminal_emulator.lock() {
+                Ok(mut terminal_emulator) => {
+                    if let Err(e) = terminal_emulator.set_win_size(
+                        width_chars,
+                        height_chars,
+                        font_width,
+                        font_height,
+                    ) {
+                        error!("failed to set window size {e}");
+                    }
 
-            self.terminal_widget.show(ui, &mut self.terminal_emulator);
+                    self.terminal_widget.show(ui, &mut terminal_emulator);
+                }
+                Err(e) => {
+                    error!("Failed to lock terminal: {}", e);
+                    std::process::exit(1);
+                }
+            }
         });
 
         panel_response.response.context_menu(|ui| {
@@ -94,7 +104,7 @@ impl eframe::App for FreminalGui {
 /// # Errors
 /// Will return an error if the GUI fails to run
 pub fn run(
-    terminal_emulator: TerminalEmulator<FreminalPtyInputOutput>,
+    terminal_emulator: Arc<Mutex<TerminalEmulator<FreminalPtyInputOutput>>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let native_options = eframe::NativeOptions::default();
 
