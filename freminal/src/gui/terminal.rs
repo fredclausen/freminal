@@ -180,10 +180,6 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 terminal_emulator.set_window_focused(*focused);
                 continue;
             }
-            // Event::MouseMoved(position) => {
-            //     terminal_emulator.set_mouse_position(&Some(*position));
-            //     continue;
-            // }
             Event::PointerMoved(position) => {
                 terminal_emulator.set_mouse_position_from_move_event(position);
                 continue;
@@ -195,6 +191,10 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
             } => {
                 left_mouse_button_pressed = true;
 
+                continue;
+            }
+            Event::MouseWheel { .. } | Event::MouseMoved(_) => {
+                state_changed = true;
                 continue;
             }
             _ => {
