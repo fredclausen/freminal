@@ -24,7 +24,7 @@ terminal_emulator = { path = "../terminal-emulator" }
 freminal-common = { path = "../freminal-common" }
 
 [build-dependencies]
-tar = "0.4.43"
+tar.workspace = true
 
 [features]
 default = []
