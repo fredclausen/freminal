@@ -7,15 +7,15 @@ use core::fmt;
 
 use crate::ansi_components::mode::SetMode;
 
-/// Autowrap Mode (DECAWM)
+/// Autowrap Mode (DECAWM) ?7
 #[derive(Eq, PartialEq, Debug, Default, Clone)]
 pub enum Decawm {
     #[default]
     /// Normal (Reset) Mode
-    /// Cursor does not wrap to the next line
+    /// Disables autowrap mode.
     NoAutoWrap,
     /// Alternate (Set) Mode
-    /// Cursor wraps to the next line
+    /// Enables autowrap mode
     AutoWrap,
 }
 
@@ -23,8 +23,8 @@ impl Decawm {
     #[must_use]
     pub const fn new(mode: &SetMode) -> Self {
         match mode {
-            SetMode::Set => Self::AutoWrap,
-            SetMode::Reset => Self::NoAutoWrap,
+            SetMode::DecSet => Self::AutoWrap,
+            SetMode::DecRst => Self::NoAutoWrap,
         }
     }
 }

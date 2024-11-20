@@ -7,15 +7,15 @@ use core::fmt;
 
 use crate::ansi_components::mode::SetMode;
 
-/// Cursor Key Mode (DECCKM)
+/// Cursor Key Mode (DECCKM) ?1
 #[derive(Eq, PartialEq, Debug, Default, Clone)]
 pub enum Decckm {
     #[default]
     /// Normal (Reset) Mode
-    /// Cursor keys send ANSI control codes
+    /// Normal cursor keys in ANSI mode.
     Ansi,
     /// Alternate (Set) Mode
-    /// Cursor keys send application control codes
+    /// Application cursor keys.
     Application,
 }
 
@@ -23,8 +23,8 @@ impl Decckm {
     #[must_use]
     pub const fn new(mode: &SetMode) -> Self {
         match mode {
-            SetMode::Set => Self::Application,
-            SetMode::Reset => Self::Ansi,
+            SetMode::DecSet => Self::Application,
+            SetMode::DecRst => Self::Ansi,
         }
     }
 }

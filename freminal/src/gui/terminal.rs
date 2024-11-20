@@ -5,7 +5,7 @@
 
 use crate::gui::TerminalEmulator;
 use terminal_emulator::{
-    ansi_components::modes::rl_bracket::BracketedPaste,
+    ansi_components::modes::rl_bracket::RlBracket,
     format_tracker::FormatTag,
     interface::TerminalInput,
     io::FreminalTermInputOutput,
@@ -164,7 +164,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
             } => [TerminalInput::Escape].as_ref().into(),
             Event::Paste(text) => {
                 let bracked_paste_mode = terminal_emulator.internal.modes.bracketed_paste.clone();
-                if bracked_paste_mode == BracketedPaste::Enabled {
+                if bracked_paste_mode == RlBracket::Enabled {
                     // ESC [ 200 ~, followed by the pasted text, followed by ESC [ 201 ~.
 
                     collect_text(&format!("\x1b[200~{}{}", text, "\x1b[201~"))

@@ -154,14 +154,14 @@ impl AnsiCsiParser {
             AnsiCsiParserState::Finished(b'h') => {
                 output.push(TerminalOutput::Mode(terminal_mode_from_params(
                     &self.params,
-                    &SetMode::Set,
+                    &SetMode::DecSet,
                 )));
                 Ok(Some(ParserInner::Empty))
             }
             AnsiCsiParserState::Finished(b'l') => {
                 output.push(TerminalOutput::Mode(terminal_mode_from_params(
                     &self.params,
-                    &SetMode::Reset,
+                    &SetMode::DecRst,
                 )));
                 Ok(Some(ParserInner::Empty))
             }

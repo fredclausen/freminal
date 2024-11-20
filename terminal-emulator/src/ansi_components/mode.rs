@@ -1,16 +1,16 @@
 use std::fmt;
 
 use super::modes::{
-    decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::BracketedPaste,
-    xtextscrn::XtExtscrn, xtmsewin::XtMseWin, xtmsex11::XtMseX11,
+    decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket, xtextscrn::XtExtscrn,
+    xtmsewin::XtMseWin, xtmsex11::XtMseX11,
 };
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Eq, PartialEq, Default)]
 pub enum SetMode {
-    Set,
+    DecSet,
     #[default]
-    Reset,
+    DecRst,
 }
 
 #[derive(Eq, PartialEq, Debug)]
@@ -23,14 +23,14 @@ pub enum Mode {
     XtExtscrn(XtExtscrn),
     XtMseWin(XtMseWin),
     XTMseX11(XtMseX11),
-    BracketedPaste(BracketedPaste),
+    BracketedPaste(RlBracket),
     Unknown(Vec<u8>),
 }
 
 #[derive(Debug, Eq, PartialEq, Default)]
 pub struct TerminalModes {
     pub cursor_key: Decckm,
-    pub bracketed_paste: BracketedPaste,
+    pub bracketed_paste: RlBracket,
     pub focus_reporting: XtMseWin,
 }
 
@@ -63,7 +63,7 @@ pub fn terminal_mode_from_params(params: &[u8], mode: &SetMode) -> Mode {
         b"?1000" => Mode::XTMseX11(XtMseX11::new(mode)),
         b"?1004" => Mode::XtMseWin(XtMseWin::new(mode)),
         b"?1049" => Mode::XtExtscrn(XtExtscrn::new(mode)),
-        b"?2004" => Mode::BracketedPaste(BracketedPaste::new(mode)),
+        b"?2004" => Mode::BracketedPaste(RlBracket::new(mode)),
         _ => Mode::Unknown(params.to_vec()),
     }
 }

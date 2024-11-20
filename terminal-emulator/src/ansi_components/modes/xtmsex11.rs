@@ -21,8 +21,8 @@ impl XtMseX11 {
     #[must_use]
     pub const fn new(mode: &SetMode) -> Self {
         match mode {
-            SetMode::Set => Self::Enabled,
-            SetMode::Reset => Self::Disabled,
+            SetMode::DecSet => Self::Enabled,
+            SetMode::DecRst => Self::Disabled,
         }
     }
 }

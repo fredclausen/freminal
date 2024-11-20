@@ -7,15 +7,15 @@ use core::fmt;
 
 use crate::ansi_components::mode::SetMode;
 
-/// Show cursor (DECTCEM)
+/// Show cursor (DECTCEM) ?25
 #[derive(Debug, Eq, PartialEq, Default, Clone)]
 pub enum Dectcem {
     #[default]
-    /// Set cursor to visible
-    /// Cursor is visible
+    /// Normal (Set) Mode
+    /// Show cursor.
     Show,
-    /// Set cursor to invisible
-    /// Cursor is invisible
+    /// Alternate (Reset) Mode
+    /// Hide cursor.
     Hide,
 }
 
@@ -23,8 +23,8 @@ impl Dectcem {
     #[must_use]
     pub const fn new(mode: &SetMode) -> Self {
         match mode {
-            SetMode::Set => Self::Show,
-            SetMode::Reset => Self::Hide,
+            SetMode::DecSet => Self::Show,
+            SetMode::DecRst => Self::Hide,
         }
     }
 }

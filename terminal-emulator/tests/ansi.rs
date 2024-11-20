@@ -268,14 +268,14 @@ fn test_mode_parsing() {
     assert_eq!(output.len(), 1);
     assert_eq!(
         output[0],
-        TerminalOutput::Mode(Mode::Decckm(Decckm::new(&SetMode::Reset)))
+        TerminalOutput::Mode(Mode::Decckm(Decckm::new(&SetMode::DecRst)))
     );
 
     let output = output_buffer.push(b"\x1b[?1h");
     assert_eq!(output.len(), 1);
     assert_eq!(
         output[0],
-        TerminalOutput::Mode(Mode::Decckm(Decckm::new(&SetMode::Set)))
+        TerminalOutput::Mode(Mode::Decckm(Decckm::new(&SetMode::DecSet)))
     );
 }
 
@@ -519,13 +519,13 @@ fn test_fmt_display_terminal_output() {
     let output = TerminalOutput::Data(b"test".to_vec());
     assert_eq!(format!("{output}"), "Data(test)");
 
-    let output = TerminalOutput::Mode(Mode::Decckm(Decckm::new(&SetMode::Set)));
+    let output = TerminalOutput::Mode(Mode::Decckm(Decckm::new(&SetMode::DecSet)));
     assert_eq!(
         format!("{output}"),
         "SetMode(Cursor Key Mode (DECCKM) Application)"
     );
 
-    let output = TerminalOutput::Mode(Mode::Decckm(Decckm::new(&SetMode::Reset)));
+    let output = TerminalOutput::Mode(Mode::Decckm(Decckm::new(&SetMode::DecRst)));
     assert_eq!(
         format!("{output}"),
         "SetMode(Cursor Key Mode (DECCKM) ANSI)"

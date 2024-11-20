@@ -23,8 +23,8 @@ impl XtExtscrn {
     #[must_use]
     pub const fn new(mode: &SetMode) -> Self {
         match mode {
-            SetMode::Set => Self::Alternate,
-            SetMode::Reset => Self::Primary,
+            SetMode::DecSet => Self::Alternate,
+            SetMode::DecRst => Self::Primary,
         }
     }
 }
