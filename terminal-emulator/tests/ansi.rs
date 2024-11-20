@@ -8,7 +8,8 @@ use terminal_emulator::{
     ansi::{parse_param_as, FreminalAnsiParser, ParserInner, TerminalOutput},
     ansi_components::{
         csi::{AnsiCsiParser, AnsiCsiParserState},
-        mode::Mode,
+        mode::{Mode, SetMode},
+        modes::decckm::Decckm,
         osc::{AnsiOscInternalType, AnsiOscType},
         sgr::SelectGraphicRendition,
     },
@@ -253,23 +254,29 @@ fn test_mode_parsing() {
     assert_eq!(output.len(), 1);
     assert_eq!(
         output[0],
-        TerminalOutput::SetMode(Mode::Unknown(b"1".to_vec()))
+        TerminalOutput::Mode(Mode::Unknown(b"1".to_vec()))
     );
 
     let output = output_buffer.push(b"\x1b[1l");
     assert_eq!(output.len(), 1);
     assert_eq!(
         output[0],
-        TerminalOutput::ResetMode(Mode::Unknown(b"1".to_vec()))
+        TerminalOutput::Mode(Mode::Unknown(b"1".to_vec()))
     );
 
     let output = output_buffer.push(b"\x1b[?1l");
     assert_eq!(output.len(), 1);
-    assert_eq!(output[0], TerminalOutput::ResetMode(Mode::Decckm));
+    assert_eq!(
+        output[0],
+        TerminalOutput::Mode(Mode::Decckm(Decckm::new(&SetMode::Reset)))
+    );
 
     let output = output_buffer.push(b"\x1b[?1h");
     assert_eq!(output.len(), 1);
-    assert_eq!(output[0], TerminalOutput::SetMode(Mode::Decckm));
+    assert_eq!(
+        output[0],
+        TerminalOutput::Mode(Mode::Decckm(Decckm::new(&SetMode::Set)))
+    );
 }
 
 #[test]
@@ -512,11 +519,17 @@ fn test_fmt_display_terminal_output() {
     let output = TerminalOutput::Data(b"test".to_vec());
     assert_eq!(format!("{output}"), "Data(test)");
 
-    let output = TerminalOutput::SetMode(Mode::Decckm);
-    assert_eq!(format!("{output}"), "SetMode(Decckm)");
+    let output = TerminalOutput::Mode(Mode::Decckm(Decckm::new(&SetMode::Set)));
+    assert_eq!(
+        format!("{output}"),
+        "SetMode(Cursor Key Mode (DECCKM) Application)"
+    );
 
-    let output = TerminalOutput::ResetMode(Mode::Decckm);
-    assert_eq!(format!("{output}"), "ResetMode(Decckm)");
+    let output = TerminalOutput::Mode(Mode::Decckm(Decckm::new(&SetMode::Reset)));
+    assert_eq!(
+        format!("{output}"),
+        "SetMode(Cursor Key Mode (DECCKM) ANSI)"
+    );
 
     let output = TerminalOutput::InsertSpaces(1);
     assert_eq!(format!("{output}"), "InsertSpaces(1)");

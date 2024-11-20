@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::ansi_components::mode::Dectem;
+use crate::ansi_components::modes::dectcem::Dectcem;
 use crate::format_tracker::FormatTag;
 use crate::io::FreminalPtyInputOutput;
 use crate::io::{FreminalTermInputOutput, FreminalTerminalSize, PtyRead, PtyWrite};
@@ -359,6 +359,6 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     }
 
     pub fn show_cursor(&mut self) -> bool {
-        self.internal.get_current_buffer().show_cursor == Dectem::Show
+        self.internal.get_current_buffer().show_cursor == Dectcem::Show
     }
 }

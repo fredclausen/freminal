@@ -5,7 +5,7 @@
 
 use freminal_common::colors::TerminalColor;
 use terminal_emulator::{
-    ansi_components::mode::Decawm,
+    ansi_components::modes::decawm::Decawm,
     state::{
         cursor::{CursorPos, CursorState, StateColors},
         fonts::{FontDecorations, FontWeight},

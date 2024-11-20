@@ -5,7 +5,7 @@
 
 use freminal_common::colors::TerminalColor;
 
-use crate::ansi_components::{mode::Decawm, osc::Url};
+use crate::ansi_components::{modes::decawm::Decawm, osc::Url};
 
 use super::fonts::{FontDecorations, FontWeight};
 

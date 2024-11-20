@@ -38,8 +38,7 @@ pub enum TerminalOutput {
     Erase(usize),
     Sgr(SelectGraphicRendition),
     Data(Vec<u8>),
-    SetMode(Mode),
-    ResetMode(Mode),
+    Mode(Mode),
     // ich (8.3.64 of ecma-48)
     InsertSpaces(usize),
     OscResponse(AnsiOscType),
@@ -78,8 +77,7 @@ impl std::fmt::Display for TerminalOutput {
             Self::Data(data) => {
                 write!(f, "Data({})", String::from_utf8_lossy(data))
             }
-            Self::SetMode(mode) => write!(f, "SetMode({mode:?})"),
-            Self::ResetMode(mode) => write!(f, "ResetMode({mode:?})"),
+            Self::Mode(mode) => write!(f, "SetMode({mode})"),
             Self::InsertSpaces(n) => write!(f, "InsertSpaces({n})"),
             Self::OscResponse(n) => write!(f, "OscResponse({n})"),
             Self::DecSpecialGraphics(dec_special_graphics) => {

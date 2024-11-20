@@ -3,14 +3,14 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::{ansi_components::osc::Url, state::cursor::StateColors};
+use crate::{
+    ansi_components::{modes::decawm::Decawm, osc::Url},
+    state::cursor::StateColors,
+};
 
-use super::{
-    ansi_components::mode::Decawm,
-    state::{
-        cursor::CursorState,
-        fonts::{FontDecorations, FontWeight},
-    },
+use super::state::{
+    cursor::CursorState,
+    fonts::{FontDecorations, FontWeight},
 };
 use anyhow::Result;
 use std::ops::Range;

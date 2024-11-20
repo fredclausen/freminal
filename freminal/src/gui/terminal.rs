@@ -5,7 +5,7 @@
 
 use crate::gui::TerminalEmulator;
 use terminal_emulator::{
-    ansi_components::mode::BracketedPaste,
+    ansi_components::modes::rl_bracket::BracketedPaste,
     format_tracker::FormatTag,
     interface::TerminalInput,
     io::FreminalTermInputOutput,

@@ -8,8 +8,7 @@ use freminal_common::colors::TerminalColor;
 use terminal_emulator::{
     ansi::FreminalAnsiParser,
     ansi_components::{
-        line_draw::DecSpecialGraphics,
-        mode::{Decckm, TerminalModes},
+        line_draw::DecSpecialGraphics, mode::TerminalModes, modes::decckm::Decckm,
         sgr::SelectGraphicRendition,
     },
     interface::TerminalInput,

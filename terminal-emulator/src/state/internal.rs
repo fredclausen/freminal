@@ -12,7 +12,8 @@ use crate::{
     ansi::{FreminalAnsiParser, TerminalOutput},
     ansi_components::{
         line_draw::DecSpecialGraphics,
-        mode::{BracketedPaste, Decawm, Decckm, Dectem, Mode, TerminalModes, XtMseWin},
+        mode::{Mode, TerminalModes},
+        modes::{decckm::Decckm, dectcem::Dectcem, xtextscrn::XtExtscrn, xtmsewin::XtMseWin},
         osc::{AnsiOscInternalType, AnsiOscType, UrlResponse},
         sgr::SelectGraphicRendition,
     },
@@ -44,7 +45,7 @@ pub struct Buffer {
     pub terminal_buffer: TerminalBufferHolder,
     pub format_tracker: FormatTracker,
     pub cursor_state: CursorState,
-    pub show_cursor: Dectem,
+    pub show_cursor: Dectcem,
     pub saved_cursor_position: Option<CursorPos>,
 }
 
@@ -55,7 +56,7 @@ impl Buffer {
             terminal_buffer: TerminalBufferHolder::new(width, height),
             format_tracker: FormatTracker::new(),
             cursor_state: CursorState::default(),
-            show_cursor: Dectem::default(),
+            show_cursor: Dectcem::default(),
             saved_cursor_position: None,
         }
     }
@@ -772,52 +773,21 @@ impl TerminalState {
             .push_range_adjustment(response.insertion_range);
     }
 
-    pub(crate) fn reset_mode(&mut self, mode: &Mode) {
-        match mode {
-            Mode::Decckm => {
-                self.modes.cursor_key = Decckm::Ansi;
-            }
-            Mode::Decawm => {
-                self.get_current_buffer().cursor_state.line_wrap_mode = Decawm::NoAutoWrap;
-            }
-            Mode::Dectem => {
-                self.get_current_buffer().show_cursor = Dectem::Hide;
-            }
-            Mode::BracketedPaste => {
-                self.modes.bracketed_paste = BracketedPaste::Disabled;
-            }
-            Mode::XtExtscrn => {
-                info!("Switching to primary screen buffer");
-                // SPEC Steps:
-                // 1. Restore the cursor position
-                // 2. Switch to the primary screen buffer
-                // 3. Clear the screen
-                // See set mode for notes on the cursor pos
-
-                self.current_buffer = CurrentBuffer::Primary;
-            }
-            Mode::XtMseWin => {
-                self.modes.focus_reporting = XtMseWin::Disabled;
-            }
-            Mode::Unknown(_) => {}
-        }
-    }
-
     pub(crate) fn set_mode(&mut self, mode: &Mode) {
         match mode {
-            Mode::Decckm => {
-                self.modes.cursor_key = Decckm::Application;
+            Mode::Decckm(decckm) => {
+                self.modes.cursor_key = decckm.clone();
             }
-            Mode::Decawm => {
-                self.get_current_buffer().cursor_state.line_wrap_mode = Decawm::AutoWrap;
+            Mode::Decawm(decawm) => {
+                self.get_current_buffer().cursor_state.line_wrap_mode = decawm.clone();
             }
-            Mode::Dectem => {
-                self.get_current_buffer().show_cursor = Dectem::Show;
+            Mode::Dectem(dectem) => {
+                self.get_current_buffer().show_cursor = dectem.clone();
             }
-            Mode::BracketedPaste => {
-                self.modes.bracketed_paste = BracketedPaste::Enabled;
+            Mode::BracketedPaste(bracketed_paste) => {
+                self.modes.bracketed_paste = bracketed_paste.clone();
             }
-            Mode::XtExtscrn => {
+            Mode::XtExtscrn(XtExtscrn::Alternate) => {
                 info!("Switching to alternate screen buffer");
                 // SPEC Steps:
                 // 1. Save the cursor position
@@ -832,7 +802,17 @@ impl TerminalState {
                 self.current_buffer = CurrentBuffer::Alternate;
                 self.alternate_buffer = Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT);
             }
-            Mode::XtMseWin => {
+            Mode::XtExtscrn(XtExtscrn::Primary) => {
+                info!("Switching to primary screen buffer");
+                // SPEC Steps:
+                // 1. Restore the cursor position
+                // 2. Switch to the primary screen buffer
+                // 3. Clear the screen
+                // See set mode for notes on the cursor pos
+
+                self.current_buffer = CurrentBuffer::Primary;
+            }
+            Mode::XtMseWin(XtMseWin::Enabled) => {
                 debug!("Setting focus reporting");
                 self.modes.focus_reporting = XtMseWin::Enabled;
 
@@ -848,8 +828,14 @@ impl TerminalState {
 
                 debug!("Reported current focus {:?} to terminal", to_write);
             }
+            Mode::XtMseWin(XtMseWin::Disabled) => {
+                self.modes.focus_reporting = XtMseWin::Disabled;
+            }
+            Mode::XTMseX11(mouse_mode) => {
+                warn!("XtX10Mouse is not supported: {mouse_mode}");
+            }
             Mode::Unknown(_) => {
-                warn!("unhandled set mode: {mode:?}");
+                warn!("unhandled set mode: {mode}");
             }
         }
     }
@@ -1005,9 +991,8 @@ impl TerminalState {
                 TerminalOutput::Delete(num_chars) => self.delete(num_chars),
                 TerminalOutput::Erase(num_chars) => self.erase(num_chars),
                 TerminalOutput::Sgr(sgr) => self.sgr(sgr),
-                TerminalOutput::SetMode(mode) => self.set_mode(&mode),
+                TerminalOutput::Mode(mode) => self.set_mode(&mode),
                 TerminalOutput::InsertSpaces(num_spaces) => self.insert_spaces(num_spaces),
-                TerminalOutput::ResetMode(mode) => self.reset_mode(&mode),
                 TerminalOutput::OscResponse(osc) => self.osc_response(osc),
                 TerminalOutput::DecSpecialGraphics(dec_special_graphics) => {
                     self.character_replace = dec_special_graphics;
