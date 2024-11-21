@@ -78,18 +78,18 @@ fn main() {
                     if !send_over.is_empty()
                         && (rx.is_empty() || send_over.len() + read.read_amount > 1000)
                     {
-                        info!("Sending buffered read");
+                        debug!("Sending buffered read");
                         send_over.extend_from_slice(&read.buf[0..read.read_amount]);
                     } else if rx.is_empty() {
                         // We have no pending reads, so send it over
-                        info!("Sending read");
+                        debug!("Sending read");
                         terminal
                             .lock()
                             .internal
                             .handle_incoming_data(&read.buf[0..read.read_amount]);
                         continue;
                     } else {
-                        info!("Buffering read");
+                        debug!("Buffering read");
                         // We have more reads, so buffer it
                         send_over.extend_from_slice(&read.buf[0..read.read_amount]);
                         continue;
