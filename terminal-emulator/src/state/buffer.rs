@@ -11,46 +11,48 @@ use std::ops::Range;
 /// Ranges do not include newlines. If a newline appears past the width, it does not result in an
 /// extra line
 
-pub fn calc_line_ranges(buf: &[TChar], width: usize) -> Vec<Range<usize>> {
-    let mut ret = vec![];
+#[must_use]
+pub fn calc_line_ranges(buf: &[TChar], width: usize, last_capacity: &usize) -> Vec<Range<usize>> {
+    //let mut ret = vec![];
 
     let mut current_start = 0;
 
-    for (i, c) in buf.iter().enumerate() {
-        if *c == TChar::NewLine {
-            ret.push(current_start..i);
-            current_start = i + 1;
-            continue;
-        }
+    // iterate through the buffer
+    // we want ranges that either terminate at a newline or at the width
 
-        let bytes_since_start = i - current_start;
-        //assert!(bytes_since_start <= width);
+    // for (i, c) in buf.iter().enumerate() {
+    //     if matches!(c, TChar::NewLine) {
+    //         ret.push(current_start..i);
+    //         current_start = i + 1;
+    //     } else if i - current_start == width {
+    //         ret.push(current_start..i);
+    //         current_start = i;
+    //     }
+    // }
 
-        if bytes_since_start > width {
-            error!(
-                "Buffer line is longer than width. Returning what we have....it's probably wrong"
-            );
-            return ret;
-        }
-
-        if bytes_since_start == width {
-            ret.push(current_start..i);
-            current_start = i;
-            continue;
-        }
-    }
+    let mut ret = buf.iter().enumerate().fold(
+        Vec::with_capacity(*last_capacity + 10),
+        |mut acc, (i, c)| {
+            if matches!(c, TChar::NewLine) {
+                acc.push(current_start..i);
+                current_start = i + 1;
+            } else if i - current_start == width {
+                acc.push(current_start..i);
+                current_start = i;
+            }
+            acc
+        },
+    );
 
     if buf.len() > current_start {
         ret.push(current_start..buf.len());
     }
+
     ret
 }
 
-fn buf_to_cursor_pos(buf: &[TChar], width: usize, height: usize, buf_pos: usize) -> CursorPos {
-    let new_line_ranges = calc_line_ranges(buf, width);
-    let new_visible_line_ranges = line_ranges_to_visible_line_ranges(&new_line_ranges, height);
-
-    let (new_cursor_y, new_cursor_line) = if let Some((i, r)) = new_visible_line_ranges
+fn buf_to_cursor_pos(buf_pos: usize, visible_line_ranges: &[Range<usize>]) -> CursorPos {
+    let (new_cursor_y, new_cursor_line) = if let Some((i, r)) = visible_line_ranges
         .iter()
         .enumerate()
         .find(|(_i, r)| r.end >= buf_pos)
@@ -76,13 +78,9 @@ fn buf_to_cursor_pos(buf: &[TChar], width: usize, height: usize, buf_pos: usize)
 
 #[must_use]
 pub fn cursor_pos_to_buf_pos(
-    buf: &[TChar],
-    (width, height): (usize, usize),
     cursor_pos: &CursorPos,
+    visible_line_ranges: &[Range<usize>],
 ) -> Option<usize> {
-    let line_ranges = calc_line_ranges(buf, width);
-    let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, height);
-
     let line_range = visible_line_ranges.get(cursor_pos.y)?;
 
     let buf_pos = line_range.start + cursor_pos.x;
@@ -106,7 +104,8 @@ fn unwrapped_line_end_pos(buf: &[TChar], start_pos: usize) -> usize {
 
 /// Given terminal height `height`, extract the visible line ranges from all line ranges (which
 /// include scrollback) assuming "visible" is the bottom N lines
-fn line_ranges_to_visible_line_ranges(
+#[must_use]
+pub fn line_ranges_to_visible_line_ranges(
     line_ranges: &[Range<usize>],
     height: usize,
 ) -> &[Range<usize>] {
@@ -128,16 +127,11 @@ pub struct PadBufferForWriteResponse {
 
 pub fn pad_buffer_for_write(
     buf: &mut Vec<TChar>,
-    width: usize,
-    height: usize,
+    visible_line_ranges: &[Range<usize>],
     cursor_pos: &CursorPos,
     write_len: usize,
 ) -> PadBufferForWriteResponse {
-    let mut visible_line_ranges = {
-        // Calculate in block scope to avoid accidental usage of scrollback line ranges later
-        let line_ranges = calc_line_ranges(buf, width);
-        line_ranges_to_visible_line_ranges(&line_ranges, height).to_vec()
-    };
+    let mut visible_line_ranges = visible_line_ranges.to_vec();
 
     let mut padding_start_pos = None;
     let mut num_inserted_characters = 0;
@@ -214,14 +208,9 @@ fn cursor_to_buf_pos_from_visible_line_ranges(
 }
 
 fn cursor_to_buf_pos(
-    buf: &[TChar],
     cursor_pos: &CursorPos,
-    width: usize,
-    height: usize,
+    visible_line_ranges: &[Range<usize>],
 ) -> Option<(usize, Range<usize>)> {
-    let line_ranges = calc_line_ranges(buf, width);
-    let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, height);
-
     cursor_to_buf_pos_from_visible_line_ranges(cursor_pos, visible_line_ranges)
 }
 
@@ -233,7 +222,6 @@ pub struct TerminalBufferInsertResponse {
     /// requested row for writing
     pub insertion_range: Range<usize>,
     pub new_cursor_pos: CursorPos,
-    pub left_over: Vec<u8>,
 }
 
 #[derive(Debug)]
@@ -255,16 +243,38 @@ pub struct TerminalBufferHolder {
     buf: Vec<TChar>,
     width: usize,
     height: usize,
+    line_ranges: Vec<Range<usize>>,
+    visible_line_ranges: Vec<Range<usize>>,
 }
 
 impl TerminalBufferHolder {
     #[must_use]
-    pub const fn new(width: usize, height: usize) -> Self {
+    pub fn new(width: usize, height: usize) -> Self {
         Self {
-            buf: vec![],
+            buf: Vec::with_capacity(100_000_000),
             width,
             height,
+            line_ranges: vec![],
+            visible_line_ranges: vec![],
         }
+    }
+
+    #[must_use]
+    pub fn get_visible_line_ranges(&self) -> &[Range<usize>] {
+        &self.visible_line_ranges
+    }
+
+    #[must_use]
+    pub fn get_line_ranges(&self) -> &[Range<usize>] {
+        &self.line_ranges
+    }
+
+    pub fn set_line_ranges(&mut self, line_ranges: Vec<Range<usize>>) {
+        self.line_ranges = line_ranges;
+    }
+
+    pub fn set_visible_line_ranges(&mut self, visible_line_ranges: Vec<Range<usize>>) {
+        self.visible_line_ranges = visible_line_ranges;
     }
 
     /// Inserts data into the buffer at the cursor position
@@ -276,25 +286,17 @@ impl TerminalBufferHolder {
         cursor_pos: &CursorPos,
         data: &[u8],
     ) -> Result<TerminalBufferInsertResponse> {
-        let mut data_to_use = data.to_vec();
-        let mut leftover_bytes = vec![];
-        while let Err(_e) = String::from_utf8(data_to_use.clone()) {
-            let Some(p) = data_to_use.pop() else { break };
-            leftover_bytes.insert(0, p);
-        }
-
         // loop through all of the characters
         // if the character is utf8, then we need all of the bytes to be written
 
-        let converted_buffer = TChar::from_vec(&data_to_use)?;
+        let converted_buffer = TChar::from_vec(data)?;
 
         let PadBufferForWriteResponse {
             write_idx,
             inserted_padding,
         } = pad_buffer_for_write(
             &mut self.buf,
-            self.width,
-            self.height,
+            &self.visible_line_ranges,
             cursor_pos,
             converted_buffer.len(),
         );
@@ -302,12 +304,14 @@ impl TerminalBufferHolder {
 
         self.buf
             .splice(write_range.clone(), converted_buffer.iter().cloned());
-        let new_cursor_pos = buf_to_cursor_pos(&self.buf, self.width, self.height, write_range.end);
+        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
+        self.visible_line_ranges =
+            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
+        let new_cursor_pos = buf_to_cursor_pos(write_range.end, &self.visible_line_ranges);
         Ok(TerminalBufferInsertResponse {
             written_range: write_range,
             insertion_range: inserted_padding,
             new_cursor_pos,
-            left_over: leftover_bytes,
         })
     }
 
@@ -319,7 +323,7 @@ impl TerminalBufferHolder {
     ) -> TerminalBufferInsertResponse {
         num_spaces = self.width.min(num_spaces);
 
-        let buf_pos = cursor_to_buf_pos(&self.buf, cursor_pos, self.width, self.height);
+        let buf_pos = cursor_to_buf_pos(cursor_pos, &self.visible_line_ranges);
         if let Some((buf_pos, line_range)) = buf_pos {
             // Insert spaces until either we hit num_spaces, or the line width is too long
             let line_len = line_range.end - line_range.start;
@@ -341,7 +345,6 @@ impl TerminalBufferHolder {
                 written_range: buf_pos..buf_pos + used_spaces,
                 insertion_range: buf_pos..buf_pos + num_inserted,
                 new_cursor_pos: cursor_pos.clone(),
-                left_over: vec![],
             }
         } else {
             let PadBufferForWriteResponse {
@@ -349,16 +352,17 @@ impl TerminalBufferHolder {
                 inserted_padding,
             } = pad_buffer_for_write(
                 &mut self.buf,
-                self.width,
-                self.height,
+                &self.visible_line_ranges,
                 cursor_pos,
                 num_spaces,
             );
+            self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
+            self.visible_line_ranges =
+                line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
             TerminalBufferInsertResponse {
                 written_range: write_idx..write_idx + num_spaces,
                 insertion_range: inserted_padding,
                 new_cursor_pos: cursor_pos.clone(),
-                left_over: vec![],
             }
         }
     }
@@ -368,8 +372,7 @@ impl TerminalBufferHolder {
         cursor_pos: &CursorPos,
         mut num_lines: usize,
     ) -> TerminalBufferInsertLineResponse {
-        let line_ranges = calc_line_ranges(&self.buf, self.width);
-        let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, self.height);
+        let visible_line_ranges = &self.visible_line_ranges;
 
         // NOTE: Cursor x position is not used. If the cursor position was too far to the right,
         // there may be no buffer position associated with it. Use Y only
@@ -423,11 +426,10 @@ impl TerminalBufferHolder {
     /// # Errors
     /// Will error if the cursor position changes during the clear
     pub fn clear_backwards(&mut self, cursor_pos: &CursorPos) -> Result<Option<Range<usize>>> {
-        let line_ranges = calc_line_ranges(&self.buf, self.width);
-        let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, self.height);
+        let visible_line_ranges = self.visible_line_ranges.clone();
 
         let Some((buf_pos, _)) =
-            cursor_to_buf_pos_from_visible_line_ranges(cursor_pos, visible_line_ranges)
+            cursor_to_buf_pos_from_visible_line_ranges(cursor_pos, &visible_line_ranges)
         else {
             return Ok(None);
         };
@@ -438,7 +440,7 @@ impl TerminalBufferHolder {
 
         let previous_last_char = self.buf[buf_pos].clone();
 
-        for line in visible_line_ranges {
+        for line in &visible_line_ranges {
             // replace all characters from the start of the visible lines to buf_pos with spaces
             if line.start < buf_pos {
                 self.buf[line.start..buf_pos].fill(TChar::Space);
@@ -451,7 +453,7 @@ impl TerminalBufferHolder {
             }
         }
 
-        let mut pos = buf_to_cursor_pos(&self.buf, self.width, self.height, buf_pos);
+        let mut pos = buf_to_cursor_pos(buf_pos, &self.visible_line_ranges);
         // NOTE: buf to cursor pos may put the cursor one past the end of the line. In this
         // case it's ok because there are two valid cursor positions and we only care about one
         // of them
@@ -481,6 +483,11 @@ impl TerminalBufferHolder {
                 "Cursor position changed while clearing backwards"
             ));
         }
+
+        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
+        self.visible_line_ranges =
+            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
+
         Ok(Some(visible_line_ranges[cursor_pos.y].start..buf_pos))
     }
 
@@ -491,11 +498,10 @@ impl TerminalBufferHolder {
     /// # Errors
     /// Will error if the cursor position changes during the clear
     pub fn clear_forwards(&mut self, cursor_pos: &CursorPos) -> Result<Option<usize>> {
-        let line_ranges = calc_line_ranges(&self.buf, self.width);
-        let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, self.height);
+        let visible_line_ranges = self.visible_line_ranges.clone();
 
         let Some((buf_pos, _)) =
-            cursor_to_buf_pos_from_visible_line_ranges(cursor_pos, visible_line_ranges)
+            cursor_to_buf_pos_from_visible_line_ranges(cursor_pos, &visible_line_ranges)
         else {
             return Ok(None);
         };
@@ -523,7 +529,7 @@ impl TerminalBufferHolder {
             }
         }
 
-        let mut pos = buf_to_cursor_pos(&self.buf, self.width, self.height, buf_pos);
+        let mut pos = buf_to_cursor_pos(buf_pos, &self.visible_line_ranges);
         // NOTE: buf to cursor pos may put the cursor one past the end of the line. In this
         // case it's ok because there are two valid cursor positions and we only care about one
         // of them
@@ -541,57 +547,75 @@ impl TerminalBufferHolder {
                 "Cursor position changed while clearing forwards"
             ));
         }
+
+        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
+        self.visible_line_ranges =
+            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
+
         Ok(Some(buf_pos))
     }
 
     pub fn clear_line_forwards(&mut self, cursor_pos: &CursorPos) -> Option<Range<usize>> {
         // Can return early if none, we didn't delete anything if there is nothing to delete
-        let (buf_pos, line_range) =
-            cursor_to_buf_pos(&self.buf, cursor_pos, self.width, self.height)?;
+        let (buf_pos, line_range) = cursor_to_buf_pos(cursor_pos, &self.visible_line_ranges)?;
 
         let del_range = buf_pos..line_range.end;
         self.buf.drain(del_range.clone());
+
+        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
+        self.visible_line_ranges =
+            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
+
         Some(del_range)
     }
 
     pub fn clear_line(&mut self, cursor_pos: &CursorPos) -> Option<Range<usize>> {
-        let (_buf_pos, line_range) =
-            cursor_to_buf_pos(&self.buf, cursor_pos, self.width, self.height)?;
+        let (_buf_pos, line_range) = cursor_to_buf_pos(cursor_pos, &self.visible_line_ranges)?;
 
         let del_range = line_range;
         self.buf.drain(del_range.clone());
+        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
+        self.visible_line_ranges =
+            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
         Some(del_range)
     }
 
     pub fn clear_line_backwards(&mut self, cursor_pos: &CursorPos) -> Option<Range<usize>> {
-        let (buf_pos, line_range) =
-            cursor_to_buf_pos(&self.buf, cursor_pos, self.width, self.height)?;
+        let (buf_pos, line_range) = cursor_to_buf_pos(cursor_pos, &self.visible_line_ranges)?;
 
         let del_range = line_range.start..buf_pos;
         self.buf.drain(del_range.clone());
+        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
+        self.visible_line_ranges =
+            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
         Some(del_range)
     }
 
     pub fn clear_all(&mut self) {
         self.buf.clear();
+        self.line_ranges.clear();
+        self.visible_line_ranges.clear();
     }
 
     pub fn clear_visible(&mut self) -> Option<std::ops::Range<usize>> {
-        let line_ranges = calc_line_ranges(&self.buf, self.width);
-        let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, self.height);
+        let visible_line_ranges = self.visible_line_ranges.clone();
 
         if visible_line_ranges.is_empty() {
             return None;
         }
 
         // replace all NONE newlines with spaces
-        for line in visible_line_ranges {
+        for line in &visible_line_ranges {
             self.buf[line.start..line.end].iter_mut().for_each(|c| {
                 if *c != TChar::NewLine {
                     *c = TChar::Space;
                 }
             });
         }
+
+        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
+        self.visible_line_ranges =
+            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
 
         Some(visible_line_ranges[0].start..usize::MAX)
     }
@@ -601,8 +625,7 @@ impl TerminalBufferHolder {
         cursor_pos: &CursorPos,
         num_chars: usize,
     ) -> Option<Range<usize>> {
-        let (buf_pos, line_range) =
-            cursor_to_buf_pos(&self.buf, cursor_pos, self.width, self.height)?;
+        let (buf_pos, line_range) = cursor_to_buf_pos(cursor_pos, &self.visible_line_ranges)?;
 
         let mut delete_range = buf_pos..buf_pos + num_chars;
 
@@ -623,8 +646,7 @@ impl TerminalBufferHolder {
         cursor_pos: &CursorPos,
         num_chars: usize,
     ) -> Option<Range<usize>> {
-        let (buf_pos, line_range) =
-            cursor_to_buf_pos(&self.buf, cursor_pos, self.width, self.height)?;
+        let (buf_pos, line_range) = cursor_to_buf_pos(cursor_pos, &self.visible_line_ranges)?;
 
         let mut erase_range = buf_pos..buf_pos + num_chars;
 
@@ -639,8 +661,7 @@ impl TerminalBufferHolder {
 
     #[must_use]
     pub fn data(&self) -> TerminalSections<Vec<TChar>> {
-        let line_ranges = calc_line_ranges(&self.buf, self.width);
-        let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, self.height);
+        let visible_line_ranges = &self.visible_line_ranges;
         if self.buf.is_empty() {
             return TerminalSections {
                 scrollback: vec![],
@@ -656,11 +677,62 @@ impl TerminalBufferHolder {
         }
 
         let start = visible_line_ranges[0].start;
+
         TerminalSections {
             scrollback: self.buf[..start].to_vec(),
             visible: self.buf[start..].to_vec(),
         }
     }
+
+    // #[must_use]
+    // pub fn data_clamped(&self) -> (TerminalSections<Vec<TChar>>, usize) {
+    //     let line_ranges = calc_line_ranges(&self.buf, self.width);
+    //     let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, self.height);
+    //     if self.buf.is_empty() {
+    //         return (
+    //             TerminalSections {
+    //                 scrollback: vec![],
+    //                 visible: self.buf.clone(),
+    //             },
+    //             0,
+    //         );
+    //     }
+
+    //     if visible_line_ranges.is_empty() {
+    //         return (
+    //             TerminalSections {
+    //                 scrollback: self.buf.clone(),
+    //                 visible: vec![],
+    //             },
+    //             0,
+    //         );
+    //     }
+
+    //     let start = visible_line_ranges[0].start;
+
+    //     // we need to clamp the scrollback to a maximum of height * 2
+
+    //     // first find the index in line ranges that is the start of the visible lines
+    //     let mut scrollback_end = 0;
+    //     for (i, line_range) in line_ranges.iter().enumerate() {
+    //         if line_range.start == start {
+    //             scrollback_end = i;
+    //             break;
+    //         }
+    //     }
+
+    //     scrollback_end = scrollback_end.saturating_sub(1);
+    //     let scrollback_start = line_ranges[scrollback_end.saturating_sub(self.height)].start;
+    //     info!("Clamping scrollback to {}", scrollback_start);
+
+    //     (
+    //         TerminalSections {
+    //             scrollback: self.buf[scrollback_start..start].to_vec(),
+    //             visible: self.buf[start..].to_vec(),
+    //         },
+    //         scrollback_start,
+    //     )
+    // }
 
     #[must_use]
     pub fn get_raw_buffer(&self) -> &[TChar] {
@@ -691,10 +763,13 @@ impl TerminalBufferHolder {
         // can just look up where the cursor is supposed to be and map it back to it's new cursor
         // position
         let pad_response =
-            pad_buffer_for_write(&mut self.buf, self.width, self.height, cursor_pos, 0);
+            pad_buffer_for_write(&mut self.buf, &self.visible_line_ranges, cursor_pos, 0);
+        self.line_ranges = calc_line_ranges(&self.buf, width, &self.line_ranges.len());
+        self.visible_line_ranges =
+            line_ranges_to_visible_line_ranges(&self.line_ranges, height).to_vec();
         let buf_pos = pad_response.write_idx;
         let inserted_padding = pad_response.inserted_padding;
-        let new_cursor_pos = buf_to_cursor_pos(&self.buf, width, height, buf_pos);
+        let new_cursor_pos = buf_to_cursor_pos(buf_pos, &self.visible_line_ranges);
 
         self.width = width;
         self.height = height;

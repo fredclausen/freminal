@@ -184,6 +184,39 @@ pub fn split_format_data_for_scrollback(
     }
 }
 
+// #[must_use]
+// pub fn split_format_data_for_scrollback_clamped(
+//     tags: Vec<FormatTag>,
+//     scrollback_split: usize,
+// ) -> TerminalSections<Vec<FormatTag>> {
+//     let scrollback_tags = tags
+//         .iter()
+//         .filter(|tag| tag.start < scrollback_split)
+//         .cloned()
+//         .map(|mut tag| {
+//             tag.end = tag.end.min(scrollback_split);
+//             tag
+//         })
+//         .collect();
+
+//     let canvas_tags = tags
+//         .into_iter()
+//         .filter(|tag| tag.end > scrollback_split)
+//         .map(|mut tag| {
+//             tag.start = tag.start.saturating_sub(scrollback_split);
+//             if tag.end != usize::MAX {
+//                 tag.end -= scrollback_split;
+//             }
+//             tag
+//         })
+//         .collect();
+
+//     TerminalSections {
+//         scrollback: scrollback_tags,
+//         visible: canvas_tags,
+//     }
+// }
+
 pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
     pub internal: TerminalState,
     _io: Io,
@@ -341,13 +374,13 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         self.internal.data()
     }
 
-    pub fn data_and_format_data(
+    pub fn data_and_format_data_for_gui(
         &mut self,
     ) -> (
         TerminalSections<Vec<TChar>>,
         TerminalSections<Vec<FormatTag>>,
     ) {
-        self.internal.data_and_format_data()
+        self.internal.data_and_format_data_for_gui()
     }
 
     pub fn format_data(&mut self) -> TerminalSections<Vec<FormatTag>> {

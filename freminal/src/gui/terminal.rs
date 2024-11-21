@@ -4,6 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::gui::TerminalEmulator;
+
 use terminal_emulator::{
     ansi_components::modes::rl_bracket::RlBracket,
     format_tracker::FormatTag,
@@ -323,7 +324,7 @@ fn create_terminal_output_layout_job(
         });
     }
 
-    #[cfg(any(feature = "validation", debug_assertions))]
+    #[cfg(feature = "validation")]
     match validate_tags_to_buffer(data_utf8.as_bytes(), &format_data_shifted) {
         Ok(()) => Ok((data_utf8.to_string(), format_data_shifted)),
         Err(e) => {
@@ -332,14 +333,14 @@ fn create_terminal_output_layout_job(
         }
     }
 
-    #[cfg(not(any(feature = "validation", debug_assertions)))]
+    #[cfg(not(any(feature = "validation")))]
     Ok((data_utf8.to_string(), format_data_shifted))
 }
 
 // Small function to help validate the tags to the buffer
 // We don't want this normally, as it's a performance hit and once the kinks are worked out
 // This is likely not needed
-#[cfg(any(feature = "validation", debug_assertions))]
+#[cfg(feature = "validation")]
 fn validate_tags_to_buffer(buffer: &[u8], tags: &[FormatTag]) -> Result<()> {
     // loop over the tags and validate that the start and end are within the bounds of the buffer
     for tag in tags {
@@ -413,7 +414,7 @@ fn process_tags(
     textformat: &mut TextFormat,
     font_size: f32,
     job: &mut LayoutJob,
-    #[cfg(any(feature = "validation", debug_assertions))] buffer: &[u8],
+    #[cfg(feature = "validation")] buffer: &[u8],
 ) {
     let default_color = textformat.color;
     let default_background = textformat.background;
@@ -431,7 +432,7 @@ fn process_tags(
 
         match range.start.cmp(&data_len) {
             std::cmp::Ordering::Greater => {
-                #[cfg(any(feature = "validation", debug_assertions))]
+                #[cfg(feature = "validation")]
                 warn!("Skipping unusable format data");
                 continue;
             }
@@ -442,7 +443,7 @@ fn process_tags(
         }
 
         if range.end > data_len {
-            #[cfg(any(feature = "validation", debug_assertions))]
+            #[cfg(feature = "validation")]
             warn!("Truncating format data end");
             range.end = data_len;
         }
@@ -483,7 +484,7 @@ fn process_tags(
         }
 
         // Validate the range is valid utf8
-        #[cfg(any(feature = "validation", debug_assertions))]
+        #[cfg(feature = "validation")]
         if std::str::from_utf8(&buffer[range.clone()]).is_err() {
             warn!("Range is not valid utf8");
             continue;
@@ -528,7 +529,7 @@ fn add_terminal_data_to_ui(
         &mut textformat,
         font_size,
         &mut job,
-        #[cfg(any(feature = "validation", debug_assertions))]
+        #[cfg(feature = "validation")]
         data_utf8.as_bytes(),
     );
 
@@ -590,7 +591,7 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
 
                 (*previous_pass).clone()
             } else {
-                let (terminal_data, format_data) = terminal_emulator.data_and_format_data();
+                let (terminal_data, format_data) = terminal_emulator.data_and_format_data_for_gui();
                 let scrollback_data = terminal_data.scrollback;
                 let mut canvas_data = terminal_data.visible;
 
@@ -615,7 +616,7 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                 ));
 
                 // We want the program to crash here if we're testing
-                #[cfg(any(feature = "validation", debug_assertions))]
+                #[cfg(feature = "validation")]
                 return TerminalOutputRenderResponse {
                     scrollback_area: scrollback_response.0,
                     canvas_area: canvas_response.0,
@@ -623,7 +624,7 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                     canvas: canvas_response.1.unwrap(),
                 };
 
-                #[cfg(not(any(feature = "validation", debug_assertions)))]
+                #[cfg(not(any(feature = "validation")))]
                 return TerminalOutputRenderResponse {
                     scrollback_area: scrollback_response.0,
                     canvas_area: canvas_response.0,

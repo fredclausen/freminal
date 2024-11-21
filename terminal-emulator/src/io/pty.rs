@@ -72,12 +72,12 @@ pub fn run_terminal(
                 }
             }
 
-            send_tx
-                .send(PtyRead {
-                    buf: data,
-                    read_amount: amount_read,
-                })
-                .unwrap();
+            if let Err(e) = send_tx.send(PtyRead {
+                buf: data,
+                read_amount: amount_read,
+            }) {
+                error!("Failed to send data to terminal: {e}");
+            }
         }
     });
 

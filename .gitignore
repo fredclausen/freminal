@@ -265,3 +265,4 @@ sh-frontend/target
 sequence.txt
 *.bin
 profile.json
+*.trace

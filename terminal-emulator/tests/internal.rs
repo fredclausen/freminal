@@ -576,6 +576,7 @@ fn test_sgr_sequences() {
                             ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
+                        changed: true,
                         ..Default::default()
                     }
                 );
@@ -592,6 +593,7 @@ fn test_sgr_sequences() {
                             ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
+                        changed: true,
                         ..Default::default()
                     }
                 );
@@ -608,6 +610,7 @@ fn test_sgr_sequences() {
                             ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
+                        changed: true,
                         ..Default::default()
                     }
                 );
@@ -624,6 +627,7 @@ fn test_sgr_sequences() {
                             ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
+                        changed: true,
                         ..Default::default()
                     }
                 );
@@ -643,6 +647,7 @@ fn test_sgr_sequences() {
                             ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
+                        changed: true,
                         ..Default::default()
                     }
                 );
@@ -659,6 +664,7 @@ fn test_sgr_sequences() {
                             ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
+                        changed: true,
                         ..Default::default()
                     }
                 );
@@ -678,6 +684,7 @@ fn test_sgr_sequences() {
                             ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
+                        changed: true,
                         ..Default::default()
                     }
                 );
@@ -697,6 +704,7 @@ fn test_sgr_sequences() {
                             ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
+                        changed: true,
                         ..Default::default()
                     }
                 );
@@ -716,6 +724,7 @@ fn test_sgr_sequences() {
                             ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
                         },
                         write_tx: tx.clone(),
+                        changed: true,
                         ..Default::default()
                     }
                 );

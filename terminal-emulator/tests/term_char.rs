@@ -76,27 +76,6 @@ fn test_eq_vec() {
 }
 
 #[test]
-fn test_invalid_utf8() {
-    // Ѐ in to bytes
-    let s = "\u{0400}".as_bytes();
-    assert!(std::str::from_utf8(s).is_ok());
-
-    // make sure the TChar::Utf8 will not panic
-    assert!(std::panic::catch_unwind(|| TChar::new_from_many_chars(s.to_vec())).is_ok());
-
-    // drop the last byte to make it invalid utf8
-    let s = &s[..s.len() - 1];
-    assert!(std::str::from_utf8(s).is_err());
-
-    // now make sure the TChar::Utf8 will panic
-    assert!(TChar::new_from_many_chars(s.to_vec()).is_err());
-
-    // test from vec<u8> with invalid utf8
-    let convert = TChar::from(s.to_vec());
-    assert_eq!(convert, TChar::Ascii(0));
-}
-
-#[test]
 fn test_self_from_vec() {
     let s = "test";
     let c = TChar::from_vec(s.as_bytes()).unwrap();

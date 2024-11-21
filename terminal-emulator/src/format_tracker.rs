@@ -138,6 +138,20 @@ pub struct FormatTag {
     pub url: Option<Url>,
 }
 
+impl Default for FormatTag {
+    fn default() -> Self {
+        Self {
+            start: 0,
+            end: usize::MAX,
+            colors: StateColors::default(),
+            font_weight: FontWeight::Normal,
+            font_decorations: Vec::new(),
+            line_wrap_mode: Decawm::default(),
+            url: None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FormatTracker {
     color_info: Vec<FormatTag>,

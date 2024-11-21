@@ -1,8 +1,9 @@
 [files]
 extend-exclude = [
-    ".git/",               # Version control files
-    "res/",                # Resource files
+    ".git/",                       # Version control files
+    "res/",                        # Resource files
     "freminal/Cargo.lock",
+    "speed_tests/random_crap.txt",
 ]
 ignore-hidden = false
 

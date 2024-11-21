@@ -7,6 +7,7 @@ use anyhow::Result;
 use core::str;
 use eframe::egui::{self, Color32, Context};
 use freminal_common::colors::TerminalColor;
+use std::time::Instant;
 
 use crate::{
     ansi::{FreminalAnsiParser, TerminalOutput},
@@ -172,11 +173,11 @@ impl TerminalState {
     }
 
     pub fn is_mouse_hovered_on_url(&mut self, pos: &CursorPos) -> Option<String> {
-        let size = self.get_win_size();
         let buf_pos = cursor_pos_to_buf_pos(
-            self.get_current_buffer().terminal_buffer.get_raw_buffer(),
-            size,
             pos,
+            self.get_current_buffer()
+                .terminal_buffer
+                .get_visible_line_ranges(),
         )?;
 
         let tags = self.get_current_buffer().format_tracker.tags();
@@ -197,19 +198,16 @@ impl TerminalState {
         None
     }
 
-    pub(crate) fn data_and_format_data(
+    pub(crate) fn data_and_format_data_for_gui(
         &mut self,
     ) -> (
         TerminalSections<Vec<TChar>>,
         TerminalSections<Vec<FormatTag>>,
     ) {
-        let offset = self
-            .get_current_buffer()
-            .terminal_buffer
-            .data()
-            .scrollback
-            .len();
         let data = self.get_current_buffer().terminal_buffer.data();
+
+        let offset = data.scrollback.len();
+
         let format_data = split_format_data_for_scrollback(
             self.get_current_buffer().format_tracker.tags(),
             offset,
@@ -361,45 +359,26 @@ impl TerminalState {
             DecSpecialGraphics::DontReplace => data.to_vec(),
         };
 
-        let left_over = {
-            let current_buffer = self.get_current_buffer();
+        let current_buffer = self.get_current_buffer();
 
-            let response = match current_buffer
-                .terminal_buffer
-                .insert_data(&current_buffer.cursor_state.pos, &data)
-            {
-                Ok(response) => response,
-                Err(e) => {
-                    error!("Failed to insert data: {e}");
-                    return;
-                }
-            };
-
-            current_buffer
-                .format_tracker
-                .push_range_adjustment(response.insertion_range);
-            current_buffer
-                .format_tracker
-                .push_range(&current_buffer.cursor_state, response.written_range);
-            current_buffer.cursor_state.pos = response.new_cursor_pos;
-            self.set_state_changed();
-            self.request_redraw();
-            response.left_over
+        let response = match current_buffer
+            .terminal_buffer
+            .insert_data(&current_buffer.cursor_state.pos, &data)
+        {
+            Ok(response) => response,
+            Err(e) => {
+                error!("Failed to insert data: {e}");
+                return;
+            }
         };
 
-        // Is this even necessary? Before the data ever gets to here (in handle_incoming_data)
-        // it's already been checked for utf8 validity. It's probably *not* wrong, just in case
-        // character substitution above fucks something, but that seems unlikely
-        if !left_over.is_empty() {
-            warn!("Leftover data from incoming buffer");
-
-            match self.leftover_data {
-                Some(ref mut self_leftover) => {
-                    self_leftover.splice(0..0, left_over);
-                }
-                None => self.leftover_data = Some(left_over),
-            }
-        }
+        current_buffer
+            .format_tracker
+            .push_range_adjustment(response.insertion_range);
+        current_buffer
+            .format_tracker
+            .push_range(&current_buffer.cursor_state, response.written_range);
+        current_buffer.cursor_state.pos = response.new_cursor_pos;
     }
 
     pub fn set_cursor_pos(&mut self, x: Option<usize>, y: Option<usize>) {
@@ -928,6 +907,7 @@ impl TerminalState {
     }
 
     pub fn handle_incoming_data(&mut self, incoming: &[u8]) {
+        let now = Instant::now();
         // if we have leftover data, prepend it to the incoming data
         let mut incoming = self.leftover_data.take().map_or_else(
             || incoming.to_vec(),
@@ -959,8 +939,8 @@ impl TerminalState {
         }
 
         // verify that the incoming data is utf-8
-
         let parsed = self.parser.push(&incoming);
+
         for segment in parsed {
             // if segment is not data, we want to print out the segment
             if let TerminalOutput::Data(data) = &segment {
@@ -1008,6 +988,18 @@ impl TerminalState {
                 }
             }
         }
+
+        // log the frame time
+        let elapsed = now.elapsed();
+        // show either elapsed as micros or millis, depending on the duration
+        if elapsed.as_millis() > 0 {
+            debug!("Data processing time: {}ms", elapsed.as_millis());
+        } else {
+            debug!("Data processing time: {}μs", elapsed.as_micros());
+        }
+
+        self.set_state_changed();
+        self.request_redraw();
     }
 
     /// Write data to the terminal

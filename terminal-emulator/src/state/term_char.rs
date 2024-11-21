@@ -29,11 +29,14 @@ impl TChar {
 
     /// Create a new `TChar` from a vector of u8
     ///
+    /// There is no UTF8 validation. That is assumed to have happened before this function is called.
+    ///
     /// # Errors
     /// Will return an error if the vector is empty or is not a valid utf8 string
     pub fn new_from_many_chars(v: Vec<u8>) -> Result<Self> {
-        // verify the vector is not empty and is a valid utf8 string
-        if !v.is_empty() && std::str::from_utf8(&v).is_ok() {
+        // verify the vector is not empty
+        //
+        if !v.is_empty() {
             return Ok(Self::Utf8(v));
         }
 
