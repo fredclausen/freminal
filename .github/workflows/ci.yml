@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.2
-      - uses: EmbarkStudios/cargo-deny-action@v2.0.1
+      - uses: EmbarkStudios/cargo-deny-action@v2.0.2
 
   # Check for any unused dependencies in the codebase.
   # See <https://github.com/bnjbvr/cargo-machete/>
