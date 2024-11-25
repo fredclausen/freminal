@@ -21,3 +21,11 @@ tracing.workspace = true
 unicode-segmentation.workspace = true
 portable-pty.workspace = true
 conv.workspace = true
+
+# dev dependencies
+[dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "buffer_benches"
+harness = false
