@@ -684,55 +684,25 @@ impl TerminalBufferHolder {
         }
     }
 
-    // #[must_use]
-    // pub fn data_clamped(&self) -> (TerminalSections<Vec<TChar>>, usize) {
-    //     let line_ranges = calc_line_ranges(&self.buf, self.width);
-    //     let visible_line_ranges = line_ranges_to_visible_line_ranges(&line_ranges, self.height);
-    //     if self.buf.is_empty() {
-    //         return (
-    //             TerminalSections {
-    //                 scrollback: vec![],
-    //                 visible: self.buf.clone(),
-    //             },
-    //             0,
-    //         );
-    //     }
+    #[must_use]
+    pub fn clip_lines(&mut self, max_lines: usize) -> Option<Range<usize>> {
+        if self.line_ranges.len() <= max_lines {
+            return None;
+        }
 
-    //     if visible_line_ranges.is_empty() {
-    //         return (
-    //             TerminalSections {
-    //                 scrollback: self.buf.clone(),
-    //                 visible: vec![],
-    //             },
-    //             0,
-    //         );
-    //     }
+        let num_lines_to_remove = self.line_ranges.len() - max_lines;
 
-    //     let start = visible_line_ranges[0].start;
+        let start = self.line_ranges[0].start;
+        let end = self.line_ranges[num_lines_to_remove].end;
 
-    //     // we need to clamp the scrollback to a maximum of height * 2
+        self.buf.drain(start..end);
 
-    //     // first find the index in line ranges that is the start of the visible lines
-    //     let mut scrollback_end = 0;
-    //     for (i, line_range) in line_ranges.iter().enumerate() {
-    //         if line_range.start == start {
-    //             scrollback_end = i;
-    //             break;
-    //         }
-    //     }
+        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
+        self.visible_line_ranges =
+            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
 
-    //     scrollback_end = scrollback_end.saturating_sub(1);
-    //     let scrollback_start = line_ranges[scrollback_end.saturating_sub(self.height)].start;
-    //     info!("Clamping scrollback to {}", scrollback_start);
-
-    //     (
-    //         TerminalSections {
-    //             scrollback: self.buf[scrollback_start..start].to_vec(),
-    //             visible: self.buf[start..].to_vec(),
-    //         },
-    //         scrollback_start,
-    //     )
-    // }
+        Some(start..end)
+    }
 
     #[must_use]
     pub fn get_raw_buffer(&self) -> &[TChar] {

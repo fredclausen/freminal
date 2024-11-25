@@ -906,6 +906,19 @@ impl TerminalState {
         }
     }
 
+    pub(crate) fn clip_buffer_lines(&mut self) {
+        let current_buffer = self.get_current_buffer();
+
+        if let Some(range) = current_buffer.terminal_buffer.clip_lines(5000) {
+            match current_buffer.format_tracker.delete_range(range) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to delete range: {e}");
+                }
+            }
+        }
+    }
+
     pub fn handle_incoming_data(&mut self, incoming: &[u8]) {
         let now = Instant::now();
         // if we have leftover data, prepend it to the incoming data
@@ -988,6 +1001,9 @@ impl TerminalState {
                 }
             }
         }
+
+        // now ensure total lines in buffer are not more then 1000 lines
+        self.clip_buffer_lines();
 
         // log the frame time
         let elapsed = now.elapsed();
