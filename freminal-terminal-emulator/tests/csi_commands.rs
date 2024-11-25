@@ -4,7 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use freminal_common::colors::TerminalColor;
-use terminal_emulator::{
+use freminal_terminal_emulator::{
     ansi::{ParserInner, TerminalOutput},
     ansi_components::{
         csi_commands::{

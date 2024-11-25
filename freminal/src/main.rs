@@ -16,9 +16,9 @@
 #[macro_use]
 extern crate tracing;
 
+use freminal_terminal_emulator::interface::TerminalEmulator;
 use parking_lot::FairMutex;
 use std::{process, sync::Arc};
-use terminal_emulator::interface::TerminalEmulator;
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 

@@ -1,5 +1,5 @@
 [package]
-name = "terminal_emulator"
+name = "freminal-terminal-emulator"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

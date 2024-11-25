@@ -21,7 +21,7 @@ anyhow.workspace = true
 parking_lot.workspace = true
 tracing-subscriber.workspace = true
 tracing.workspace = true
-terminal_emulator = { path = "../terminal-emulator" }
+freminal-terminal-emulator = { path = "../freminal-terminal-emulator" }
 freminal-common = { path = "../freminal-common" }
 
 [build-dependencies]

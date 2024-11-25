@@ -5,7 +5,7 @@
 
 use eframe::egui::Context;
 use freminal_common::colors::TerminalColor;
-use terminal_emulator::{
+use freminal_terminal_emulator::{
     ansi::FreminalAnsiParser,
     ansi_components::{
         line_draw::DecSpecialGraphics, mode::TerminalModes, modes::decckm::Decckm,

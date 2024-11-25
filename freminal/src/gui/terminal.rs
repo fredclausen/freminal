@@ -5,7 +5,7 @@
 
 use crate::gui::TerminalEmulator;
 
-use terminal_emulator::{
+use freminal_terminal_emulator::{
     ansi_components::modes::rl_bracket::RlBracket,
     format_tracker::FormatTag,
     interface::TerminalInput,

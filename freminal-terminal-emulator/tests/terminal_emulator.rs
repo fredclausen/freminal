@@ -4,7 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use freminal_common::colors::TerminalColor;
-use terminal_emulator::{
+use freminal_terminal_emulator::{
     ansi_components::modes::decawm::Decawm,
     format_tracker::FormatTag,
     interface::split_format_data_for_scrollback,

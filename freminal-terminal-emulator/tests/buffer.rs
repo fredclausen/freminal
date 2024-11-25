@@ -4,7 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use anyhow::Result;
-use terminal_emulator::state::{
+use freminal_terminal_emulator::state::{
     buffer::{
         calc_line_ranges, line_ranges_to_visible_line_ranges, pad_buffer_for_write,
         TerminalBufferHolder, TerminalBufferInsertResponse,

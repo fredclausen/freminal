@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use terminal_emulator::state::term_char::{display_vec_tchar_as_string, TChar};
+use freminal_terminal_emulator::state::term_char::{display_vec_tchar_as_string, TChar};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[test]
