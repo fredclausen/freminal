@@ -24,7 +24,7 @@ conv.workspace = true
 
 # dev dependencies
 [dev-dependencies]
-criterion = "0.5.1"
+criterion.workspace = true
 
 [[bench]]
 name = "buffer_benches"
