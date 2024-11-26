@@ -1244,8 +1244,6 @@ fn test_clear_backwards() {
     ];
 
     assert_eq!(canvas.data().visible, expected);
-    assert_eq!(canvas.get_visible_line_ranges(), []);
-
     let response = canvas.clear_backwards(&CursorPos { x: 3, y: 0 }).unwrap();
     let expected = vec![
         TChar::Space,

@@ -74,7 +74,6 @@ pub fn line_ranges_to_visible_line_ranges(
     let mut ret: Vec<Range<usize>> = Vec::with_capacity(height);
     let mut wrapping = false;
     let mut previous_char_was_newline = false;
-    println!("length of buffer: {}", buf.len());
 
     // iterate over the buffer in reverse order
     for (position, character) in buf.iter().enumerate().rev() {
@@ -98,29 +97,19 @@ pub fn line_ranges_to_visible_line_ranges(
                 let mut current_length = current_start.saturating_sub(position);
 
                 if previous_char_was_newline {
-                    println!("previous char was newline");
                     current_length = current_length.saturating_sub(1);
                 }
 
                 let new_position = position + 1;
                 let to_add = ranges_from_start_and_end(current_length, new_position, width);
-                println!("adding to ret with wrapping: {:?}", to_add);
                 ret.extend_from_slice(&to_add);
 
                 wrapping = false;
                 current_start = position;
             } else if previous_char_was_newline {
-                println!(
-                    "pushing range prev newline: {:?}",
-                    position + 1..position + 1
-                );
                 ret.push(position + 1..position + 1);
                 current_start = position;
             } else {
-                println!(
-                    "pushing range not newline: {:?}",
-                    position + 1..current_start
-                );
                 ret.push(position + 1..current_start);
                 current_start = position.saturating_sub(1);
             }
@@ -141,7 +130,6 @@ pub fn line_ranges_to_visible_line_ranges(
             let current_length = current_start;
             let new_position = 0;
             let to_add = ranges_from_start_and_end(current_length, new_position, width);
-            println!("adding to ret after loop: {:?}", to_add);
             ret.extend_from_slice(&to_add);
         } else {
             ret.push(0..current_start);
@@ -149,7 +137,6 @@ pub fn line_ranges_to_visible_line_ranges(
     }
 
     ret.sort_by(|a, b| a.start.cmp(&b.start));
-    // println!("ret before: {:?}", ret);
 
     if ret.len() > height {
         // remove extra lines from the front of the buffer
@@ -165,7 +152,6 @@ fn ranges_from_start_and_end(
     position: usize,
     width: usize,
 ) -> Vec<Range<usize>> {
-    println!("inputs: {}, {}, {}", current_length, position, width);
     let mut to_add = vec![];
 
     let mut current_length = current_length;
@@ -182,13 +168,7 @@ fn ranges_from_start_and_end(
         did_just_add = false;
         current_range.end += 1;
 
-        println!(
-            "loop: current_length: {}, current_range: {:?}",
-            current_length, current_range
-        );
-
         if current_range.end - current_range.start == width {
-            println!("yo pushing range: {:?}", current_range);
             to_add.push(current_range.clone());
             current_range.start = current_range.end;
             did_just_add = true;
@@ -203,7 +183,6 @@ fn ranges_from_start_and_end(
 
     if !did_just_add {
         current_range.end += 1;
-        println!("asdpushing range after done: {:?}", current_range);
         to_add.push(current_range);
     }
 
