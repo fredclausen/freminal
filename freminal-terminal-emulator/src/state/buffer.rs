@@ -92,6 +92,7 @@ pub fn line_ranges_to_visible_line_ranges(
 
         if character == &TChar::NewLine {
             if wrapping {
+                println!("Wrapping");
                 // take the position to current start, splitting the ranges on width
 
                 let mut current_length = current_start.saturating_sub(position);
@@ -105,15 +106,15 @@ pub fn line_ranges_to_visible_line_ranges(
                 ret.extend_from_slice(&to_add);
 
                 wrapping = false;
-                current_start = position;
             } else if previous_char_was_newline {
+                println!("Adding empty line");
                 ret.push(position + 1..position + 1);
-                current_start = position;
             } else {
+                println!("Adding line {:?}", position + 1..current_start);
                 ret.push(position + 1..current_start);
-                current_start = position.saturating_sub(1);
             }
 
+            current_start = position;
             previous_char_was_newline = true;
 
             continue;
@@ -121,17 +122,30 @@ pub fn line_ranges_to_visible_line_ranges(
 
         if !wrapping && current_start.saturating_sub(position) == width {
             // current_start = position;
+            previous_char_was_newline = true;
             wrapping = true;
+        } else if !wrapping {
+            previous_char_was_newline = false;
         }
+        println!(
+            "loop end. Status: wrapping: {}, previous_char_was_newline: {}, position: {}",
+            wrapping, previous_char_was_newline, position
+        );
     }
 
     if ret.len() < height {
         if wrapping {
-            let current_length = current_start;
+            let mut current_length = current_start;
+            if previous_char_was_newline {
+                println!("Subtracting 1");
+                current_length = current_length.saturating_sub(1);
+            }
             let new_position = 0;
             let to_add = ranges_from_start_and_end(current_length, new_position, width);
+            println!("Adding line done {:?}", to_add);
             ret.extend_from_slice(&to_add);
         } else {
+            println!("Adding line done {:?}", 0..current_start);
             ret.push(0..current_start);
         }
     }
