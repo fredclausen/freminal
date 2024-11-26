@@ -1,17 +1,48 @@
+use std::ops::Range;
+
 // Copyright (C) 2024 Fred Clausen
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
-
+#[cfg(test)]
 use anyhow::Result;
 use freminal_terminal_emulator::state::{
     buffer::{
-        calc_line_ranges, line_ranges_to_visible_line_ranges, pad_buffer_for_write,
-        TerminalBufferHolder, TerminalBufferInsertResponse,
+        line_ranges_to_visible_line_ranges, pad_buffer_for_write, TerminalBufferHolder,
+        TerminalBufferInsertResponse,
     },
     cursor::CursorPos,
     term_char::TChar,
 };
+
+/// Calculate the indexes of the start and end of each line in the buffer given an input width.
+/// Ranges do not include newlines. If a newline appears past the width, it does not result in an
+/// extra line
+
+#[must_use]
+fn calc_line_ranges(buf: &[TChar], width: usize, last_capacity: &usize) -> Vec<Range<usize>> {
+    //let mut ret = vec![];
+
+    let mut current_start = 0;
+
+    let mut ret = Vec::with_capacity(*last_capacity + 10);
+
+    for (current_pos, c) in buf.iter().enumerate() {
+        if c == &TChar::NewLine {
+            ret.push(current_start..current_pos);
+            current_start = current_pos + 1;
+        } else if current_pos - current_start == width {
+            ret.push(current_start..current_pos);
+            current_start = current_pos;
+        }
+    }
+
+    if buf.len() > current_start {
+        ret.push(current_start..buf.len());
+    }
+
+    ret
+}
 
 fn simulate_resize(
     canvas: &mut TerminalBufferHolder,
@@ -504,15 +535,13 @@ fn test_canvas_delete_forwards() {
     ];
     assert_eq!(canvas.data().visible, expected);
 
-    canvas.set_line_ranges(calc_line_ranges(
-        canvas.get_raw_buffer(),
-        canvas.get_win_size().0,
-        &canvas.get_raw_buffer().len(),
-    ));
-
     canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(canvas.get_line_ranges(), canvas.get_win_size().1)
-            .to_vec(),
+        line_ranges_to_visible_line_ranges(
+            canvas.get_raw_buffer(),
+            canvas.get_win_size().1,
+            canvas.get_win_size().0,
+        )
+        .to_vec(),
     );
 
     // Test deletion clamped on newline
@@ -540,15 +569,13 @@ fn test_canvas_delete_forwards() {
     ];
     assert_eq!(canvas.data().visible, expected);
 
-    canvas.set_line_ranges(calc_line_ranges(
-        canvas.get_raw_buffer(),
-        canvas.get_win_size().0,
-        &canvas.get_raw_buffer().len(),
-    ));
-
     canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(canvas.get_line_ranges(), canvas.get_win_size().1)
-            .to_vec(),
+        line_ranges_to_visible_line_ranges(
+            canvas.get_raw_buffer(),
+            canvas.get_win_size().1,
+            canvas.get_win_size().0,
+        )
+        .to_vec(),
     );
 
     // Test deletion clamped on wrap
@@ -594,15 +621,13 @@ fn test_canvas_insert_spaces() {
     assert_eq!(response.insertion_range, 2..4);
     assert_eq!(response.new_cursor_pos, CursorPos { x: 2, y: 0 });
 
-    canvas.set_line_ranges(calc_line_ranges(
-        canvas.get_raw_buffer(),
-        canvas.get_win_size().0,
-        &canvas.get_raw_buffer().len(),
-    ));
-
     canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(canvas.get_line_ranges(), canvas.get_win_size().1)
-            .to_vec(),
+        line_ranges_to_visible_line_ranges(
+            canvas.get_raw_buffer(),
+            canvas.get_win_size().1,
+            canvas.get_win_size().0,
+        )
+        .to_vec(),
     );
 
     let expected = vec![
@@ -632,15 +657,13 @@ fn test_canvas_insert_spaces() {
     ];
     assert_eq!(canvas.data().visible, expected);
 
-    canvas.set_line_ranges(calc_line_ranges(
-        canvas.get_raw_buffer(),
-        canvas.get_win_size().0,
-        &canvas.get_raw_buffer().len(),
-    ));
-
     canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(canvas.get_line_ranges(), canvas.get_win_size().1)
-            .to_vec(),
+        line_ranges_to_visible_line_ranges(
+            canvas.get_raw_buffer(),
+            canvas.get_win_size().1,
+            canvas.get_win_size().0,
+        )
+        .to_vec(),
     );
 
     // Truncation at newline
@@ -679,15 +702,13 @@ fn test_canvas_insert_spaces() {
     ];
     assert_eq!(canvas.data().visible, expected);
 
-    canvas.set_line_ranges(calc_line_ranges(
-        canvas.get_raw_buffer(),
-        canvas.get_win_size().0,
-        &canvas.get_raw_buffer().len(),
-    ));
-
     canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(canvas.get_line_ranges(), canvas.get_win_size().1)
-            .to_vec(),
+        line_ranges_to_visible_line_ranges(
+            canvas.get_raw_buffer(),
+            canvas.get_win_size().1,
+            canvas.get_win_size().0,
+        )
+        .to_vec(),
     );
 
     // Truncation at line wrap
@@ -730,15 +751,13 @@ fn test_canvas_insert_spaces() {
 
     assert_eq!(canvas.data().visible, expected);
 
-    canvas.set_line_ranges(calc_line_ranges(
-        canvas.get_raw_buffer(),
-        canvas.get_win_size().0,
-        &canvas.get_raw_buffer().len(),
-    ));
-
     canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(canvas.get_line_ranges(), canvas.get_win_size().1)
-            .to_vec(),
+        line_ranges_to_visible_line_ranges(
+            canvas.get_raw_buffer(),
+            canvas.get_win_size().1,
+            canvas.get_win_size().0,
+        )
+        .to_vec(),
     );
 
     // Insertion at non-existent buffer pos
@@ -821,15 +840,13 @@ fn test_clear_line_forwards() {
     ];
     assert_eq!(canvas.data().visible, expected);
 
-    canvas.set_line_ranges(calc_line_ranges(
-        canvas.get_raw_buffer(),
-        canvas.get_win_size().0,
-        &canvas.get_raw_buffer().len(),
-    ));
-
     canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(canvas.get_line_ranges(), canvas.get_win_size().1)
-            .to_vec(),
+        line_ranges_to_visible_line_ranges(
+            canvas.get_raw_buffer(),
+            canvas.get_win_size().1,
+            canvas.get_win_size().0,
+        )
+        .to_vec(),
     );
 
     // Hit a newline
@@ -858,15 +875,13 @@ fn test_clear_line_forwards() {
     ];
     assert_eq!(canvas.data().visible, expected);
 
-    canvas.set_line_ranges(calc_line_ranges(
-        canvas.get_raw_buffer(),
-        canvas.get_win_size().0,
-        &canvas.get_raw_buffer().len(),
-    ));
-
     canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(canvas.get_line_ranges(), canvas.get_win_size().1)
-            .to_vec(),
+        line_ranges_to_visible_line_ranges(
+            canvas.get_raw_buffer(),
+            canvas.get_win_size().1,
+            canvas.get_win_size().0,
+        )
+        .to_vec(),
     );
 
     // Hit a wrap
@@ -957,15 +972,13 @@ fn test_insert_lines() {
         TChar::NewLine,
     ];
 
-    canvas.set_line_ranges(calc_line_ranges(
-        canvas.get_raw_buffer(),
-        canvas.get_win_size().0,
-        &canvas.get_raw_buffer().len(),
-    ));
-
     canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(canvas.get_line_ranges(), canvas.get_win_size().1)
-            .to_vec(),
+        line_ranges_to_visible_line_ranges(
+            canvas.get_raw_buffer(),
+            canvas.get_win_size().1,
+            canvas.get_win_size().0,
+        )
+        .to_vec(),
     );
 
     assert_eq!(canvas.data().visible, expected);
@@ -999,15 +1012,13 @@ fn test_insert_lines() {
     assert_eq!(response.deleted_range.start - response.deleted_range.end, 0);
     assert_eq!(response.inserted_range, 10..12);
 
-    canvas.set_line_ranges(calc_line_ranges(
-        canvas.get_raw_buffer(),
-        canvas.get_win_size().0,
-        &canvas.get_raw_buffer().len(),
-    ));
-
     canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(canvas.get_line_ranges(), canvas.get_win_size().1)
-            .to_vec(),
+        line_ranges_to_visible_line_ranges(
+            canvas.get_raw_buffer(),
+            canvas.get_win_size().1,
+            canvas.get_win_size().0,
+        )
+        .to_vec(),
     );
 
     // Test newline wrapped + lines pushed off the edge
@@ -1047,15 +1058,13 @@ fn test_clear_line() {
     assert_eq!(response, None);
     assert_eq!(canvas.data().visible, b"");
 
-    canvas.set_line_ranges(calc_line_ranges(
-        canvas.get_raw_buffer(),
-        canvas.get_win_size().0,
-        &canvas.get_raw_buffer().len(),
-    ));
-
     canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(canvas.get_line_ranges(), canvas.get_win_size().1)
-            .to_vec(),
+        line_ranges_to_visible_line_ranges(
+            canvas.get_raw_buffer(),
+            canvas.get_win_size().1,
+            canvas.get_win_size().0,
+        )
+        .to_vec(),
     );
 
     // Test edge wrapped
@@ -1087,15 +1096,13 @@ fn test_clear_line() {
 
     assert_eq!(canvas.data().visible, expected);
 
-    canvas.set_line_ranges(calc_line_ranges(
-        canvas.get_raw_buffer(),
-        canvas.get_win_size().0,
-        &canvas.get_raw_buffer().len(),
-    ));
-
     canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(canvas.get_line_ranges(), canvas.get_win_size().1)
-            .to_vec(),
+        line_ranges_to_visible_line_ranges(
+            canvas.get_raw_buffer(),
+            canvas.get_win_size().1,
+            canvas.get_win_size().0,
+        )
+        .to_vec(),
     );
 
     let response = canvas.clear_line(&CursorPos { x: 0, y: 0 });
@@ -1120,15 +1127,13 @@ fn test_clear_line() {
     assert_eq!(canvas.data().visible, expected);
     assert_eq!(response, Some(0..5));
 
-    canvas.set_line_ranges(calc_line_ranges(
-        canvas.get_raw_buffer(),
-        canvas.get_win_size().0,
-        &canvas.get_raw_buffer().len(),
-    ));
-
     canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(canvas.get_line_ranges(), canvas.get_win_size().1)
-            .to_vec(),
+        line_ranges_to_visible_line_ranges(
+            canvas.get_raw_buffer(),
+            canvas.get_win_size().1,
+            canvas.get_win_size().0,
+        )
+        .to_vec(),
     );
 
     // Test newline wrapped
@@ -1226,6 +1231,7 @@ fn test_clear_backwards() {
     assert_eq!(canvas.data().visible, b"");
 
     // Test edge wrapped
+    println!("inserting data");
     canvas
         .insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789asdf\nxyzw")
         .unwrap();
@@ -1253,6 +1259,8 @@ fn test_clear_backwards() {
     ];
 
     assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.get_visible_line_ranges(), []);
+    println!("Clearing again");
     let response = canvas.clear_backwards(&CursorPos { x: 3, y: 0 }).unwrap();
     let expected = vec![
         TChar::Space,
@@ -1276,6 +1284,7 @@ fn test_clear_backwards() {
         TChar::new_from_single_char(b'w'),
         TChar::NewLine,
     ];
+    println!("Checking");
 
     assert_eq!(canvas.data().visible, expected);
     assert_eq!(response, Some(0..3));

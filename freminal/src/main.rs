@@ -62,41 +62,13 @@ fn main() {
         Ok((terminal, rx)) => {
             let terminal = Arc::new(FairMutex::new(terminal));
             let terminal_clone = Arc::clone(&terminal);
-            let mut send_over: Vec<u8> = Vec::new();
 
             std::thread::spawn(move || loop {
                 if let Ok(read) = rx.recv() {
-                    // FIXME: This may or may not be actually smart.
-                    // We're going to try to buffer reads and send them over
-                    // This may end up slowing the UI down on slow PTYs. I don't know.
-
-                    // we want to see if we can send multiple reads at once
-                    // up to a maximum of 1000 bytes
-
-                    // Case where there were previous reads we've buffered
-                    // We want to send the data if we have no more reads or if we have more than 1000 bytes
-                    if !send_over.is_empty()
-                        && (rx.is_empty() || send_over.len() + read.read_amount > 1000)
-                    {
-                        debug!("Sending buffered read");
-                        send_over.extend_from_slice(&read.buf[0..read.read_amount]);
-                    } else if rx.is_empty() {
-                        // We have no pending reads, so send it over
-                        debug!("Sending read");
-                        terminal
-                            .lock()
-                            .internal
-                            .handle_incoming_data(&read.buf[0..read.read_amount]);
-                        continue;
-                    } else {
-                        debug!("Buffering read");
-                        // We have more reads, so buffer it
-                        send_over.extend_from_slice(&read.buf[0..read.read_amount]);
-                        continue;
-                    }
-
-                    terminal.lock().internal.handle_incoming_data(&send_over);
-                    send_over.clear();
+                    terminal
+                        .lock()
+                        .internal
+                        .handle_incoming_data(&read.buf[0..read.read_amount]);
                 }
             });
 

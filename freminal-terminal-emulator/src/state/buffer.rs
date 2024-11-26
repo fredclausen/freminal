@@ -7,35 +7,6 @@ use super::{cursor::CursorPos, data::TerminalSections, term_char::TChar};
 use anyhow::Result;
 use std::ops::Range;
 
-/// Calculate the indexes of the start and end of each line in the buffer given an input width.
-/// Ranges do not include newlines. If a newline appears past the width, it does not result in an
-/// extra line
-
-#[must_use]
-pub fn calc_line_ranges(buf: &[TChar], width: usize, last_capacity: &usize) -> Vec<Range<usize>> {
-    //let mut ret = vec![];
-
-    let mut current_start = 0;
-
-    let mut ret = Vec::with_capacity(*last_capacity + 10);
-
-    for (current_pos, c) in buf.iter().enumerate() {
-        if c == &TChar::NewLine {
-            ret.push(current_start..current_pos);
-            current_start = current_pos + 1;
-        } else if current_pos - current_start == width {
-            ret.push(current_start..current_pos);
-            current_start = current_pos;
-        }
-    }
-
-    if buf.len() > current_start {
-        ret.push(current_start..buf.len());
-    }
-
-    ret
-}
-
 fn buf_to_cursor_pos(buf_pos: usize, visible_line_ranges: &[Range<usize>]) -> CursorPos {
     let (new_cursor_y, new_cursor_line) = if let Some((i, r)) = visible_line_ranges
         .iter()
@@ -91,16 +62,49 @@ fn unwrapped_line_end_pos(buf: &[TChar], start_pos: usize) -> usize {
 /// include scrollback) assuming "visible" is the bottom N lines
 #[must_use]
 pub fn line_ranges_to_visible_line_ranges(
-    line_ranges: &[Range<usize>],
+    buf: &[TChar],
     height: usize,
-) -> &[Range<usize>] {
-    if line_ranges.is_empty() {
-        return line_ranges;
+    width: usize,
+) -> Vec<Range<usize>> {
+    if buf.is_empty() {
+        return vec![];
     }
-    let num_lines = line_ranges.len();
-    let first_visible_line = num_lines.saturating_sub(height);
 
-    &line_ranges[first_visible_line..]
+    let mut current_start = buf.len() - 1;
+    let mut ret: Vec<Range<usize>> = Vec::with_capacity(height);
+    let mut skip_next_newline = false;
+    // iterate over the buffer in reverse order
+    for (position, character) in buf.iter().enumerate().rev() {
+        if buf.len() - 1 == position || skip_next_newline {
+            current_start = position;
+            skip_next_newline = false;
+            continue;
+        }
+        if ret.len() == height {
+            current_start = position;
+            break;
+        }
+
+        if character == &TChar::NewLine {
+            ret.push(position.saturating_add(1)..current_start);
+            current_start = position;
+
+            continue;
+        }
+
+        if current_start.saturating_sub(position) >= width {
+            ret.push(position..current_start);
+            current_start = position;
+            skip_next_newline = true;
+        }
+    }
+
+    if ret.len() < height {
+        ret.push(0..current_start);
+    }
+
+    ret.reverse();
+    ret
 }
 
 pub struct PadBufferForWriteResponse {
@@ -228,7 +232,6 @@ pub struct TerminalBufferHolder {
     buf: Vec<TChar>,
     width: usize,
     height: usize,
-    line_ranges: Vec<Range<usize>>,
     visible_line_ranges: Vec<Range<usize>>,
 }
 
@@ -239,7 +242,6 @@ impl TerminalBufferHolder {
             buf: Vec::with_capacity(100_000_000),
             width,
             height,
-            line_ranges: vec![],
             visible_line_ranges: vec![],
         }
     }
@@ -247,15 +249,6 @@ impl TerminalBufferHolder {
     #[must_use]
     pub fn get_visible_line_ranges(&self) -> &[Range<usize>] {
         &self.visible_line_ranges
-    }
-
-    #[must_use]
-    pub fn get_line_ranges(&self) -> &[Range<usize>] {
-        &self.line_ranges
-    }
-
-    pub fn set_line_ranges(&mut self, line_ranges: Vec<Range<usize>>) {
-        self.line_ranges = line_ranges;
     }
 
     pub fn set_visible_line_ranges(&mut self, visible_line_ranges: Vec<Range<usize>>) {
@@ -289,9 +282,10 @@ impl TerminalBufferHolder {
 
         self.buf
             .splice(write_range.clone(), converted_buffer.iter().cloned());
-        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
+
         self.visible_line_ranges =
-            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
+            line_ranges_to_visible_line_ranges(&self.buf, self.height, self.width);
+
         let new_cursor_pos = buf_to_cursor_pos(write_range.end, &self.visible_line_ranges);
         Ok(TerminalBufferInsertResponse {
             written_range: write_range,
@@ -341,9 +335,8 @@ impl TerminalBufferHolder {
                 cursor_pos,
                 num_spaces,
             );
-            self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
             self.visible_line_ranges =
-                line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
+                line_ranges_to_visible_line_ranges(&self.buf, self.height, self.width);
             TerminalBufferInsertResponse {
                 written_range: write_idx..write_idx + num_spaces,
                 insertion_range: inserted_padding,
@@ -469,9 +462,8 @@ impl TerminalBufferHolder {
             ));
         }
 
-        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
         self.visible_line_ranges =
-            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
+            line_ranges_to_visible_line_ranges(&self.buf, self.height, self.width);
 
         Ok(Some(visible_line_ranges[cursor_pos.y].start..buf_pos))
     }
@@ -483,10 +475,10 @@ impl TerminalBufferHolder {
     /// # Errors
     /// Will error if the cursor position changes during the clear
     pub fn clear_forwards(&mut self, cursor_pos: &CursorPos) -> Result<Option<usize>> {
-        let visible_line_ranges = self.visible_line_ranges.clone();
+        let visible_line_ranges = &self.visible_line_ranges;
 
         let Some((buf_pos, _)) =
-            cursor_to_buf_pos_from_visible_line_ranges(cursor_pos, &visible_line_ranges)
+            cursor_to_buf_pos_from_visible_line_ranges(cursor_pos, visible_line_ranges)
         else {
             return Ok(None);
         };
@@ -527,15 +519,14 @@ impl TerminalBufferHolder {
 
         // assert_eq!(new_cursor_pos, cursor_pos.clone());
 
-        if new_cursor_pos != cursor_pos.clone() {
+        if new_cursor_pos != *cursor_pos {
             return Err(anyhow::anyhow!(
                 "Cursor position changed while clearing forwards"
             ));
         }
 
-        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
         self.visible_line_ranges =
-            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
+            line_ranges_to_visible_line_ranges(&self.buf, self.height, self.width);
 
         Ok(Some(buf_pos))
     }
@@ -547,9 +538,8 @@ impl TerminalBufferHolder {
         let del_range = buf_pos..line_range.end;
         self.buf.drain(del_range.clone());
 
-        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
         self.visible_line_ranges =
-            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
+            line_ranges_to_visible_line_ranges(&self.buf, self.height, self.width);
 
         Some(del_range)
     }
@@ -559,9 +549,8 @@ impl TerminalBufferHolder {
 
         let del_range = line_range;
         self.buf.drain(del_range.clone());
-        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
         self.visible_line_ranges =
-            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
+            line_ranges_to_visible_line_ranges(&self.buf, self.height, self.width);
         Some(del_range)
     }
 
@@ -570,15 +559,13 @@ impl TerminalBufferHolder {
 
         let del_range = line_range.start..buf_pos;
         self.buf.drain(del_range.clone());
-        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
         self.visible_line_ranges =
-            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
+            line_ranges_to_visible_line_ranges(&self.buf, self.height, self.width);
         Some(del_range)
     }
 
     pub fn clear_all(&mut self) {
         self.buf.clear();
-        self.line_ranges.clear();
         self.visible_line_ranges.clear();
     }
 
@@ -598,9 +585,8 @@ impl TerminalBufferHolder {
             });
         }
 
-        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
         self.visible_line_ranges =
-            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
+            line_ranges_to_visible_line_ranges(&self.buf, self.height, self.width);
 
         Some(visible_line_ranges[0].start..usize::MAX)
     }
@@ -671,22 +657,23 @@ impl TerminalBufferHolder {
 
     #[must_use]
     pub fn clip_lines(&mut self, max_lines: usize) -> Option<Range<usize>> {
-        if self.line_ranges.len() <= max_lines {
-            return None;
-        }
+        None
+        // if self.line_ranges.len() <= max_lines {
+        //     return None;
+        // }
 
-        let num_lines_to_remove = self.line_ranges.len() - max_lines;
+        // let num_lines_to_remove = self.line_ranges.len() - max_lines;
 
-        let start = self.line_ranges[0].start;
-        let end = self.line_ranges[num_lines_to_remove].end;
+        // let start = self.line_ranges[0].start;
+        // let end = self.line_ranges[num_lines_to_remove].end;
 
-        self.buf.drain(start..end);
+        // self.buf.drain(start..end);
 
-        self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
-        self.visible_line_ranges =
-            line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
+        // self.line_ranges = calc_line_ranges(&self.buf, self.width, &self.line_ranges.len());
+        // self.visible_line_ranges =
+        //     line_ranges_to_visible_line_ranges(&self.line_ranges, self.height).to_vec();
 
-        Some(start..end)
+        // Some(start..end)
     }
 
     #[must_use]
@@ -719,9 +706,7 @@ impl TerminalBufferHolder {
         // position
         let pad_response =
             pad_buffer_for_write(&mut self.buf, &self.visible_line_ranges, cursor_pos, 0);
-        self.line_ranges = calc_line_ranges(&self.buf, width, &self.line_ranges.len());
-        self.visible_line_ranges =
-            line_ranges_to_visible_line_ranges(&self.line_ranges, height).to_vec();
+        self.visible_line_ranges = line_ranges_to_visible_line_ranges(&self.buf, height, width);
         let buf_pos = pad_response.write_idx;
         let inserted_padding = pad_response.inserted_padding;
         let new_cursor_pos = buf_to_cursor_pos(buf_pos, &self.visible_line_ranges);
