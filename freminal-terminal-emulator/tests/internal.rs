@@ -291,8 +291,9 @@ fn test_clear_display() {
     assert_eq!(
         buffer.visible,
         expected_visible,
-        "visible buffer is not empty: {}",
-        display_vec_tchar_as_string(&buffer.visible)
+        "visible buffer is not empty:\nvis:\n{}\nscrollback:\n{}",
+        display_vec_tchar_as_string(&buffer.visible),
+        display_vec_tchar_as_string(&buffer.scrollback)
     );
     // verify the cursor position is unchanged
     assert_eq!(

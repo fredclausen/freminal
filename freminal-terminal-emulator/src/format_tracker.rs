@@ -201,11 +201,10 @@ impl FormatTracker {
     /// No gaps in coloring data, so one range must expand instead of just be adjusted
     pub fn push_range_adjustment(&mut self, range: Range<usize>) {
         let range_len = range.end - range.start;
-        for info in self
-            .color_info
-            .iter_mut()
-            .filter(|info| info.start >= range.start)
-        {
+        for info in &mut self.color_info {
+            if info.end <= range.start {
+                continue;
+            }
             if info.start > range.start {
                 info.start += range_len;
                 if info.end != usize::MAX {

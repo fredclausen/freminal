@@ -818,13 +818,13 @@ mod tests {
 
         let visible_line_ranges = buf.get_visible_line_ranges();
         println!("{visible_line_ranges:?}");
-        // assert_eq!(visible_line_ranges.len(), 6);
-        // assert_eq!(visible_line_ranges[0], 0..10);
-        // assert_eq!(visible_line_ranges[1], 11..21);
-        // assert_eq!(visible_line_ranges[2], 22..32);
-        // assert_eq!(visible_line_ranges[3], 33..43);
-        // assert_eq!(visible_line_ranges[4], 44..54);
-        // assert_eq!(visible_line_ranges[5], 55..55);
+        assert_eq!(visible_line_ranges.len(), 6);
+        assert_eq!(visible_line_ranges[0], 0..10);
+        assert_eq!(visible_line_ranges[1], 11..21);
+        assert_eq!(visible_line_ranges[2], 22..32);
+        assert_eq!(visible_line_ranges[3], 33..43);
+        assert_eq!(visible_line_ranges[4], 44..54);
+        assert_eq!(visible_line_ranges[5], 55..55);
 
         // now test edge wrapped
         let mut buf = TerminalBufferHolder::new(6, 15);
