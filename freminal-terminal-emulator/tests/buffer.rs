@@ -533,6 +533,7 @@ fn test_canvas_delete_forwards() {
         TChar::new_from_single_char(b'5'),
         TChar::NewLine,
     ];
+
     assert_eq!(canvas.data().visible, expected);
 
     canvas.set_visible_line_ranges(
@@ -578,6 +579,7 @@ fn test_canvas_delete_forwards() {
         .to_vec(),
     );
 
+    println!("{:?}", canvas.get_visible_line_ranges());
     // Test deletion clamped on wrap
     let deleted_range = canvas.delete_forwards(&CursorPos { x: 7, y: 1 }, 10);
     assert_eq!(deleted_range, Some(9..12));
@@ -1231,7 +1233,6 @@ fn test_clear_backwards() {
     assert_eq!(canvas.data().visible, b"");
 
     // Test edge wrapped
-    println!("inserting data");
     canvas
         .insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789asdf\nxyzw")
         .unwrap();
@@ -1260,7 +1261,7 @@ fn test_clear_backwards() {
 
     assert_eq!(canvas.data().visible, expected);
     assert_eq!(canvas.get_visible_line_ranges(), []);
-    println!("Clearing again");
+
     let response = canvas.clear_backwards(&CursorPos { x: 3, y: 0 }).unwrap();
     let expected = vec![
         TChar::Space,
@@ -1284,7 +1285,6 @@ fn test_clear_backwards() {
         TChar::new_from_single_char(b'w'),
         TChar::NewLine,
     ];
-    println!("Checking");
 
     assert_eq!(canvas.data().visible, expected);
     assert_eq!(response, Some(0..3));

@@ -72,12 +72,11 @@ pub fn line_ranges_to_visible_line_ranges(
 
     let mut current_start = buf.len() - 1;
     let mut ret: Vec<Range<usize>> = Vec::with_capacity(height);
-    let mut skip_next_newline = false;
+    let mut wrapping = false;
     // iterate over the buffer in reverse order
     for (position, character) in buf.iter().enumerate().rev() {
-        if buf.len() - 1 == position || skip_next_newline {
+        if buf.len() - 1 == position {
             current_start = position;
-            skip_next_newline = false;
             continue;
         }
         if ret.len() == height {
@@ -86,25 +85,87 @@ pub fn line_ranges_to_visible_line_ranges(
         }
 
         if character == &TChar::NewLine {
-            ret.push(position.saturating_add(1)..current_start);
-            current_start = position;
+            if wrapping {
+                // take the position to current start, splitting the ranges on width
 
+                let current_length = current_start.saturating_sub(position);
+                let new_position = position;
+                let to_add = ranges_from_start_and_end(current_length, new_position, width);
+
+                ret.extend_from_slice(&to_add);
+
+                wrapping = false;
+            } else {
+                ret.push(position..current_start);
+            }
+
+            current_start = position + 1;
             continue;
         }
 
-        if current_start.saturating_sub(position) >= width {
-            ret.push(position..current_start);
-            current_start = position;
-            skip_next_newline = true;
+        if !wrapping && current_start.saturating_sub(position) == width {
+            // current_start = position;
+            wrapping = true;
         }
     }
 
     if ret.len() < height {
-        ret.push(0..current_start);
+        if wrapping {
+            let current_length = current_start;
+            let new_position = 0;
+            let to_add = ranges_from_start_and_end(current_length, new_position, width);
+            ret.extend_from_slice(&to_add);
+        } else {
+            ret.push(0..current_start.saturating_sub(1));
+        }
+    }
+
+    if ret.len() > height {
+        // remove extra lines from the front of the buffer
+        let to_remove = ret.len() - height;
+        ret.drain(0..to_remove);
     }
 
     ret.reverse();
     ret
+}
+
+fn ranges_from_start_and_end(
+    current_length: usize,
+    position: usize,
+    width: usize,
+) -> Vec<Range<usize>> {
+    let mut to_add = vec![];
+
+    let mut current_length = current_length;
+    let mut current_range = position..position;
+
+    if current_length < width {
+        to_add.push(position..position + current_length);
+
+        return to_add;
+    }
+
+    let mut did_just_add = false;
+    while current_length > 0 {
+        did_just_add = false;
+        current_range.end += 1;
+
+        if current_range.end - current_range.start == width {
+            to_add.push(current_range.clone());
+            current_range.start = current_range.end;
+            did_just_add = true;
+        }
+
+        current_length -= 1;
+    }
+
+    if !did_just_add {
+        to_add.push(current_range);
+    }
+
+    to_add.reverse();
+    to_add
 }
 
 pub struct PadBufferForWriteResponse {
@@ -719,5 +780,36 @@ impl TerminalBufferHolder {
             _insertion_range: inserted_padding,
             new_cursor_pos,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_visible_line_ranges_parsing() {
+        let mut buf = TerminalBufferHolder::new(15, 15);
+
+        let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
+        buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+
+        let visible_line_ranges = buf.get_visible_line_ranges();
+        println!("{visible_line_ranges:?}");
+        // assert_eq!(visible_line_ranges.len(), 6);
+        // assert_eq!(visible_line_ranges[0], 0..10);
+        // assert_eq!(visible_line_ranges[1], 11..21);
+        // assert_eq!(visible_line_ranges[2], 22..32);
+        // assert_eq!(visible_line_ranges[3], 33..43);
+        // assert_eq!(visible_line_ranges[4], 44..54);
+        // assert_eq!(visible_line_ranges[5], 55..55);
+
+        // now test edge wrapped
+        let mut buf = TerminalBufferHolder::new(6, 15);
+
+        let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
+        buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+        let visible_line_ranges = buf.get_visible_line_ranges();
+        println!("{visible_line_ranges:?}");
     }
 }
