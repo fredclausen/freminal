@@ -11,6 +11,7 @@
     clippy::correctness,
     clippy::all
 )]
+#![allow(clippy::range_plus_one)]
 // #![warn(missing_docs)]
 
 pub mod ansi;

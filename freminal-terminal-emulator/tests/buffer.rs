@@ -69,6 +69,7 @@ fn test_insert_utf8_data() {
     let response = buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"asdf")
         .unwrap();
+
     assert_eq!(response.written_range, 0..4);
     assert_eq!(response.insertion_range, 0..5);
     assert_eq!(response.new_cursor_pos, CursorPos { x: 4, y: 0 });
@@ -142,6 +143,7 @@ fn test_canvas_clear_forwards() {
     buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"012343456789\n0123456789\n1234")
         .unwrap();
+
     let expected = vec![
         TChar::new_from_single_char(b'3'),
         TChar::new_from_single_char(b'4'),
@@ -168,9 +170,11 @@ fn test_canvas_clear_forwards() {
         TChar::new_from_single_char(b'4'),
         TChar::NewLine,
     ];
+
     assert_eq!(buffer.data().visible, expected);
 
     buffer.clear_forwards(&CursorPos { x: 1, y: 1 }).unwrap();
+
     let expected = vec![
         TChar::new_from_single_char(b'3'),
         TChar::new_from_single_char(b'4'),
@@ -183,6 +187,7 @@ fn test_canvas_clear_forwards() {
         TChar::NewLine,
         TChar::NewLine,
     ];
+
     // Same amount of lines should be present before and after clear
     assert_eq!(buffer.data().visible, expected);
 
@@ -193,6 +198,7 @@ fn test_canvas_clear_forwards() {
         .insert_data(&CursorPos { x: 0, y: 0 }, b"012340123401234012340123401234")
         .unwrap();
     buffer.clear_forwards(&CursorPos { x: 0, y: 1 }).unwrap();
+
     let expected = vec![
         TChar::new_from_single_char(b'0'),
         TChar::new_from_single_char(b'1'),
@@ -215,6 +221,7 @@ fn test_canvas_clear_forwards() {
             b"01234\n0123401234012340123401234",
         )
         .unwrap();
+
     buffer.clear_forwards(&CursorPos { x: 0, y: 1 }).unwrap();
     assert_eq!(buffer.data().visible, expected);
 
@@ -579,7 +586,6 @@ fn test_canvas_delete_forwards() {
         .to_vec(),
     );
 
-    println!("{:?}", canvas.get_visible_line_ranges());
     // Test deletion clamped on wrap
     let deleted_range = canvas.delete_forwards(&CursorPos { x: 7, y: 1 }, 10);
     assert_eq!(deleted_range, Some(9..12));
@@ -1060,19 +1066,13 @@ fn test_clear_line() {
     assert_eq!(response, None);
     assert_eq!(canvas.data().visible, b"");
 
-    canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(
-            canvas.get_raw_buffer(),
-            canvas.get_win_size().1,
-            canvas.get_win_size().0,
-        )
-        .to_vec(),
-    );
+    println!("1 - {:?}", canvas.get_visible_line_ranges());
 
     // Test edge wrapped
     canvas
         .insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789asdf\nxyzw")
         .unwrap();
+    println!("2 - {:?}", canvas.get_visible_line_ranges());
     let expected = vec![
         TChar::new_from_single_char(b'0'),
         TChar::new_from_single_char(b'1'),
@@ -1098,16 +1098,8 @@ fn test_clear_line() {
 
     assert_eq!(canvas.data().visible, expected);
 
-    canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(
-            canvas.get_raw_buffer(),
-            canvas.get_win_size().1,
-            canvas.get_win_size().0,
-        )
-        .to_vec(),
-    );
-
     let response = canvas.clear_line(&CursorPos { x: 0, y: 0 });
+    println!("3 - {:?}", canvas.get_visible_line_ranges());
     let expected = vec![
         TChar::new_from_single_char(b'5'),
         TChar::new_from_single_char(b'6'),
@@ -1129,17 +1121,9 @@ fn test_clear_line() {
     assert_eq!(canvas.data().visible, expected);
     assert_eq!(response, Some(0..5));
 
-    canvas.set_visible_line_ranges(
-        line_ranges_to_visible_line_ranges(
-            canvas.get_raw_buffer(),
-            canvas.get_win_size().1,
-            canvas.get_win_size().0,
-        )
-        .to_vec(),
-    );
-
     // Test newline wrapped
     let response = canvas.clear_line(&CursorPos { x: 0, y: 1 });
+    println!("4 - {:?}", canvas.get_visible_line_ranges());
     let expected = vec![
         TChar::new_from_single_char(b'5'),
         TChar::new_from_single_char(b'6'),
