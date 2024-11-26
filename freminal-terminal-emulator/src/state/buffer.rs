@@ -17,32 +17,17 @@ pub fn calc_line_ranges(buf: &[TChar], width: usize, last_capacity: &usize) -> V
 
     let mut current_start = 0;
 
-    // iterate through the buffer
-    // we want ranges that either terminate at a newline or at the width
+    let mut ret = Vec::with_capacity(*last_capacity + 10);
 
-    // for (i, c) in buf.iter().enumerate() {
-    //     if matches!(c, TChar::NewLine) {
-    //         ret.push(current_start..i);
-    //         current_start = i + 1;
-    //     } else if i - current_start == width {
-    //         ret.push(current_start..i);
-    //         current_start = i;
-    //     }
-    // }
-
-    let mut ret = buf.iter().enumerate().fold(
-        Vec::with_capacity(*last_capacity + 10),
-        |mut acc, (i, c)| {
-            if matches!(c, TChar::NewLine) {
-                acc.push(current_start..i);
-                current_start = i + 1;
-            } else if i - current_start == width {
-                acc.push(current_start..i);
-                current_start = i;
-            }
-            acc
-        },
-    );
+    for (current_pos, c) in buf.iter().enumerate() {
+        if c == &TChar::NewLine {
+            ret.push(current_start..current_pos);
+            current_start = current_pos + 1;
+        } else if current_pos - current_start == width {
+            ret.push(current_start..current_pos);
+            current_start = current_pos;
+        }
+    }
 
     if buf.len() > current_start {
         ret.push(current_start..buf.len());

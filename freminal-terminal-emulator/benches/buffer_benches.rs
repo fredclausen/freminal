@@ -19,11 +19,11 @@ fn load_random_file() -> Vec<u8> {
     buffer
 }
 
-fn bench_display_vec_tchar_as_string(bench: &mut Criterion) {
+fn bench_display_vec_tchar_large_chunk(bench: &mut Criterion) {
     let data = load_random_file();
 
     // create a Buffer
-    let mut group = bench.benchmark_group("display_vec_tchar_as_string");
+    let mut group = bench.benchmark_group("display_vec_tchar_large_chunk");
     group.bench_with_input(BenchmarkId::from_parameter("test"), &data, |b, data| {
         b.iter(|| {
             let mut buf = Buffer::new(100, 80);
@@ -44,5 +44,42 @@ fn bench_display_vec_tchar_as_string(bench: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_display_vec_tchar_as_string);
+fn bench_display_vec_tchar_chunked(bench: &mut Criterion) {
+    let data = load_random_file();
+    // split data into chunks of 1000 bytes
+    let data: Vec<&[u8]> = data.chunks(1000).collect();
+
+    // create a Buffer
+    let mut group = bench.benchmark_group("display_vec_tchar_chunked");
+    group.bench_with_input(BenchmarkId::from_parameter("test"), &data, |b, data| {
+        b.iter(|| {
+            let mut buf = Buffer::new(100, 80);
+
+            for chunk in data {
+                let response = buf
+                    .terminal_buffer
+                    .insert_data(&buf.cursor_state.pos, chunk)
+                    .unwrap(); // insert data into the buffer
+
+                buf.format_tracker
+                    .push_range_adjustment(response.insertion_range);
+                buf.format_tracker
+                    .push_range(&buf.cursor_state, response.written_range);
+                buf.cursor_state.pos = response.new_cursor_pos;
+
+                if let Some(range) = buf.terminal_buffer.clip_lines(5000) {
+                    buf.format_tracker.delete_range(range).unwrap();
+                }
+            }
+        });
+    });
+
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_display_vec_tchar_large_chunk,
+    bench_display_vec_tchar_chunked
+);
 criterion_main!(benches);
