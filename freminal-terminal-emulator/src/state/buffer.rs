@@ -134,7 +134,7 @@ pub fn line_ranges_to_visible_line_ranges(
     }
 
     if ret.len() < height {
-        if wrapping {
+        if wrapping && current_start > width {
             let mut current_length = current_start;
             if previous_char_was_newline {
                 println!("Subtracting 1");
@@ -823,15 +823,17 @@ impl TerminalBufferHolder {
 mod tests {
     use super::*;
 
+    #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
     #[test]
     fn test_visible_line_ranges_parsing() {
         let mut buf = TerminalBufferHolder::new(15, 15);
 
+        // no scrollback, new line before width reached
         let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
         buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
 
         let visible_line_ranges = buf.get_visible_line_ranges();
-        println!("{visible_line_ranges:?}");
+        println!("1 {visible_line_ranges:?}");
         assert_eq!(visible_line_ranges.len(), 6);
         assert_eq!(visible_line_ranges[0], 0..10);
         assert_eq!(visible_line_ranges[1], 11..21);
@@ -840,12 +842,69 @@ mod tests {
         assert_eq!(visible_line_ranges[4], 44..54);
         assert_eq!(visible_line_ranges[5], 55..55);
 
-        // now test edge wrapped
-        let mut buf = TerminalBufferHolder::new(6, 15);
+        // scrollback, new line before width reached
+        let mut buf = TerminalBufferHolder::new(15, 4);
 
         let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
         buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
         let visible_line_ranges = buf.get_visible_line_ranges();
-        println!("{visible_line_ranges:?}");
+        println!("2 {visible_line_ranges:?}");
+        assert_eq!(visible_line_ranges.len(), 4);
+        assert_eq!(visible_line_ranges[0], 22..32);
+        assert_eq!(visible_line_ranges[1], 33..43);
+        assert_eq!(visible_line_ranges[2], 44..54);
+        assert_eq!(visible_line_ranges[3], 55..55);
+
+        // no scrollback, new line after width reached
+        let mut buf = TerminalBufferHolder::new(10, 15);
+
+        let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
+        buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+        let visible_line_ranges = buf.get_visible_line_ranges();
+        println!("3 {visible_line_ranges:?}");
+        assert_eq!(visible_line_ranges.len(), 6);
+        assert_eq!(visible_line_ranges[0], 0..10);
+        assert_eq!(visible_line_ranges[1], 11..21);
+        assert_eq!(visible_line_ranges[2], 22..32);
+        assert_eq!(visible_line_ranges[3], 33..43);
+        assert_eq!(visible_line_ranges[4], 44..54);
+        assert_eq!(visible_line_ranges[5], 55..55);
+
+        // scrollback, new line after width reached
+        let mut buf = TerminalBufferHolder::new(15, 4);
+        let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
+        buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+        let visible_line_ranges = buf.get_visible_line_ranges();
+        println!("4 {visible_line_ranges:?}");
+        assert_eq!(visible_line_ranges.len(), 4);
+        assert_eq!(visible_line_ranges[0], 22..32);
+        assert_eq!(visible_line_ranges[1], 33..43);
+        assert_eq!(visible_line_ranges[2], 44..54);
+        assert_eq!(visible_line_ranges[3], 55..55);
+
+        // no scrollback, no new lines
+        let mut buf = TerminalBufferHolder::new(10, 15);
+        let data = b"01234567890123456789012345678901234567890123456789";
+        buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+        let visible_line_ranges = buf.get_visible_line_ranges();
+        println!("5 {visible_line_ranges:?}");
+        assert_eq!(visible_line_ranges.len(), 5);
+        assert_eq!(visible_line_ranges[0], 0..10);
+        assert_eq!(visible_line_ranges[1], 10..20);
+        assert_eq!(visible_line_ranges[2], 20..30);
+        assert_eq!(visible_line_ranges[3], 30..40);
+        assert_eq!(visible_line_ranges[4], 40..50);
+
+        // scrollback, no new lines
+        let mut buf = TerminalBufferHolder::new(10, 4);
+        let data = b"01234567890123456789012345678901234567890123456789";
+        buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+        let visible_line_ranges = buf.get_visible_line_ranges();
+        println!("6 {visible_line_ranges:?}");
+        assert_eq!(visible_line_ranges.len(), 4);
+        assert_eq!(visible_line_ranges[0], 10..20);
+        assert_eq!(visible_line_ranges[1], 20..30);
+        assert_eq!(visible_line_ranges[2], 30..40);
+        assert_eq!(visible_line_ranges[3], 40..50);
     }
 }
