@@ -70,13 +70,21 @@ pub fn line_ranges_to_visible_line_ranges(
         return vec![];
     }
 
-    let mut current_start = buf.len() - 1;
-    let mut ret: Vec<Range<usize>> = Vec::with_capacity(height);
-    let mut wrapping = false;
-    let mut previous_char_was_newline = false;
+    // FIXME: This entire thing is janky af. It probably needs a rewrite
+
+    // The goal here is to get the visible line ranges from the buffer. This is easy if we walk the buffer from the start, because we can track where lines start and end with ease
+    // However, for efficiency reasons we need to walk the buffer *from the back* because there is no sense in going through 500,000 characters, representing 10000+ lines, if we only care about the last x lines that represent the visible screen
+    // The problem becomes tricky with line wrapping in this case. If a consecutive sequence of non-newline characters is longer than the width of the terminal, we need to split it into multiple lines, but if the line is not % 0 of the width, then starting at the back and walking forward we will end up with different break points than if we started at the front and walked back.
+
+    let mut current_start = buf.len() - 1; // start of the current line
+    let mut ret: Vec<Range<usize>> = Vec::with_capacity(height); // the ranges of the visible lines
+    let mut wrapping = false; // flag to indicate if we are wrapping
+    let mut previous_char_was_newline = false; // This flag is used to determine some special cases when we are wrapping
 
     // iterate over the buffer in reverse order
     for (position, character) in buf.iter().enumerate().rev() {
+        // special case for the last character in the buffer. If the character is a new line, we DO NOT want to include it in the output. Why, not entirely sure. But it's what the original code did
+        // Otherwise, we want the line range to capture the character so we set the current start to be inclusive of the character
         if buf.len() - 1 == position {
             if *character == TChar::NewLine {
                 current_start = position;
@@ -85,18 +93,24 @@ pub fn line_ranges_to_visible_line_ranges(
             }
             continue;
         }
+
+        // if we have enough lines, we can break out of the loop
         if ret.len() == height {
             current_start = position;
             break;
         }
 
+        // We've encountered a newline character. This means we need to add a new line to the output
         if character == &TChar::NewLine {
+            // If we are wrapping, we need to take the position to the current start, splitting the ranges on width
             if wrapping {
                 println!("Wrapping");
                 // take the position to current start, splitting the ranges on width
 
+                // The total characters in the line is the current start minus the position because we are already including the start character in the range
                 let mut current_length = current_start.saturating_sub(position);
 
+                // If the previous character was a newline, we need to subtract one from the length because the newline is implied
                 if previous_char_was_newline {
                     current_length = current_length.saturating_sub(1);
                 }
@@ -108,9 +122,11 @@ pub fn line_ranges_to_visible_line_ranges(
                 wrapping = false;
             } else if previous_char_was_newline {
                 println!("Adding empty line");
+                // If the previous character was a newline, we need to add an empty line but the range is just going to include the newline character
                 ret.push(position + 1..position + 1);
             } else {
                 println!("Adding line {:?}", position + 1..current_start);
+                // If we are not wrapping, we can just add the line as is
                 ret.push(position + 1..current_start);
             }
 
@@ -121,10 +137,12 @@ pub fn line_ranges_to_visible_line_ranges(
         }
 
         if !wrapping && current_start.saturating_sub(position) == width {
+            // if we have not hit the max length already, AND the current line is the width of the terminal, we need to set the wrapping flag. We also set the newline flag in case the very next character is a newline
             // current_start = position;
             previous_char_was_newline = true;
             wrapping = true;
         } else if !wrapping {
+            // if we are not wrapping, we need to set the newline flag to false
             previous_char_was_newline = false;
         }
         println!(
@@ -133,7 +151,9 @@ pub fn line_ranges_to_visible_line_ranges(
         );
     }
 
+    // Done looping. If we have not hit the max length, we need to add the last line to the output
     if ret.len() < height {
+        // If we are wrapping, we need to take the position to the current start, splitting the ranges on width using the same logic as above for wrapping
         if wrapping && current_start > width {
             let mut current_length = current_start;
             if previous_char_was_newline {
@@ -145,13 +165,16 @@ pub fn line_ranges_to_visible_line_ranges(
             println!("Adding line done {:?}", to_add);
             ret.extend_from_slice(&to_add);
         } else {
+            // otherwise, just add the line
             println!("Adding line done {:?}", 0..current_start);
             ret.push(0..current_start);
         }
     }
 
+    // sort the ranges by start position
     ret.sort_by(|a, b| a.start.cmp(&b.start));
 
+    // if we have more lines than the height, we need to remove the extra lines
     if ret.len() > height {
         // remove extra lines from the front of the buffer
         let to_remove = ret.len() - height;
@@ -167,11 +190,10 @@ fn ranges_from_start_and_end(
     width: usize,
 ) -> Vec<Range<usize>> {
     let mut to_add = vec![];
-
     let mut current_length = current_length;
     let mut current_range = position..position;
 
-    if current_length < width {
+    if current_length <= width {
         to_add.push(position..position + current_length);
 
         return to_add;
@@ -200,7 +222,6 @@ fn ranges_from_start_and_end(
         to_add.push(current_range);
     }
 
-    // to_add.reverse();
     to_add
 }
 
