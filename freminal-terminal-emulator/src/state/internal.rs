@@ -7,6 +7,7 @@ use anyhow::Result;
 use core::str;
 use eframe::egui::{self, Color32, Context};
 use freminal_common::colors::TerminalColor;
+#[cfg(debug_assertions)]
 use std::time::Instant;
 
 use crate::{
@@ -908,8 +909,16 @@ impl TerminalState {
 
     pub(crate) fn clip_buffer_lines(&mut self) {
         let current_buffer = self.get_current_buffer();
+        let line_ranges = current_buffer.terminal_buffer.get_visible_line_ranges();
 
-        if let Some(range) = current_buffer.terminal_buffer.clip_lines(5000) {
+        if line_ranges.is_empty() {
+            return;
+        }
+
+        if let Some(range) = current_buffer
+            .terminal_buffer
+            .clip_lines(line_ranges[0].start)
+        {
             match current_buffer.format_tracker.delete_range(range) {
                 Ok(()) => (),
                 Err(e) => {
@@ -920,6 +929,7 @@ impl TerminalState {
     }
 
     pub fn handle_incoming_data(&mut self, incoming: &[u8]) {
+        #[cfg(debug_assertions)]
         let now = Instant::now();
         // if we have leftover data, prepend it to the incoming data
         let mut incoming = self.leftover_data.take().map_or_else(
@@ -1005,9 +1015,11 @@ impl TerminalState {
         // now ensure total lines in buffer are not more then 1000 lines
         self.clip_buffer_lines();
 
+        #[cfg(debug_assertions)]
         // log the frame time
         let elapsed = now.elapsed();
         // show either elapsed as micros or millis, depending on the duration
+        #[cfg(debug_assertions)]
         if elapsed.as_millis() > 0 {
             debug!("Data processing time: {}ms", elapsed.as_millis());
         } else {

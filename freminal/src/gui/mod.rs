@@ -54,6 +54,7 @@ impl eframe::App for FreminalGui {
         // log the frame time
         // time now
         debug!("Starting new frame");
+        #[cfg(debug_assertions)]
         let now = std::time::Instant::now();
 
         let panel_response = CentralPanel::default().show(ctx, |ui| {
@@ -80,8 +81,10 @@ impl eframe::App for FreminalGui {
             self.terminal_widget.show_options(ui);
         });
 
+        #[cfg(debug_assertions)]
         // log the frame time
         let elapsed = now.elapsed();
+        #[cfg(debug_assertions)]
         // show either elapsed as micros or millis, depending on the duration
         if elapsed.as_millis() > 0 {
             debug!("Frame time: {}ms", elapsed.as_millis());

@@ -143,8 +143,6 @@ fn test_canvas_clear_forwards() {
     buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"012343456789\n0123456789\n1234")
         .unwrap();
-    println!("buffer:\n{:?}", buffer.data());
-    println!("{:?}", buffer.get_visible_line_ranges());
 
     let expected = vec![
         TChar::new_from_single_char(b'3'),
@@ -176,8 +174,6 @@ fn test_canvas_clear_forwards() {
     assert_eq!(buffer.data().visible, expected);
 
     buffer.clear_forwards(&CursorPos { x: 1, y: 1 }).unwrap();
-    println!("buffer:\n{:?}", buffer.data());
-    println!("{:?}", buffer.get_visible_line_ranges());
 
     let expected = vec![
         TChar::new_from_single_char(b'3'),
@@ -201,11 +197,7 @@ fn test_canvas_clear_forwards() {
     buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"012340123401234012340123401234")
         .unwrap();
-    println!("buffer:\n{:?}", buffer.data());
-    println!("{:?}", buffer.get_visible_line_ranges());
     buffer.clear_forwards(&CursorPos { x: 0, y: 1 }).unwrap();
-    println!("buffer:\n{:?}", buffer.data());
-    println!("{:?}", buffer.get_visible_line_ranges());
 
     let expected = vec![
         TChar::new_from_single_char(b'0'),
@@ -229,12 +221,8 @@ fn test_canvas_clear_forwards() {
             b"01234\n0123401234012340123401234",
         )
         .unwrap();
-    println!("buffer:\n{:?}", buffer.data());
-    println!("{:?}", buffer.get_visible_line_ranges());
 
     buffer.clear_forwards(&CursorPos { x: 0, y: 1 }).unwrap();
-    println!("buffer:\n{:?}", buffer.data());
-    println!("{:?}", buffer.get_visible_line_ranges());
     assert_eq!(buffer.data().visible, expected);
 
     // 3. Truncating on a newline
@@ -242,11 +230,8 @@ fn test_canvas_clear_forwards() {
     buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"\n\n\n\n\n\n")
         .unwrap();
-    println!("buffer:\n{:?}", buffer.data());
-    println!("{:?}", buffer.get_visible_line_ranges());
     buffer.clear_forwards(&CursorPos { x: 0, y: 1 }).unwrap();
-    println!("buffer:\n{:?}", buffer.data());
-    println!("{:?}", buffer.get_visible_line_ranges());
+
     let expected = vec![
         TChar::NewLine,
         TChar::NewLine,
@@ -1082,13 +1067,11 @@ fn test_clear_line() {
     assert_eq!(response, None);
     assert_eq!(canvas.data().visible, b"");
 
-    println!("1 - {:?}", canvas.get_visible_line_ranges());
-
     // Test edge wrapped
     canvas
         .insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789asdf\nxyzw")
         .unwrap();
-    println!("2 - {:?}", canvas.get_visible_line_ranges());
+
     let expected = vec![
         TChar::new_from_single_char(b'0'),
         TChar::new_from_single_char(b'1'),
@@ -1115,7 +1098,6 @@ fn test_clear_line() {
     assert_eq!(canvas.data().visible, expected);
 
     let response = canvas.clear_line(&CursorPos { x: 0, y: 0 });
-    println!("3 - {:?}", canvas.get_visible_line_ranges());
     let expected = vec![
         TChar::new_from_single_char(b'5'),
         TChar::new_from_single_char(b'6'),
@@ -1139,7 +1121,6 @@ fn test_clear_line() {
 
     // Test newline wrapped
     let response = canvas.clear_line(&CursorPos { x: 0, y: 1 });
-    println!("4 - {:?}", canvas.get_visible_line_ranges());
     let expected = vec![
         TChar::new_from_single_char(b'5'),
         TChar::new_from_single_char(b'6'),
@@ -1359,4 +1340,132 @@ fn test_clear_visible() {
     ];
     assert_eq!(canvas.data().visible, expected);
     assert_eq!(response, 50..usize::MAX);
+}
+
+#[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
+#[test]
+fn test_visible_line_ranges_parsing() {
+    let data = vec![
+        TChar::Ascii(b'0'), // 0 1
+        TChar::Ascii(b'1'), // 1 1
+        TChar::Ascii(b'2'), // 2 1
+        TChar::Ascii(b'3'), // 3 1
+        TChar::Ascii(b'4'), // 4 1
+        TChar::Ascii(b'3'), // 5 2
+        TChar::Ascii(b'4'), // 6 2
+        TChar::Ascii(b'5'), // 7 2
+        TChar::Ascii(b'6'), // 8 2
+        TChar::Ascii(b'7'), // 9 2
+        TChar::Ascii(b'8'), // 10 3
+        TChar::NewLine,     // 11
+        TChar::NewLine,     // 12 4
+        TChar::NewLine,     // 13 5
+        TChar::NewLine,     // 14 6
+    ];
+
+    let expected = [5..10, 10..11, 12..12, 13..13, 14..14];
+
+    let visible_line_ranges = line_ranges_to_visible_line_ranges(&data, 5, 5);
+
+    assert_eq!(visible_line_ranges.len(), 5);
+    assert_eq!(visible_line_ranges[0], expected[0]);
+    assert_eq!(visible_line_ranges[1], expected[1]);
+    assert_eq!(visible_line_ranges[2], expected[2]);
+    assert_eq!(visible_line_ranges[3], expected[3]);
+    assert_eq!(visible_line_ranges[4], expected[4]);
+
+    let mut buf = TerminalBufferHolder::new(15, 15);
+
+    // no scrollback, new line before width reached
+    let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
+    buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+
+    let visible_line_ranges = buf.get_visible_line_ranges();
+
+    assert_eq!(visible_line_ranges.len(), 6);
+    assert_eq!(visible_line_ranges[0], 0..10);
+    assert_eq!(visible_line_ranges[1], 11..21);
+    assert_eq!(visible_line_ranges[2], 22..32);
+    assert_eq!(visible_line_ranges[3], 33..43);
+    assert_eq!(visible_line_ranges[4], 44..54);
+    assert_eq!(visible_line_ranges[5], 55..55);
+
+    // scrollback, new line before width reached
+    let mut buf = TerminalBufferHolder::new(15, 4);
+
+    let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
+    buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+    let visible_line_ranges = buf.get_visible_line_ranges();
+
+    assert_eq!(visible_line_ranges.len(), 4);
+    assert_eq!(visible_line_ranges[0], 22..32);
+    assert_eq!(visible_line_ranges[1], 33..43);
+    assert_eq!(visible_line_ranges[2], 44..54);
+    assert_eq!(visible_line_ranges[3], 55..55);
+
+    // no scrollback, new line after width reached
+    let mut buf = TerminalBufferHolder::new(10, 15);
+
+    let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
+    buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+    let visible_line_ranges = buf.get_visible_line_ranges();
+
+    assert_eq!(visible_line_ranges.len(), 6);
+    assert_eq!(visible_line_ranges[0], 0..10);
+    assert_eq!(visible_line_ranges[1], 11..21);
+    assert_eq!(visible_line_ranges[2], 22..32);
+    assert_eq!(visible_line_ranges[3], 33..43);
+    assert_eq!(visible_line_ranges[4], 44..54);
+    assert_eq!(visible_line_ranges[5], 55..55);
+
+    // scrollback, new line after width reached
+    let mut buf = TerminalBufferHolder::new(15, 4);
+    let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
+    buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+    let visible_line_ranges = buf.get_visible_line_ranges();
+
+    assert_eq!(visible_line_ranges.len(), 4);
+    assert_eq!(visible_line_ranges[0], 22..32);
+    assert_eq!(visible_line_ranges[1], 33..43);
+    assert_eq!(visible_line_ranges[2], 44..54);
+    assert_eq!(visible_line_ranges[3], 55..55);
+
+    // no scrollback, no new lines
+    let mut buf = TerminalBufferHolder::new(10, 15);
+    let data = b"01234567890123456789012345678901234567890123456789";
+    buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+    let visible_line_ranges = buf.get_visible_line_ranges();
+
+    assert_eq!(visible_line_ranges.len(), 5);
+    assert_eq!(visible_line_ranges[0], 0..10);
+    assert_eq!(visible_line_ranges[1], 10..20);
+    assert_eq!(visible_line_ranges[2], 20..30);
+    assert_eq!(visible_line_ranges[3], 30..40);
+    assert_eq!(visible_line_ranges[4], 40..50);
+
+    // scrollback, no new lines
+    let mut buf = TerminalBufferHolder::new(10, 4);
+    let data = b"01234567890123456789012345678901234567890123456789";
+    buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+    let visible_line_ranges = buf.get_visible_line_ranges();
+
+    assert_eq!(visible_line_ranges.len(), 4);
+    assert_eq!(visible_line_ranges[0], 10..20);
+    assert_eq!(visible_line_ranges[1], 20..30);
+    assert_eq!(visible_line_ranges[2], 30..40);
+    assert_eq!(visible_line_ranges[3], 40..50);
+
+    let mut buffer = TerminalBufferHolder::new(5, 5);
+    // Push enough data to get some in scrollback
+    buffer
+        .insert_data(&CursorPos { x: 0, y: 0 }, b"012343456789\n0123456789\n1234")
+        .unwrap();
+    let visible_line_ranges = buffer.get_visible_line_ranges();
+
+    assert_eq!(visible_line_ranges.len(), 5);
+    assert_eq!(visible_line_ranges[0], 5..10);
+    assert_eq!(visible_line_ranges[1], 10..12);
+    assert_eq!(visible_line_ranges[2], 13..18);
+    assert_eq!(visible_line_ranges[3], 18..23);
+    assert_eq!(visible_line_ranges[4], 24..28);
 }

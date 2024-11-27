@@ -554,7 +554,6 @@ fn test_sgr_sequences() {
 
         data.push(0x6d);
         data_escaped.extend_from_slice(&data[1..]);
-        println!("data: {}", String::from_utf8(data_escaped).unwrap());
 
         terminal_state.handle_incoming_data(&data);
         let expectedsgr = match i {

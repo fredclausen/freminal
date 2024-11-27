@@ -7,7 +7,6 @@ use freminal_terminal_emulator::state::internal::Buffer;
 use std::io::Read;
 
 fn load_random_file() -> Vec<u8> {
-    println!("Loading random_crap.txt from ../speed_tests/random_crap.txt");
     // load random_crap.txt from ../speed_tests/random_crap.txt
     let path = std::path::Path::new("../speed_tests/random_crap.txt");
     let file = std::fs::File::open(path).unwrap();
