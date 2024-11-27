@@ -174,8 +174,9 @@ fn test_canvas_clear_forwards() {
     assert_eq!(buffer.data().visible, expected);
 
     buffer.clear_forwards(&CursorPos { x: 1, y: 1 }).unwrap();
+    println!("buffer:\n{:?}", buffer.get_raw_buffer());
     println!("{:?}", buffer.get_visible_line_ranges());
-    assert!(false);
+
     let expected = vec![
         TChar::new_from_single_char(b'3'),
         TChar::new_from_single_char(b'4'),

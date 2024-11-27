@@ -906,5 +906,27 @@ mod tests {
         assert_eq!(visible_line_ranges[1], 20..30);
         assert_eq!(visible_line_ranges[2], 30..40);
         assert_eq!(visible_line_ranges[3], 40..50);
+
+        let mut buffer = TerminalBufferHolder::new(5, 5);
+        // Push enough data to get some in scrollback
+        buffer
+            .insert_data(&CursorPos { x: 0, y: 0 }, b"012343456789\n0123456789\n1234")
+            .unwrap();
+        let visible_line_ranges = buffer.get_visible_line_ranges();
+        println!("7 {visible_line_ranges:?}");
+        assert_eq!(visible_line_ranges.len(), 5);
+        assert_eq!(visible_line_ranges[0], 5..10);
+        assert_eq!(visible_line_ranges[1], 10..12);
+        assert_eq!(visible_line_ranges[2], 13..18);
+        assert_eq!(visible_line_ranges[3], 18..23);
+        assert_eq!(visible_line_ranges[4], 24..28);
+
+        let mut buffer = TerminalBufferHolder::new(5, 5);
+
+        let data = b"0123456789\n\n\n\n";
+        buffer.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+        let visible_line_ranges = buffer.get_visible_line_ranges();
+
+        println!("8 {visible_line_ranges:?}");
     }
 }
