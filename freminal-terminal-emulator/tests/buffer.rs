@@ -143,6 +143,8 @@ fn test_canvas_clear_forwards() {
     buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"012343456789\n0123456789\n1234")
         .unwrap();
+    println!("buffer:\n{:?}", buffer.data());
+    println!("{:?}", buffer.get_visible_line_ranges());
 
     let expected = vec![
         TChar::new_from_single_char(b'3'),
@@ -174,7 +176,7 @@ fn test_canvas_clear_forwards() {
     assert_eq!(buffer.data().visible, expected);
 
     buffer.clear_forwards(&CursorPos { x: 1, y: 1 }).unwrap();
-    println!("buffer:\n{:?}", buffer.get_raw_buffer());
+    println!("buffer:\n{:?}", buffer.data());
     println!("{:?}", buffer.get_visible_line_ranges());
 
     let expected = vec![
@@ -199,7 +201,11 @@ fn test_canvas_clear_forwards() {
     buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"012340123401234012340123401234")
         .unwrap();
+    println!("buffer:\n{:?}", buffer.data());
+    println!("{:?}", buffer.get_visible_line_ranges());
     buffer.clear_forwards(&CursorPos { x: 0, y: 1 }).unwrap();
+    println!("buffer:\n{:?}", buffer.data());
+    println!("{:?}", buffer.get_visible_line_ranges());
 
     let expected = vec![
         TChar::new_from_single_char(b'0'),
@@ -223,8 +229,12 @@ fn test_canvas_clear_forwards() {
             b"01234\n0123401234012340123401234",
         )
         .unwrap();
+    println!("buffer:\n{:?}", buffer.data());
+    println!("{:?}", buffer.get_visible_line_ranges());
 
     buffer.clear_forwards(&CursorPos { x: 0, y: 1 }).unwrap();
+    println!("buffer:\n{:?}", buffer.data());
+    println!("{:?}", buffer.get_visible_line_ranges());
     assert_eq!(buffer.data().visible, expected);
 
     // 3. Truncating on a newline
@@ -232,7 +242,11 @@ fn test_canvas_clear_forwards() {
     buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"\n\n\n\n\n\n")
         .unwrap();
+    println!("buffer:\n{:?}", buffer.data());
+    println!("{:?}", buffer.get_visible_line_ranges());
     buffer.clear_forwards(&CursorPos { x: 0, y: 1 }).unwrap();
+    println!("buffer:\n{:?}", buffer.data());
+    println!("{:?}", buffer.get_visible_line_ranges());
     let expected = vec![
         TChar::NewLine,
         TChar::NewLine,
