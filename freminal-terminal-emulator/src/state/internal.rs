@@ -25,7 +25,7 @@ use crate::{
 };
 
 use super::{
-    buffer::{cursor_pos_to_buf_pos, TerminalBufferHolder, TerminalBufferSetWinSizeResponse},
+    buffer::{TerminalBufferHolder, TerminalBufferSetWinSizeResponse},
     cursor::{CursorPos, CursorState, ReverseVideo},
     data::TerminalSections,
     fonts::{FontDecorations, FontWeight},
@@ -174,12 +174,8 @@ impl TerminalState {
     }
 
     pub fn is_mouse_hovered_on_url(&mut self, pos: &CursorPos) -> Option<String> {
-        let buf_pos = cursor_pos_to_buf_pos(
-            pos,
-            self.get_current_buffer()
-                .terminal_buffer
-                .get_visible_line_ranges(),
-        )?;
+        let current_buffer = self.get_current_buffer();
+        let buf_pos = current_buffer.terminal_buffer.cursor_pos_to_buf_pos(pos)?;
 
         let tags = self.get_current_buffer().format_tracker.tags();
 

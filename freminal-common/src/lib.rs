@@ -15,6 +15,7 @@
 
 pub mod args;
 pub mod colors;
+pub mod scroll;
 
 #[macro_use]
 extern crate tracing;

@@ -44,5 +44,8 @@ tar = "0.4.43"
 thiserror = "2.0.3"
 tracing = "0.1.40"
 tracing-log = "0.2.0"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.18", features = [
+    "env-filter",
+    "parking_lot",
+] }
 unicode-segmentation = "1.12.0"
