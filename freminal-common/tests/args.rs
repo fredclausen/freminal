@@ -76,3 +76,31 @@ fn test_missing_shell_arg() {
     let args = Args::parse(vec!["freminal".to_string(), "--shell".to_string()].into_iter());
     assert!(args.is_err());
 }
+
+#[test]
+fn test_log_file_arg() {
+    let args = Args::parse(
+        vec![
+            "freminal".to_string(),
+            "--write-logs-to-file=true".to_string(),
+        ]
+        .into_iter(),
+    )
+    .unwrap();
+    assert!(args.write_logs_to_file);
+
+    let args = Args::parse(
+        vec![
+            "freminal".to_string(),
+            "--write-logs-to-file=false".to_string(),
+        ]
+        .into_iter(),
+    )
+    .unwrap();
+    assert!(!args.write_logs_to_file);
+
+    // test "--write-logs-to-file" without value
+    let args =
+        Args::parse(vec!["freminal".to_string(), "--write-logs-to-file".to_string()].into_iter());
+    assert!(args.is_err());
+}

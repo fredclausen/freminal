@@ -20,7 +20,12 @@ use freminal_terminal_emulator::interface::TerminalEmulator;
 use parking_lot::FairMutex;
 use std::{process, sync::Arc};
 use tracing::Level;
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{
+    fmt::{self, layer},
+    layer::SubscriberExt,
+    util::SubscriberInitExt,
+    EnvFilter,
+};
 
 pub mod gui;
 
@@ -50,13 +55,28 @@ fn main() {
     };
 
     let subscriber = tracing_subscriber::registry().with(env_filter);
-    let fmt_layer = fmt::layer()
-        .with_line_number(true)
-        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::ACTIVE)
-        .compact();
-    subscriber.with(fmt_layer).init();
 
-    trace!("Starting freminal");
+    if args.write_logs_to_file {
+        let std_out_layer = layer()
+            .with_line_number(true)
+            .with_span_events(fmt::format::FmtSpan::ACTIVE)
+            .compact();
+
+        let file_appender = tracing_appender::rolling::daily("./", "freminal.log");
+        subscriber
+            .with(layer().with_ansi(false).pretty().with_writer(file_appender))
+            .with(std_out_layer)
+            .init();
+    } else {
+        let std_out_layer = layer()
+            .with_line_number(true)
+            .with_span_events(fmt::format::FmtSpan::ACTIVE)
+            .compact();
+
+        subscriber.with(std_out_layer).init();
+    }
+
+    info!("Starting freminal");
 
     let res = match TerminalEmulator::new(&args) {
         Ok((terminal, rx)) => {
@@ -83,4 +103,6 @@ fn main() {
     if let Err(e) = res {
         error!("Failed to run terminal emulator: {}", e);
     }
+
+    info!("Shutting down freminal");
 }

@@ -19,6 +19,7 @@ eframe.workspace = true
 conv.workspace = true
 anyhow.workspace = true
 parking_lot.workspace = true
+tracing-appender.workspace = true
 tracing-subscriber.workspace = true
 tracing.workspace = true
 freminal-terminal-emulator = { path = "../freminal-terminal-emulator" }

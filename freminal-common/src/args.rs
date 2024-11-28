@@ -9,6 +9,7 @@ pub struct Args {
     pub recording: Option<String>,
     pub shell: Option<String>,
     pub show_all_debug: bool,
+    pub write_logs_to_file: bool,
 }
 
 impl Args {
@@ -24,6 +25,10 @@ impl Args {
         let mut shell = None;
         let mut error = false;
         let mut show_all_debug = false;
+        #[cfg(debug_assertions)]
+        let mut write_logs_to_file = true;
+        #[cfg(not(debug_assertions))]
+        let mut write_logs_to_file = false;
 
         while let Some(arg) = it.next() {
             match arg {
@@ -51,6 +56,29 @@ impl Args {
                 }
                 arg if arg.as_str() == "--help" => Self::help(program_name.as_deref()),
                 arg if arg.as_str() == "--show-all-debug" => show_all_debug = true,
+                arg if arg.as_str().contains("--write-logs-to-file=") => {
+                    let mut internal_error = false;
+                    write_logs_to_file = arg.split('=').nth(1).map_or_else(
+                        || {
+                            println!("Missing argument for --write-logs-to-file");
+                            Self::help(program_name.as_deref());
+                            internal_error = true;
+                            false
+                        },
+                        |val| {
+                            val.parse().unwrap_or_else(|_| {
+                                println!("Invalid argument for --write-logs-to-file");
+                                Self::help(program_name.as_deref());
+                                error = true;
+                                false
+                            })
+                        },
+                    );
+
+                    if internal_error {
+                        error = true;
+                    }
+                }
                 _ => {
                     println!("Invalid argument {arg}");
                     Self::help(program_name.as_deref());
@@ -67,6 +95,7 @@ impl Args {
             recording: recording_path,
             shell,
             show_all_debug,
+            write_logs_to_file,
         })
     }
 
@@ -80,7 +109,7 @@ impl Args {
                  {program_name} [ARGS]\n\
                  \n\
                  Args:\n\
-                    --recording-path: Optional, where to output recordings to\n--shell: Optional, shell to run\n--help: Show this help message\n\
+                    --recording-path: Optional, where to output recordings to\n--shell: Optional, shell to run\n--help: Show this help message\n--write-logs-to-file=[true/false]\
                  "
         );
     }
