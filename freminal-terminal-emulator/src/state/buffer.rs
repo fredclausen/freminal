@@ -6,7 +6,7 @@
 use super::{cursor::CursorPos, data::TerminalSections, term_char::TChar};
 use anyhow::Result;
 use freminal_common::scroll::ScrollDirection;
-use std::ops::Range;
+use std::{ops::Range, vec::Drain};
 
 pub struct PadBufferForWriteResponse {
     /// Where to copy data into
@@ -663,14 +663,64 @@ impl TerminalBufferHolder {
         // sort the ranges by start position
         ret.sort_by(|a, b| a.start.cmp(&b.start));
 
+        println!("ren len: {}", ret.len());
         // if we have more lines than the height, we need to remove the extra lines
-        if ret.len() > height {
+        let drained: Option<Vec<Range<usize>>> = if ret.len() > height {
             // remove extra lines from the front of the buffer
             let to_remove = ret.len() - height;
-            ret.drain(0..to_remove);
-        }
+            Some(ret.drain(0..to_remove).collect())
+        } else {
+            None
+        };
 
         self.visible_line_ranges = ret;
+
+        self.line_ranges_from_visible_line_ranges(drained);
+    }
+
+    fn line_ranges_from_visible_line_ranges(&mut self, extra: Option<Vec<Range<usize>>>) {
+        println!("extra: {:?}", extra);
+        // we need to compare visible line ranges to the bottom x values of buffer line ranges
+        // the idea here is that we want to have line ranges for the scroll back buffer, but if
+
+        // we want to push any new/changed lines to the buffer line ranges
+        // as well as update any changed lines.
+
+        let extra_length = extra.as_ref().map_or(0, std::vec::Vec::len);
+
+        if self.visible_line_ranges.is_empty()
+            || self.visible_line_ranges.len() + extra_length < self.height
+        {
+            self.buffer_line_ranges = self.visible_line_ranges.clone();
+            return;
+        }
+
+        let visible_line_ranges = &self.visible_line_ranges;
+        let buffer_line_ranges = &mut self.buffer_line_ranges;
+
+        // find the start position of the visible lines in the buffer_line_ranges
+        let (visible_start, visible_end) = extra.as_ref().map_or_else(
+            || (visible_line_ranges[0].start, visible_line_ranges[0].end),
+            |extra| (extra[0].start, extra[0].end),
+        );
+        // let mut visible_start = visible_line_ranges[0].start;
+        // let mut visible_end = visible_line_ranges[0].end;
+        if let Some(i) = buffer_line_ranges
+            .iter()
+            .rev()
+            .position(|r| r.start >= visible_start && r.end <= visible_end)
+        {
+            println!("truncating buffer line ranges");
+            // if we found the start of the visible lines in the buffer line ranges, we need to update the buffer line ranges
+            buffer_line_ranges.truncate(buffer_line_ranges.len() - i);
+            // buffer_line_ranges.extend_from_slice(visible_line_ranges);
+        }
+
+        if let Some(extra) = extra {
+            println!("extending buffer line ranges");
+            buffer_line_ranges.extend_from_slice(&extra);
+        }
+        buffer_line_ranges.extend_from_slice(visible_line_ranges);
     }
 
     fn buf_to_cursor_pos(&self, buf_pos: usize) -> CursorPos {
@@ -841,4 +891,83 @@ fn ranges_from_start_and_end(
     }
 
     to_add
+}
+
+#[test]
+fn test_line_ranges_from_visible_line_ranges_no_spill() {
+    // buffer with initial data that does not spill in to scrollback
+    let mut buffer = TerminalBufferHolder::new(5, 5);
+    // add some data
+    let data = b"1234\n".repeat(4);
+    let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
+
+    // buffer_line_ranges should have 5 lines. Visible line ranges should also have 5 lines
+    assert_eq!(buffer.buffer_line_ranges.len(), 5);
+    assert_eq!(buffer.visible_line_ranges.len(), 5);
+    assert_eq!(buffer.visible_line_ranges, buffer.buffer_line_ranges);
+
+    // push data in to scrollback
+    buffer.insert_data(&result.new_cursor_pos, &data).unwrap();
+    // buffer_line_ranges should have 10 lines. Visible line ranges should have 5 lines
+    assert_eq!(buffer.buffer_line_ranges.len(), 10);
+    assert_eq!(buffer.visible_line_ranges.len(), 5);
+    assert_eq!(
+        buffer.visible_line_ranges,
+        [20..24, 25..29, 30..34, 35..39, 40..40]
+    );
+    assert_eq!(
+        buffer.buffer_line_ranges,
+        [
+            0..4,
+            5..9,
+            10..14,
+            15..19,
+            20..20,
+            20..24,
+            25..29,
+            30..34,
+            35..39,
+            40..40
+        ]
+    );
+}
+
+#[test]
+fn test_line_ranges_from_visible_line_ranges_spill() {
+    // buffer with initial data that does not spill in to scrollback
+    let mut buffer = TerminalBufferHolder::new(5, 5);
+    // add some data
+    let data = b"1234\n".repeat(6);
+    println!("{:?}", data.len());
+    let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
+
+    // buffer_line_ranges should have 5 lines. Visible line ranges should also have 5 lines
+    assert_eq!(buffer.buffer_line_ranges.len(), 5);
+    assert_eq!(buffer.visible_line_ranges.len(), 6);
+    assert_eq!(buffer.visible_line_ranges, buffer.buffer_line_ranges);
+
+    // // push data in to scrollback
+    // buffer.insert_data(&result.new_cursor_pos, &data).unwrap();
+    // // buffer_line_ranges should have 10 lines. Visible line ranges should have 5 lines
+    // assert_eq!(buffer.buffer_line_ranges.len(), 11);
+    // assert_eq!(buffer.visible_line_ranges.len(), 5);
+    // assert_eq!(
+    //     buffer.visible_line_ranges,
+    //     [20..24, 25..29, 30..34, 35..39, 40..40]
+    // );
+    // assert_eq!(
+    //     buffer.buffer_line_ranges,
+    //     [
+    //         0..4,
+    //         5..9,
+    //         10..14,
+    //         15..19,
+    //         20..20,
+    //         20..24,
+    //         25..29,
+    //         30..34,
+    //         35..39,
+    //         40..40
+    //     ]
+    // );
 }
