@@ -764,7 +764,7 @@ impl TerminalState {
                 self.modes.bracketed_paste = bracketed_paste.clone();
             }
             Mode::XtExtscrn(XtExtscrn::Alternate) => {
-                info!("Switching to alternate screen buffer");
+                debug!("Switching to alternate screen buffer");
                 // SPEC Steps:
                 // 1. Save the cursor position
                 // 2. Switch to the alternate screen buffer
@@ -779,7 +779,7 @@ impl TerminalState {
                 self.alternate_buffer = Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT);
             }
             Mode::XtExtscrn(XtExtscrn::Primary) => {
-                info!("Switching to primary screen buffer");
+                debug!("Switching to primary screen buffer");
                 // SPEC Steps:
                 // 1. Restore the cursor position
                 // 2. Switch to the primary screen buffer
