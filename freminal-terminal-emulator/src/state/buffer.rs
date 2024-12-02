@@ -111,6 +111,15 @@ impl TerminalBufferHolder {
         self.visible_line_ranges = visible_line_ranges;
     }
 
+    #[must_use]
+    pub fn get_line_ranges(&self) -> &[Range<usize>] {
+        &self.buffer_line_ranges
+    }
+
+    pub fn set_line_ranges(&mut self, line_ranges: Vec<Range<usize>>) {
+        self.buffer_line_ranges = line_ranges;
+    }
+
     /// Inserts data into the buffer at the cursor position
     ///
     /// # Errors
@@ -628,7 +637,7 @@ impl TerminalBufferHolder {
                 continue;
             }
 
-            if !wrapping && current_start.saturating_sub(position) == width {
+            if !wrapping && current_start.saturating_sub(position) > width {
                 // if we have not hit the max length already, AND the current line is the width of the terminal, we need to set the wrapping flag. We also set the newline flag in case the very next character is a newline
                 // current_start = position;
                 previous_char_was_newline = true;
@@ -645,7 +654,7 @@ impl TerminalBufferHolder {
             if wrapping && current_start > width {
                 let mut current_length = current_start;
                 let mut offset_end = 1;
-                if previous_char_was_newline && !consecutive_newlines {
+                if previous_char_was_newline && !consecutive_newlines && !ret.is_empty() {
                     current_length = current_length.saturating_sub(1);
                 } else if consecutive_newlines {
                     offset_end = 0;
@@ -672,11 +681,133 @@ impl TerminalBufferHolder {
 
         self.visible_line_ranges = ret;
 
-        //self.line_ranges_from_visible_line_ranges(drained);
+        self.calculate_line_ranges();
     }
 
-    #[allow(dead_code)]
-    fn line_ranges_from_visible_line_ranges(&mut self) {
+    // FIXME: can we combine this with the above function? Or separate out the internal logic of each function to a common function?
+    /// Given terminal height `height`, extract the visible line ranges from all line ranges (which
+    /// include scrollback) assuming "visible" is the bottom N lines
+    #[must_use]
+    pub fn line_ranges(&self, end: usize, current_start: usize) -> Option<Vec<Range<usize>>> {
+        let buf = &self.buf;
+        let width = self.width;
+        let mut current_start = current_start;
+        if buf.is_empty() {
+            return None;
+        }
+
+        // FIXME: This entire thing is janky af. It probably needs a rewrite
+
+        // The goal here is to get the visible line ranges from the buffer. This is easy if we walk the buffer from the start, because we can track where lines start and end with ease
+        // However, for efficiency reasons we need to walk the buffer *from the back* because there is no sense in going through 500,000 characters, representing 10000+ lines, if we only care about the last x lines that represent the visible screen
+        // The problem becomes tricky with line wrapping in this case. If a consecutive sequence of non-newline characters is longer than the width of the terminal, we need to split it into multiple lines, but if the line is not % 0 of the width, then starting at the back and walking forward we will end up with different break points than if we started at the front and walked back.
+
+        let mut ret: Vec<Range<usize>> = Vec::with_capacity(end); // the ranges of the visible lines
+        let mut wrapping = false; // flag to indicate if we are wrapping
+        let mut previous_char_was_newline = false; // This flag is used to determine some special cases when we are wrapping
+        let mut consecutive_newlines = false; // This is used to track the number of consecutive newlines we have encountered. If we have more than the height of the terminal, we need to stop
+
+        let test_current_start = current_start;
+        let test_end = end;
+
+        // iterate over the buffer in reverse order
+        for (position, character) in buf
+            .iter()
+            .enumerate()
+            .filter(|(i, _): &(usize, &TChar)| i <= &test_current_start && i >= &test_end)
+            .rev()
+        {
+            // special case for the last character in the buffer. If the character is a new line, we DO NOT want to include it in the output. Why, not entirely sure. But it's what the original code did
+            // Otherwise, we want the line range to capture the character so we set the current start to be inclusive of the character
+            if test_current_start == position {
+                if *character == TChar::NewLine {
+                    current_start = position;
+                } else {
+                    current_start = position + 1;
+                }
+                continue;
+            }
+
+            // We've encountered a newline character. This means we need to add a new line to the output
+            if character == &TChar::NewLine {
+                // If we are wrapping, we need to take the position to the current start, splitting the ranges on width
+                if wrapping {
+                    // take the position to current start, splitting the ranges on width
+
+                    // The total characters in the line is the current start minus the position because we are already including the start character in the range
+                    let mut current_length = current_start.saturating_sub(position);
+
+                    // If the previous character was a newline, we need to subtract one from the length because the newline is implied
+                    if previous_char_was_newline {
+                        current_length = current_length.saturating_sub(1);
+                    }
+
+                    let new_position = position + 1;
+                    let to_add = ranges_from_start_and_end(current_length, new_position, width, 0);
+                    ret.extend_from_slice(&to_add);
+                    wrapping = false;
+                } else if previous_char_was_newline {
+                    // If the previous character was a newline, we need to add an empty line but the range is just going to include the newline character
+                    ret.push(position + 1..position + 1);
+                } else {
+                    // If we are not wrapping, we can just add the line as is
+                    ret.push(position + 1..current_start);
+                }
+
+                current_start = position;
+                consecutive_newlines = previous_char_was_newline;
+                previous_char_was_newline = true;
+
+                continue;
+            }
+
+            if !wrapping && current_start.saturating_sub(position) > width {
+                // if we have not hit the max length already, AND the current line is the width of the terminal, we need to set the wrapping flag. We also set the newline flag in case the very next character is a newline
+                // current_start = position;
+                previous_char_was_newline = true;
+                wrapping = true;
+            } else if !wrapping {
+                // if we are not wrapping, we need to set the newline flag to false
+                previous_char_was_newline = false;
+            }
+        }
+
+        // Done looping. If we have not hit the max length, we need to add the last line to the output
+
+        // If we are wrapping, we need to take the position to the current start, splitting the ranges on width using the same logic as above for wrapping
+
+        if wrapping && current_start > test_end {
+            let mut current_length = current_start;
+            let mut offset_end = 1;
+
+            if previous_char_was_newline && !consecutive_newlines {
+                current_length = current_length.saturating_sub(1);
+            } else if consecutive_newlines {
+                offset_end = 0;
+            }
+            let new_position = test_end;
+            let to_add = ranges_from_start_and_end(current_length, new_position, width, offset_end);
+
+            ret.extend_from_slice(&to_add);
+        } else {
+            // otherwise, just add the line
+            ret.push(test_end..current_start);
+        }
+
+        // sort the ranges by start position
+        ret.sort_by(|a, b| a.start.cmp(&b.start));
+
+        // if we have more lines than the height, we need to remove the extra lines
+        // if ret.len() > end {
+        //     // remove extra lines from the front of the buffer
+        //     let to_remove = ret.len() - end;
+        //     ret.drain(0..to_remove);
+        // }
+
+        Some(ret)
+    }
+
+    fn calculate_line_ranges(&mut self) {
         // we need to compare visible line ranges to the bottom x values of buffer line ranges
         // the idea here is that we want to have line ranges for the scroll back buffer, but if
 
@@ -689,25 +820,59 @@ impl TerminalBufferHolder {
         }
 
         let visible_line_ranges = &self.visible_line_ranges;
-        let buffer_line_ranges = &mut self.buffer_line_ranges;
 
         // find the start position of the visible lines in the buffer_line_ranges
         let visible_start = visible_line_ranges[0].start;
         let visible_end = visible_line_ranges[0].end;
         // let mut visible_start = visible_line_ranges[0].start;
         // let mut visible_end = visible_line_ranges[0].end;
-        if let Some(i) = buffer_line_ranges
-            .iter()
-            .rev()
-            .position(|r| r.start >= visible_start && r.end <= visible_end)
-        {
-            println!("truncating buffer line ranges");
+        if let Some(i) = self.buffer_line_ranges.iter().rev().position(|r| {
+            r.contains(&visible_start) && r.contains(&visible_end)
+                || (r.end <= visible_end && r.start >= visible_start)
+        }) {
             // if we found the start of the visible lines in the buffer line ranges, we need to update the buffer line ranges
-            buffer_line_ranges.truncate(buffer_line_ranges.len() - i);
+            self.buffer_line_ranges
+                .truncate(self.buffer_line_ranges.len() - i);
             // buffer_line_ranges.extend_from_slice(visible_line_ranges);
+        } else {
+            // the visible line ranges do not overlap with the buffer line ranges
+            // this means likely we have added more lines to the buffer then we have visible
+            // we need to walk the buffer from the end of line ranges to the start of the visible line ranges to find the start of the visible lines and add those missing lines to the buffer line ranges
+            let mut start_pos = visible_start.saturating_sub(1);
+            let end = self.buffer_line_ranges.last().unwrap_or(&(0..0)).end;
+            if self.buf[end.saturating_sub(1)] == TChar::NewLine {
+                start_pos -= 1;
+            }
+
+            if start_pos < end {
+                error!(
+                    "start pos is less than end: {} < {}. Test position: {}/{}",
+                    start_pos, end, visible_start, visible_end
+                );
+                error!(
+                    "visible:\n{:?}\nbuffer:\n{:?}",
+                    visible_line_ranges, self.buffer_line_ranges
+                );
+                return;
+            }
+
+            if start_pos != end && start_pos.saturating_sub(1) > 0 {
+                let to_add = self.line_ranges(end, start_pos);
+
+                if let Some(to_add) = to_add {
+                    // if the character at the end of the buffer_line_ranges is a new line, we need to remove it
+                    if self.buf[end.saturating_sub(1)] == TChar::NewLine {
+                        self.buffer_line_ranges
+                            .truncate(self.buffer_line_ranges.len().saturating_sub(1));
+                    }
+
+                    self.buffer_line_ranges.extend_from_slice(&to_add);
+                }
+            }
         }
 
-        buffer_line_ranges.extend_from_slice(visible_line_ranges);
+        self.buffer_line_ranges
+            .extend_from_slice(visible_line_ranges);
     }
 
     fn buf_to_cursor_pos(&self, buf_pos: usize) -> CursorPos {
@@ -878,83 +1043,4 @@ fn ranges_from_start_and_end(
     }
 
     to_add
-}
-
-#[test]
-fn test_line_ranges_from_visible_line_ranges_no_spill() {
-    // buffer with initial data that does not spill in to scrollback
-    let mut buffer = TerminalBufferHolder::new(5, 5);
-    // add some data
-    let data = b"1234\n".repeat(4);
-    let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
-
-    // buffer_line_ranges should have 5 lines. Visible line ranges should also have 5 lines
-    assert_eq!(buffer.buffer_line_ranges.len(), 5);
-    assert_eq!(buffer.visible_line_ranges.len(), 5);
-    assert_eq!(buffer.visible_line_ranges, buffer.buffer_line_ranges);
-
-    // push data in to scrollback
-    buffer.insert_data(&result.new_cursor_pos, &data).unwrap();
-    // buffer_line_ranges should have 10 lines. Visible line ranges should have 5 lines
-    assert_eq!(buffer.buffer_line_ranges.len(), 10);
-    assert_eq!(buffer.visible_line_ranges.len(), 5);
-    assert_eq!(
-        buffer.visible_line_ranges,
-        [20..24, 25..29, 30..34, 35..39, 40..40]
-    );
-    assert_eq!(
-        buffer.buffer_line_ranges,
-        [
-            0..4,
-            5..9,
-            10..14,
-            15..19,
-            20..20,
-            20..24,
-            25..29,
-            30..34,
-            35..39,
-            40..40
-        ]
-    );
-}
-
-#[test]
-fn test_line_ranges_from_visible_line_ranges_spill() {
-    // buffer with initial data that does not spill in to scrollback
-    let mut buffer = TerminalBufferHolder::new(5, 5);
-    // add some data
-    let data = b"1234\n".repeat(6);
-    println!("{:?}", data.len());
-    let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
-
-    // buffer_line_ranges should have 5 lines. Visible line ranges should also have 5 lines
-    assert_eq!(buffer.buffer_line_ranges.len(), 5);
-    assert_eq!(buffer.visible_line_ranges.len(), 6);
-    assert_eq!(buffer.visible_line_ranges, buffer.buffer_line_ranges);
-
-    // push data in to scrollback
-    buffer.insert_data(&result.new_cursor_pos, &data).unwrap();
-    // buffer_line_ranges should have 10 lines. Visible line ranges should have 5 lines
-    assert_eq!(buffer.buffer_line_ranges.len(), 11);
-    assert_eq!(buffer.visible_line_ranges.len(), 5);
-    assert_eq!(
-        buffer.visible_line_ranges,
-        [20..24, 25..29, 30..34, 35..39, 40..40]
-    );
-    assert_eq!(
-        buffer.buffer_line_ranges,
-        [
-            0..4,
-            5..9,
-            10..14,
-            15..19,
-            20..20,
-            20..24,
-            25..29,
-            30..34,
-            35..39,
-            40..40
-        ]
-    );
 }

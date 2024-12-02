@@ -1399,3 +1399,130 @@ fn test_visible_line_ranges_parsing() {
     assert_eq!(visible_line_ranges[3], 18..23);
     assert_eq!(visible_line_ranges[4], 24..28);
 }
+
+#[test]
+fn test_line_ranges_from_visible_line_ranges_no_spill() {
+    // buffer with initial data that does not spill in to scrollback
+    let mut buffer = TerminalBufferHolder::new(5, 5);
+    // add some data
+    let data = b"1234\n".repeat(4);
+    let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
+
+    // buffer_line_ranges should have 5 lines. Visible line ranges should also have 5 lines
+    assert_eq!(buffer.get_line_ranges().len(), 5);
+    assert_eq!(buffer.get_visible_line_ranges().len(), 5);
+    assert_eq!(buffer.get_visible_line_ranges(), buffer.get_line_ranges());
+
+    // push data in to scrollback
+    buffer.insert_data(&result.new_cursor_pos, &data).unwrap();
+    // buffer_line_ranges should have 10 lines. Visible line ranges should have 5 lines
+    assert_eq!(buffer.get_line_ranges().len(), 10);
+    assert_eq!(buffer.get_visible_line_ranges().len(), 5);
+    assert_eq!(
+        buffer.get_visible_line_ranges(),
+        [20..24, 25..29, 30..34, 35..39, 40..40]
+    );
+    assert_eq!(
+        buffer.get_line_ranges(),
+        [
+            0..4,
+            5..9,
+            10..14,
+            15..19,
+            20..20,
+            20..24,
+            25..29,
+            30..34,
+            35..39,
+            40..40
+        ]
+    );
+}
+
+#[test]
+fn test_line_ranges_from_visible_line_ranges_spill() {
+    // buffer with initial data that does not spill in to scrollback
+    let mut buffer = TerminalBufferHolder::new(5, 5);
+    // add some data
+    let data = b"1234\n".repeat(5);
+    let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
+
+    // buffer_line_ranges should have 5 lines. Visible line ranges should also have 5 lines
+    assert_eq!(buffer.get_line_ranges().len(), 6);
+    assert_eq!(buffer.get_visible_line_ranges().len(), 5);
+    assert_eq!(
+        buffer.get_visible_line_ranges(),
+        [5..9, 10..14, 15..19, 20..24, 25..25]
+    );
+    assert_eq!(
+        buffer.get_line_ranges(),
+        [0..4, 5..9, 10..14, 15..19, 20..24, 25..25]
+    );
+
+    // push data in to scrollback
+    buffer.insert_data(&result.new_cursor_pos, &data).unwrap();
+    // buffer_line_ranges should have 10 lines. Visible line ranges should have 5 lines
+    assert_eq!(buffer.get_line_ranges().len(), 11);
+    assert_eq!(buffer.get_visible_line_ranges().len(), 5);
+    assert_eq!(
+        buffer.get_visible_line_ranges(),
+        [30..34, 35..39, 40..44, 45..49, 50..50]
+    );
+    assert_eq!(
+        buffer.get_line_ranges(),
+        [
+            0..4,
+            5..9,
+            10..14,
+            15..19,
+            20..24,
+            25..29,
+            30..34,
+            35..39,
+            40..44,
+            45..49,
+            50..50
+        ]
+    );
+
+    // now lets test with buffers that wrap and don't have newlines
+    let mut buffer = TerminalBufferHolder::new(5, 5);
+    let data = b"12345".repeat(6);
+    let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
+
+    assert_eq!(buffer.get_line_ranges().len(), 6);
+    assert_eq!(buffer.get_visible_line_ranges().len(), 5);
+    assert_eq!(
+        buffer.get_visible_line_ranges(),
+        [5..10, 10..15, 15..20, 20..25, 25..30]
+    );
+    assert_eq!(
+        buffer.get_line_ranges(),
+        [0..5, 5..10, 10..15, 15..20, 20..25, 25..30]
+    );
+
+    buffer.insert_data(&result.new_cursor_pos, &data).unwrap();
+    assert_eq!(buffer.get_line_ranges().len(), 12);
+    assert_eq!(buffer.get_visible_line_ranges().len(), 5);
+    assert_eq!(
+        buffer.get_visible_line_ranges(),
+        [35..40, 40..45, 45..50, 50..55, 55..60]
+    );
+    assert_eq!(
+        buffer.get_line_ranges(),
+        [
+            0..5,
+            5..10,
+            10..15,
+            15..20,
+            20..25,
+            25..30,
+            30..35,
+            35..40,
+            40..45,
+            45..50,
+            50..55,
+            55..60
+        ]
+    );
+}
