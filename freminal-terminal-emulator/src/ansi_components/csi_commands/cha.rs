@@ -15,7 +15,6 @@ use anyhow::Result;
 ///
 /// # Errors
 /// Will return an error if the parameter is not a valid number
-
 pub fn ansi_parser_inner_csi_finished_set_position_g(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,

@@ -14,7 +14,6 @@ use anyhow::Result;
 /// ESC [ Pn D
 /// # Errors
 /// Will return an error if the parameter is not a valid number
-
 pub fn ansi_parser_inner_csi_finished_move_left(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,

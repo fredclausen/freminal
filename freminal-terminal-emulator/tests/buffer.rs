@@ -15,7 +15,6 @@ use freminal_terminal_emulator::state::{
 /// Calculate the indexes of the start and end of each line in the buffer given an input width.
 /// Ranges do not include newlines. If a newline appears past the width, it does not result in an
 /// extra line
-
 #[must_use]
 fn calc_line_ranges(buf: &[TChar], width: usize, last_capacity: &usize) -> Vec<Range<usize>> {
     //let mut ret = vec![];
