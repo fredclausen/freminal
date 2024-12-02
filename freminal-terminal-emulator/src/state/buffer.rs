@@ -676,18 +676,14 @@ impl TerminalBufferHolder {
     }
 
     #[allow(dead_code)]
-    fn line_ranges_from_visible_line_ranges(&mut self, extra: Option<Vec<Range<usize>>>) {
+    fn line_ranges_from_visible_line_ranges(&mut self) {
         // we need to compare visible line ranges to the bottom x values of buffer line ranges
         // the idea here is that we want to have line ranges for the scroll back buffer, but if
 
         // we want to push any new/changed lines to the buffer line ranges
         // as well as update any changed lines.
 
-        let extra_length = extra.as_ref().map_or(0, std::vec::Vec::len);
-
-        if self.visible_line_ranges.is_empty()
-            || self.visible_line_ranges.len() + extra_length < self.height
-        {
+        if self.visible_line_ranges.is_empty() || self.visible_line_ranges.len() < self.height {
             self.buffer_line_ranges = self.visible_line_ranges.clone();
             return;
         }
@@ -696,10 +692,8 @@ impl TerminalBufferHolder {
         let buffer_line_ranges = &mut self.buffer_line_ranges;
 
         // find the start position of the visible lines in the buffer_line_ranges
-        let (visible_start, visible_end) = extra.as_ref().map_or_else(
-            || (visible_line_ranges[0].start, visible_line_ranges[0].end),
-            |extra| (extra[0].start, extra[0].end),
-        );
+        let visible_start = visible_line_ranges[0].start;
+        let visible_end = visible_line_ranges[0].end;
         // let mut visible_start = visible_line_ranges[0].start;
         // let mut visible_end = visible_line_ranges[0].end;
         if let Some(i) = buffer_line_ranges
@@ -713,10 +707,6 @@ impl TerminalBufferHolder {
             // buffer_line_ranges.extend_from_slice(visible_line_ranges);
         }
 
-        if let Some(extra) = extra {
-            println!("extending buffer line ranges");
-            buffer_line_ranges.extend_from_slice(&extra);
-        }
         buffer_line_ranges.extend_from_slice(visible_line_ranges);
     }
 
