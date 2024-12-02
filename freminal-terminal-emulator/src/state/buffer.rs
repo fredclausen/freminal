@@ -890,81 +890,81 @@ fn ranges_from_start_and_end(
     to_add
 }
 
-// #[test]
-// fn test_line_ranges_from_visible_line_ranges_no_spill() {
-//     // buffer with initial data that does not spill in to scrollback
-//     let mut buffer = TerminalBufferHolder::new(5, 5);
-//     // add some data
-//     let data = b"1234\n".repeat(4);
-//     let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
+#[test]
+fn test_line_ranges_from_visible_line_ranges_no_spill() {
+    // buffer with initial data that does not spill in to scrollback
+    let mut buffer = TerminalBufferHolder::new(5, 5);
+    // add some data
+    let data = b"1234\n".repeat(4);
+    let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
 
-//     // buffer_line_ranges should have 5 lines. Visible line ranges should also have 5 lines
-//     assert_eq!(buffer.buffer_line_ranges.len(), 5);
-//     assert_eq!(buffer.visible_line_ranges.len(), 5);
-//     assert_eq!(buffer.visible_line_ranges, buffer.buffer_line_ranges);
+    // buffer_line_ranges should have 5 lines. Visible line ranges should also have 5 lines
+    assert_eq!(buffer.buffer_line_ranges.len(), 5);
+    assert_eq!(buffer.visible_line_ranges.len(), 5);
+    assert_eq!(buffer.visible_line_ranges, buffer.buffer_line_ranges);
 
-//     // push data in to scrollback
-//     buffer.insert_data(&result.new_cursor_pos, &data).unwrap();
-//     // buffer_line_ranges should have 10 lines. Visible line ranges should have 5 lines
-//     assert_eq!(buffer.buffer_line_ranges.len(), 10);
-//     assert_eq!(buffer.visible_line_ranges.len(), 5);
-//     assert_eq!(
-//         buffer.visible_line_ranges,
-//         [20..24, 25..29, 30..34, 35..39, 40..40]
-//     );
-//     assert_eq!(
-//         buffer.buffer_line_ranges,
-//         [
-//             0..4,
-//             5..9,
-//             10..14,
-//             15..19,
-//             20..20,
-//             20..24,
-//             25..29,
-//             30..34,
-//             35..39,
-//             40..40
-//         ]
-//     );
-// }
+    // push data in to scrollback
+    buffer.insert_data(&result.new_cursor_pos, &data).unwrap();
+    // buffer_line_ranges should have 10 lines. Visible line ranges should have 5 lines
+    assert_eq!(buffer.buffer_line_ranges.len(), 10);
+    assert_eq!(buffer.visible_line_ranges.len(), 5);
+    assert_eq!(
+        buffer.visible_line_ranges,
+        [20..24, 25..29, 30..34, 35..39, 40..40]
+    );
+    assert_eq!(
+        buffer.buffer_line_ranges,
+        [
+            0..4,
+            5..9,
+            10..14,
+            15..19,
+            20..20,
+            20..24,
+            25..29,
+            30..34,
+            35..39,
+            40..40
+        ]
+    );
+}
 
-// #[test]
-// fn test_line_ranges_from_visible_line_ranges_spill() {
-// buffer with initial data that does not spill in to scrollback
-// let mut buffer = TerminalBufferHolder::new(5, 5);
-// // add some data
-// let data = b"1234\n".repeat(6);
-// println!("{:?}", data.len());
-// let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
+#[test]
+fn test_line_ranges_from_visible_line_ranges_spill() {
+    // buffer with initial data that does not spill in to scrollback
+    let mut buffer = TerminalBufferHolder::new(5, 5);
+    // add some data
+    let data = b"1234\n".repeat(6);
+    println!("{:?}", data.len());
+    let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
 
-// // buffer_line_ranges should have 5 lines. Visible line ranges should also have 5 lines
-// assert_eq!(buffer.buffer_line_ranges.len(), 5);
-// assert_eq!(buffer.visible_line_ranges.len(), 6);
-// assert_eq!(buffer.visible_line_ranges, buffer.buffer_line_ranges);
+    // buffer_line_ranges should have 5 lines. Visible line ranges should also have 5 lines
+    assert_eq!(buffer.buffer_line_ranges.len(), 5);
+    assert_eq!(buffer.visible_line_ranges.len(), 6);
+    assert_eq!(buffer.visible_line_ranges, buffer.buffer_line_ranges);
 
-// // push data in to scrollback
-// buffer.insert_data(&result.new_cursor_pos, &data).unwrap();
-// // buffer_line_ranges should have 10 lines. Visible line ranges should have 5 lines
-// assert_eq!(buffer.buffer_line_ranges.len(), 11);
-// assert_eq!(buffer.visible_line_ranges.len(), 5);
-// assert_eq!(
-//     buffer.visible_line_ranges,
-//     [20..24, 25..29, 30..34, 35..39, 40..40]
-// );
-// assert_eq!(
-//     buffer.buffer_line_ranges,
-//     [
-//         0..4,
-//         5..9,
-//         10..14,
-//         15..19,
-//         20..20,
-//         20..24,
-//         25..29,
-//         30..34,
-//         35..39,
-//         40..40
-//     ]
-// );
-// }
+    // push data in to scrollback
+    buffer.insert_data(&result.new_cursor_pos, &data).unwrap();
+    // buffer_line_ranges should have 10 lines. Visible line ranges should have 5 lines
+    assert_eq!(buffer.buffer_line_ranges.len(), 11);
+    assert_eq!(buffer.visible_line_ranges.len(), 5);
+    assert_eq!(
+        buffer.visible_line_ranges,
+        [20..24, 25..29, 30..34, 35..39, 40..40]
+    );
+    assert_eq!(
+        buffer.buffer_line_ranges,
+        [
+            0..4,
+            5..9,
+            10..14,
+            15..19,
+            20..20,
+            20..24,
+            25..29,
+            30..34,
+            35..39,
+            40..40
+        ]
+    );
+}
