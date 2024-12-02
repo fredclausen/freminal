@@ -76,7 +76,7 @@ fn test_insert_utf8_data() {
         TChar::new_from_single_char(b'f'),
         TChar::NewLine,
     ];
-    assert_eq!(buffer.data().visible, expected);
+    assert_eq!(buffer.data(true).visible, expected);
 
     let bytes_utf8 = "👍".as_bytes();
     let response = buffer
@@ -95,7 +95,7 @@ fn test_insert_utf8_data() {
     assert_eq!(response.new_cursor_pos, CursorPos { x: 5, y: 0 });
 
     // verify the buffer is correct
-    assert_eq!(buffer.data().visible, expected);
+    assert_eq!(buffer.data(true).visible, expected);
 }
 
 #[test]
@@ -168,7 +168,7 @@ fn test_canvas_clear_forwards() {
         TChar::NewLine,
     ];
 
-    assert_eq!(buffer.data().visible, expected);
+    assert_eq!(buffer.data(true).visible, expected);
 
     buffer.clear_forwards(&CursorPos { x: 1, y: 1 }).unwrap();
 
@@ -186,7 +186,7 @@ fn test_canvas_clear_forwards() {
     ];
 
     // Same amount of lines should be present before and after clear
-    assert_eq!(buffer.data().visible, expected);
+    assert_eq!(buffer.data(true).visible, expected);
 
     // A few special cases.
     // 1. Truncating on beginning of line and previous char was not a newline
@@ -208,7 +208,7 @@ fn test_canvas_clear_forwards() {
         TChar::NewLine,
         TChar::NewLine,
     ];
-    assert_eq!(buffer.data().visible, expected);
+    assert_eq!(buffer.data(true).visible, expected);
 
     // 2. Truncating on beginning of line and previous char was a newline
     let mut buffer = TerminalBufferHolder::new(5, 5);
@@ -220,7 +220,7 @@ fn test_canvas_clear_forwards() {
         .unwrap();
 
     buffer.clear_forwards(&CursorPos { x: 0, y: 1 }).unwrap();
-    assert_eq!(buffer.data().visible, expected);
+    assert_eq!(buffer.data(true).visible, expected);
 
     // 3. Truncating on a newline
     let mut buffer = TerminalBufferHolder::new(5, 5);
@@ -236,7 +236,7 @@ fn test_canvas_clear_forwards() {
         TChar::NewLine,
         TChar::NewLine,
     ];
-    assert_eq!(buffer.data().visible, expected);
+    assert_eq!(buffer.data(true).visible, expected);
 }
 
 #[test]
@@ -246,7 +246,7 @@ fn test_canvas_clear() {
         .insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789")
         .unwrap();
     buffer.clear_all();
-    assert_eq!(buffer.data().visible, &[] as &[TChar]);
+    assert_eq!(buffer.data(true).visible, &[] as &[TChar]);
 }
 
 #[test]
@@ -269,7 +269,7 @@ fn test_terminal_buffer_overwrite_early_newline() {
         TChar::new_from_single_char(b'9'),
         TChar::NewLine,
     ];
-    assert_eq!(buffer.data().visible, expected);
+    assert_eq!(buffer.data(true).visible, expected);
 
     // Cursor pos should be calculated based off wrapping at column 5, but should not result in
     // an extra newline
@@ -290,7 +290,7 @@ fn test_terminal_buffer_overwrite_early_newline() {
         TChar::new_from_single_char(b'9'),
         TChar::NewLine,
     ];
-    assert_eq!(buffer.data().visible, expected);
+    assert_eq!(buffer.data(true).visible, expected);
 }
 
 #[test]
@@ -312,7 +312,7 @@ fn test_terminal_buffer_overwrite_no_newline() {
         TChar::new_from_single_char(b'9'),
         TChar::NewLine,
     ];
-    assert_eq!(buffer.data().visible, expected);
+    assert_eq!(buffer.data(true).visible, expected);
 
     // Cursor pos should be calculated based off wrapping at column 5, but should not result in
     // an extra newline
@@ -333,7 +333,7 @@ fn test_terminal_buffer_overwrite_no_newline() {
         TChar::new_from_single_char(b't'),
         TChar::NewLine,
     ];
-    assert_eq!(buffer.data().visible, expected);
+    assert_eq!(buffer.data(true).visible, expected);
 }
 
 #[test]
@@ -358,7 +358,7 @@ fn test_terminal_buffer_overwrite_late_newline() {
         TChar::new_from_single_char(b'9'),
         TChar::NewLine,
     ];
-    assert_eq!(buffer.data().visible, expected);
+    assert_eq!(buffer.data(true).visible, expected);
 
     buffer
         .insert_data(&CursorPos { x: 2, y: 1 }, b"test")
@@ -378,7 +378,7 @@ fn test_terminal_buffer_overwrite_late_newline() {
         TChar::new_from_single_char(b't'),
         TChar::NewLine,
     ];
-    assert_eq!(buffer.data().visible, expected);
+    assert_eq!(buffer.data(true).visible, expected);
 }
 
 #[test]
@@ -410,7 +410,7 @@ fn test_terminal_buffer_insert_unallocated_data() {
         TChar::new_from_single_char(b'd'),
         TChar::NewLine,
     ];
-    assert_eq!(buffer.data().visible, expected);
+    assert_eq!(buffer.data(true).visible, expected);
 
     buffer
         .insert_data(&CursorPos { x: 3, y: 2 }, b"hello world")
@@ -452,7 +452,7 @@ fn test_terminal_buffer_insert_unallocated_data() {
         TChar::new_from_single_char(b'd'),
         TChar::NewLine,
     ];
-    assert_eq!(buffer.data().visible, expected,);
+    assert_eq!(buffer.data(true).visible, expected,);
 }
 
 #[test]
@@ -500,8 +500,8 @@ fn test_canvas_scrolling() {
         TChar::new_from_single_char(b'8'),
         TChar::NewLine,
     ];
-    assert_eq!(canvas.data().scrollback, expected_scrollback);
-    assert_eq!(canvas.data().visible, expected_visible);
+    assert_eq!(canvas.data(true).scrollback, expected_scrollback);
+    assert_eq!(canvas.data(true).visible, expected_visible);
 }
 
 #[test]
@@ -539,7 +539,7 @@ fn test_canvas_delete_forwards() {
         TChar::NewLine,
     ];
 
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
 
     canvas.line_ranges_to_visible_line_ranges();
 
@@ -566,7 +566,7 @@ fn test_canvas_delete_forwards() {
         TChar::new_from_single_char(b'5'),
         TChar::NewLine,
     ];
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
 
     canvas.line_ranges_to_visible_line_ranges();
 
@@ -591,12 +591,12 @@ fn test_canvas_delete_forwards() {
         TChar::new_from_single_char(b'5'),
         TChar::NewLine,
     ];
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
 
     // Test deletion in case where nothing is deleted
     let deleted_range = canvas.delete_forwards(&CursorPos { x: 5, y: 5 }, 10);
     assert_eq!(deleted_range, None);
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
 }
 
 #[test]
@@ -640,7 +640,7 @@ fn test_canvas_insert_spaces() {
         TChar::new_from_single_char(b'5'),
         TChar::NewLine,
     ];
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
 
     canvas.line_ranges_to_visible_line_ranges();
 
@@ -678,7 +678,7 @@ fn test_canvas_insert_spaces() {
         TChar::new_from_single_char(b'5'),
         TChar::NewLine,
     ];
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
 
     canvas.line_ranges_to_visible_line_ranges();
 
@@ -720,7 +720,7 @@ fn test_canvas_insert_spaces() {
         TChar::NewLine,
     ];
 
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
 
     canvas.line_ranges_to_visible_line_ranges();
 
@@ -766,7 +766,7 @@ fn test_canvas_insert_spaces() {
         TChar::NewLine,
     ];
 
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
 }
 
 #[test]
@@ -802,7 +802,7 @@ fn test_clear_line_forwards() {
         TChar::new_from_single_char(b'5'),
         TChar::NewLine,
     ];
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
 
     canvas.line_ranges_to_visible_line_ranges();
 
@@ -830,7 +830,7 @@ fn test_clear_line_forwards() {
         TChar::new_from_single_char(b'5'),
         TChar::NewLine,
     ];
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
 
     canvas.line_ranges_to_visible_line_ranges();
 
@@ -850,7 +850,7 @@ fn test_clear_line_forwards() {
         TChar::new_from_single_char(b'5'),
         TChar::NewLine,
     ];
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
 }
 
 #[test]
@@ -878,7 +878,7 @@ fn test_resize_expand() {
         TChar::Space,
         TChar::NewLine,
     ];
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
 }
 
 #[test]
@@ -893,7 +893,7 @@ fn test_insert_lines() {
         response.inserted_range.start - response.inserted_range.end,
         0
     );
-    assert_eq!(canvas.data().visible, b"");
+    assert_eq!(canvas.data(true).visible, b"");
 
     // Test edge wrapped
     canvas
@@ -924,7 +924,7 @@ fn test_insert_lines() {
 
     canvas.line_ranges_to_visible_line_ranges();
 
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
     let response = canvas.insert_lines(&CursorPos { x: 3, y: 2 }, 1);
     let expected = vec![
         TChar::new_from_single_char(b'0'),
@@ -951,7 +951,7 @@ fn test_insert_lines() {
         TChar::NewLine,
     ];
 
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
     assert_eq!(response.deleted_range.start - response.deleted_range.end, 0);
     assert_eq!(response.inserted_range, 10..12);
 
@@ -980,7 +980,7 @@ fn test_insert_lines() {
         TChar::NewLine,
     ];
 
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
     assert_eq!(response.deleted_range, 17..22);
     assert_eq!(response.inserted_range, 11..12);
 }
@@ -992,7 +992,7 @@ fn test_clear_line() {
     // Test empty canvas
     let response = canvas.clear_line(&CursorPos { x: 0, y: 0 });
     assert_eq!(response, None);
-    assert_eq!(canvas.data().visible, b"");
+    assert_eq!(canvas.data(true).visible, b"");
 
     // Test edge wrapped
     canvas
@@ -1022,7 +1022,7 @@ fn test_clear_line() {
         TChar::NewLine,
     ];
 
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
 
     let response = canvas.clear_line(&CursorPos { x: 0, y: 0 });
     let expected = vec![
@@ -1043,7 +1043,7 @@ fn test_clear_line() {
         TChar::NewLine,
     ];
 
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
     assert_eq!(response, Some(0..5));
 
     // Test newline wrapped
@@ -1065,7 +1065,7 @@ fn test_clear_line() {
         TChar::new_from_single_char(b'w'),
         TChar::NewLine,
     ];
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
     assert_eq!(response, Some(5..9));
 }
 
@@ -1076,7 +1076,7 @@ fn clear_line_backwards() {
     // Test empty canvas
     let response = canvas.clear_line_backwards(&CursorPos { x: 0, y: 0 });
     assert_eq!(response, None);
-    assert_eq!(canvas.data().visible, b"");
+    assert_eq!(canvas.data(true).visible, b"");
 
     // Test edge wrapped
     canvas
@@ -1105,7 +1105,7 @@ fn clear_line_backwards() {
         TChar::NewLine,
     ];
 
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
     let response = canvas.clear_line_backwards(&CursorPos { x: 3, y: 0 });
     let expected = vec![
         TChar::new_from_single_char(b'3'),
@@ -1127,7 +1127,7 @@ fn clear_line_backwards() {
         TChar::NewLine,
     ];
 
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
     assert_eq!(response, Some(0..3));
 }
 
@@ -1138,7 +1138,7 @@ fn test_clear_backwards() {
     // Test empty canvas
     let response = canvas.clear_backwards(&CursorPos { x: 0, y: 0 }).unwrap();
     assert_eq!(response, None);
-    assert_eq!(canvas.data().visible, b"");
+    assert_eq!(canvas.data(true).visible, b"");
 
     // Test edge wrapped
     canvas
@@ -1167,7 +1167,7 @@ fn test_clear_backwards() {
         TChar::NewLine,
     ];
 
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
     let response = canvas.clear_backwards(&CursorPos { x: 3, y: 0 }).unwrap();
     let expected = vec![
         TChar::Space,
@@ -1192,7 +1192,7 @@ fn test_clear_backwards() {
         TChar::NewLine,
     ];
 
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
     assert_eq!(response, Some(0..3));
 
     // clearing on the second line
@@ -1220,7 +1220,7 @@ fn test_clear_backwards() {
         TChar::NewLine,
     ];
 
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
     assert_eq!(response, Some(5..8));
 }
 
@@ -1265,7 +1265,7 @@ fn test_clear_visible() {
         TChar::Space,
         TChar::NewLine,
     ];
-    assert_eq!(canvas.data().visible, expected);
+    assert_eq!(canvas.data(true).visible, expected);
     assert_eq!(response, 50..usize::MAX);
 }
 

@@ -66,7 +66,7 @@ fn bench_display_vec_tchar_chunked(bench: &mut Criterion) {
                     .push_range(&buf.cursor_state, response.written_range);
                 buf.cursor_state.pos = response.new_cursor_pos;
 
-                if let Some(range) = buf.terminal_buffer.clip_lines(5000) {
+                if let Some(range) = buf.terminal_buffer.clip_lines() {
                     buf.format_tracker.delete_range(range).unwrap();
                 }
             }

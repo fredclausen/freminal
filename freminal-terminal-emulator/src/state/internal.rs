@@ -169,8 +169,10 @@ impl TerminalState {
         self.window_title.clone()
     }
 
-    pub(crate) fn data(&mut self) -> TerminalSections<Vec<TChar>> {
-        self.get_current_buffer().terminal_buffer.data()
+    pub(crate) fn data(&mut self, include_scrollback: bool) -> TerminalSections<Vec<TChar>> {
+        self.get_current_buffer()
+            .terminal_buffer
+            .data(include_scrollback)
     }
 
     pub fn is_mouse_hovered_on_url(&mut self, pos: &CursorPos) -> Option<String> {
@@ -201,26 +203,40 @@ impl TerminalState {
         TerminalSections<Vec<TChar>>,
         TerminalSections<Vec<FormatTag>>,
     ) {
-        let data = self.get_current_buffer().terminal_buffer.data();
+        let data = self.get_current_buffer().terminal_buffer.data(false);
 
-        let offset = data.scrollback.len();
+        let offset = self
+            .get_current_buffer()
+            .terminal_buffer
+            .get_visible_line_ranges()
+            .first()
+            .unwrap_or(&(0..0))
+            .start;
 
         let format_data = split_format_data_for_scrollback(
             self.get_current_buffer().format_tracker.tags(),
             offset,
+            false,
         );
 
         (data, format_data)
     }
 
-    pub(crate) fn format_data(&mut self) -> TerminalSections<Vec<FormatTag>> {
+    pub(crate) fn format_data(
+        &mut self,
+        include_scrollback: bool,
+    ) -> TerminalSections<Vec<FormatTag>> {
         let offset = self
             .get_current_buffer()
             .terminal_buffer
-            .data()
+            .data(include_scrollback)
             .scrollback
             .len();
-        split_format_data_for_scrollback(self.get_current_buffer().format_tracker.tags(), offset)
+        split_format_data_for_scrollback(
+            self.get_current_buffer().format_tracker.tags(),
+            offset,
+            true,
+        )
     }
 
     #[must_use]
@@ -905,16 +921,8 @@ impl TerminalState {
 
     pub(crate) fn clip_buffer_lines(&mut self) {
         let current_buffer = self.get_current_buffer();
-        let line_ranges = current_buffer.terminal_buffer.get_visible_line_ranges();
 
-        if line_ranges.is_empty() {
-            return;
-        }
-
-        if let Some(range) = current_buffer
-            .terminal_buffer
-            .clip_lines(line_ranges[0].start)
-        {
+        if let Some(range) = current_buffer.terminal_buffer.clip_lines() {
             match current_buffer.format_tracker.delete_range(range) {
                 Ok(()) => (),
                 Err(e) => {

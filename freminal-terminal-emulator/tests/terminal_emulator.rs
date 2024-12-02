@@ -79,7 +79,7 @@ fn get_tags() -> Vec<FormatTag> {
 fn test_format_tracker_scrollback_split_on_boundary() {
     let tags = get_tags();
     // Case 2: Split on a boundary
-    let res = split_format_data_for_scrollback(tags.clone(), 10);
+    let res = split_format_data_for_scrollback(tags.clone(), 10, true);
     assert_eq!(res.scrollback, &tags[0..3]);
     assert_eq!(
         res.visible,
@@ -105,7 +105,7 @@ fn test_format_tracker_scrollback_split_segment() {
     let tags = get_tags();
 
     // Case 3: Split a segment
-    let res = split_format_data_for_scrollback(tags, 9);
+    let res = split_format_data_for_scrollback(tags, 9, true);
     assert_eq!(
         res.scrollback,
         &[
@@ -193,7 +193,7 @@ fn test_format_tracker_scrollback_split_segment() {
 fn test_format_tracker_scrollback_no_split() {
     let tags = get_tags();
     // Case 1: no split
-    let res = split_format_data_for_scrollback(tags.clone(), 0);
+    let res = split_format_data_for_scrollback(tags.clone(), 0, true);
     assert_eq!(res.scrollback, &[]);
     assert_eq!(res.visible, &tags[..]);
 }

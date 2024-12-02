@@ -547,9 +547,7 @@ fn add_terminal_data_to_ui(
 
 #[derive(Clone)]
 struct TerminalOutputRenderResponse {
-    scrollback_area: Rect,
     canvas_area: Rect,
-    scrollback: UiJobAction,
     canvas: UiJobAction,
 }
 
@@ -574,15 +572,9 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                     }
                 };
 
-            let scrollback_response: (Rect, Option<UiJobAction>);
             let canvas_response: (Rect, Option<UiJobAction>);
 
             if let Some(previous_pass) = previous_pass {
-                _ = error_logged_rect(add_terminal_data_to_ui(
-                    ui,
-                    &UiData::PreviousPass(previous_pass.scrollback.clone()),
-                    font_size,
-                ));
                 _ = error_logged_rect(add_terminal_data_to_ui(
                     ui,
                     &UiData::PreviousPass(previous_pass.canvas.clone()),
@@ -592,20 +584,18 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                 (*previous_pass).clone()
             } else {
                 let (terminal_data, format_data) = terminal_emulator.data_and_format_data_for_gui();
-                let scrollback_data = terminal_data.scrollback;
+                if !terminal_data.scrollback.is_empty() {
+                    error!(
+                        "Scrollback is not empty: {}",
+                        terminal_data.scrollback.len()
+                    );
+                }
+
                 let mut canvas_data = terminal_data.visible;
 
                 if canvas_data.ends_with(&[TChar::NewLine]) {
                     canvas_data = canvas_data[0..canvas_data.len() - 1].to_vec();
                 }
-                scrollback_response = error_logged_rect(add_terminal_data_to_ui(
-                    ui,
-                    &UiData::NewPass(&NewJobAction {
-                        text: &scrollback_data,
-                        format_data: format_data.scrollback.clone(),
-                    }),
-                    font_size,
-                ));
                 canvas_response = error_logged_rect(add_terminal_data_to_ui(
                     ui,
                     &UiData::NewPass(&NewJobAction {
@@ -618,17 +608,13 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                 // We want the program to crash here if we're testing
                 #[cfg(feature = "validation")]
                 return TerminalOutputRenderResponse {
-                    scrollback_area: scrollback_response.0,
                     canvas_area: canvas_response.0,
-                    scrollback: scrollback_response.1.unwrap(),
                     canvas: canvas_response.1.unwrap(),
                 };
 
                 #[cfg(not(any(feature = "validation")))]
                 return TerminalOutputRenderResponse {
-                    scrollback_area: scrollback_response.0,
                     canvas_area: canvas_response.0,
-                    scrollback: scrollback_response.1.unwrap_or_default(),
                     canvas: canvas_response.1.unwrap_or_default(),
                 };
             }
@@ -677,9 +663,7 @@ impl FreminalTerminalWidget {
             previous_font_size: None,
             debug_renderer: DebugRenderer::new(),
             previous_pass: TerminalOutputRenderResponse {
-                scrollback_area: Rect::NOTHING,
                 canvas_area: Rect::NOTHING,
-                scrollback: UiJobAction::default(),
                 canvas: UiJobAction::default(),
             },
             ctx: ctx.clone(),
@@ -705,7 +689,13 @@ impl FreminalTerminalWidget {
 
         let height_chars =
             match ((ui.available_height() / character_size.1).floor()).approx_as::<usize>() {
-                Ok(v) => v,
+                Ok(v) => {
+                    if v > 1 {
+                        v - 1
+                    } else {
+                        1
+                    }
+                }
                 Err(e) => {
                     error!("Failed to calculate height chars: {}", e);
                     10
@@ -776,9 +766,6 @@ impl FreminalTerminalWidget {
 
             self.debug_renderer
                 .render(ui, self.previous_pass.canvas_area, Color32::BLUE);
-
-            self.debug_renderer
-                .render(ui, self.previous_pass.scrollback_area, Color32::YELLOW);
 
             if terminal_emulator.show_cursor() {
                 paint_cursor(

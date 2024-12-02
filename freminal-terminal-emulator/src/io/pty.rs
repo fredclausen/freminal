@@ -77,6 +77,8 @@ pub fn run_terminal(
                 read_amount: amount_read,
             }) {
                 error!("Failed to send data to terminal: {e}");
+                // exit
+                std::process::exit(1);
             }
         }
     });

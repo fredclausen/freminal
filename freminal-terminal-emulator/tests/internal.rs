@@ -119,14 +119,20 @@ fn test_internal_terminal_state_data() {
     let data = b"Hello, World!";
     terminal_state.handle_incoming_data(data);
     // verify that the data was written to the buffer
-    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
+    let buffer = terminal_state
+        .get_current_buffer()
+        .terminal_buffer
+        .data(true);
     let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
     assert_eq!(buffer.visible, expected);
 
     // test leftover data
     terminal_state.leftover_data = Some(b"Hello, World!".to_vec());
     terminal_state.handle_incoming_data(b"\n");
-    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
+    let buffer = terminal_state
+        .get_current_buffer()
+        .terminal_buffer
+        .data(true);
 
     let expected = TChar::from_vec(b"Hello, World!Hello, World!\n").unwrap();
     // combine the two buffers in to one vec of TChar
@@ -150,7 +156,10 @@ fn test_set_cursor_pos() {
         0x72, 0x6c, 0x64, 0x21,
     ];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
+    let buffer = terminal_state
+        .get_current_buffer()
+        .terminal_buffer
+        .data(true);
     let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
     assert_eq!(buffer.visible, expected);
     // verify that the cursor position is set to the end of the string
@@ -200,7 +209,10 @@ fn test_clear_display_from_cursor_to_end_of_display() {
 
     let data: [u8; 4] = [0x1b, 0x5b, 0x30, 0x4a];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
+    let buffer = terminal_state
+        .get_current_buffer()
+        .terminal_buffer
+        .data(true);
     let expected = TChar::from_vec(b"Hello, Wor\n").unwrap();
     assert_eq!(buffer.visible, expected);
 }
@@ -223,7 +235,10 @@ fn test_clear_display_from_start_of_display_to_cursor() {
 
     let data: [u8; 4] = [0x1b, 0x5b, 0x31, 0x4a];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
+    let buffer = terminal_state
+        .get_current_buffer()
+        .terminal_buffer
+        .data(true);
     let expected = TChar::from_vec(b"          ld!\n").unwrap();
     assert_eq!(buffer.visible, expected);
 }
@@ -238,7 +253,10 @@ fn test_clear_display() {
     // "\0x1b[3J" clears everything
     let data: [u8; 4] = [0x1b, 0x5b, 0x33, 0x4a];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
+    let buffer = terminal_state
+        .get_current_buffer()
+        .terminal_buffer
+        .data(true);
     // verify both the visible and scrollback buffers are empty
     assert!(buffer.visible.is_empty());
     assert!(buffer.scrollback.is_empty());
@@ -250,7 +268,10 @@ fn test_clear_display() {
     terminal_state.handle_incoming_data(data);
 
     // ensure the scrollback and visible buffers are are correct
-    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
+    let buffer = terminal_state
+        .get_current_buffer()
+        .terminal_buffer
+        .data(true);
     let expected_visible =
         b"Hello, World!\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n";
     let expected_visible = TChar::from_vec(expected_visible).unwrap();
@@ -276,7 +297,10 @@ fn test_clear_display() {
     // clear just the visible buffer
     let data: [u8; 4] = [0x1b, 0x5b, 0x32, 0x4a];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
+    let buffer = terminal_state
+        .get_current_buffer()
+        .terminal_buffer
+        .data(true);
     // expected visible is the previous expected visible with all the characters replaced with spaces, unless the TChar is a newline
     let expected_visible = expected_visible
         .iter()
@@ -316,7 +340,10 @@ fn test_clear_lines() {
     let data: [u8; 4] = [0x1b, 0x5b, 0x32, 0x4b];
     terminal_state.handle_incoming_data(&data);
 
-    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
+    let buffer = terminal_state
+        .get_current_buffer()
+        .terminal_buffer
+        .data(true);
     let expected_visible =
         b"Hello, World!\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n\n";
     let expected_visible = TChar::from_vec(expected_visible).unwrap();
@@ -335,7 +362,10 @@ fn test_clear_lines() {
     let data: [u8; 4] = [0x1b, 0x5b, 0x31, 0x4b];
     terminal_state.handle_incoming_data(&data);
 
-    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
+    let buffer = terminal_state
+        .get_current_buffer()
+        .terminal_buffer
+        .data(true);
     let expected = b"o, World!\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n\n";
     let expected = TChar::from_vec(expected).unwrap();
     assert_eq!(
@@ -348,7 +378,10 @@ fn test_clear_lines() {
     // now delete to the right of the cursor
     let data: [u8; 4] = [0x1b, 0x5b, 0x30, 0x4b];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
+    let buffer = terminal_state
+        .get_current_buffer()
+        .terminal_buffer
+        .data(true);
 
     let expected = b"o, W\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n\n";
     let expected = TChar::from_vec(expected).unwrap();
@@ -372,7 +405,10 @@ fn test_invalid_sequence() {
     // send an invalid sequence
     let data: [u8; 2] = [0x1b, 0x69];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
+    let buffer = terminal_state
+        .get_current_buffer()
+        .terminal_buffer
+        .data(true);
     let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
     assert_eq!(buffer.visible, expected);
 }
@@ -390,7 +426,10 @@ fn test_backspace_and_delete_and_spaces() {
     let previous_cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
     let data: [u8; 1] = [0x08];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
+    let buffer = terminal_state
+        .get_current_buffer()
+        .terminal_buffer
+        .data(true);
     let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
     let new_cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
     assert_eq!(buffer.visible, expected);
@@ -407,7 +446,10 @@ fn test_backspace_and_delete_and_spaces() {
 
     let data: [u8; 4] = [0x1b, 0x5b, 0x31, 0x50];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
+    let buffer = terminal_state
+        .get_current_buffer()
+        .terminal_buffer
+        .data(true);
     let expected = TChar::from_vec(b"Hello, World\n").unwrap();
     assert_eq!(buffer.visible, expected);
 
@@ -415,7 +457,10 @@ fn test_backspace_and_delete_and_spaces() {
     // ESC [ Pn @
     let data: [u8; 4] = [0x1b, 0x5b, 0x31, 0x40];
     terminal_state.handle_incoming_data(&data);
-    let buffer = terminal_state.get_current_buffer().terminal_buffer.data();
+    let buffer = terminal_state
+        .get_current_buffer()
+        .terminal_buffer
+        .data(true);
     let expected = TChar::from_vec(b"Hello, World \n").unwrap();
     assert_eq!(buffer.visible, expected);
 }

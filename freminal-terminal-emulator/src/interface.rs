@@ -155,16 +155,20 @@ impl TerminalInput {
 pub fn split_format_data_for_scrollback(
     tags: Vec<FormatTag>,
     scrollback_split: usize,
+    include_scrollback: bool,
 ) -> TerminalSections<Vec<FormatTag>> {
-    let scrollback_tags = tags
-        .iter()
-        .filter(|tag| tag.start < scrollback_split)
-        .cloned()
-        .map(|mut tag| {
-            tag.end = tag.end.min(scrollback_split);
-            tag
-        })
-        .collect();
+    let scrollback_tags = if include_scrollback {
+        tags.iter()
+            .filter(|tag| tag.start < scrollback_split)
+            .cloned()
+            .map(|mut tag| {
+                tag.end = tag.end.min(scrollback_split);
+                tag
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
 
     let canvas_tags = tags
         .into_iter()
@@ -370,8 +374,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         self.internal.write(to_write)
     }
 
-    pub fn data(&mut self) -> TerminalSections<Vec<TChar>> {
-        self.internal.data()
+    pub fn data(&mut self, include_scrollback: bool) -> TerminalSections<Vec<TChar>> {
+        self.internal.data(include_scrollback)
     }
 
     pub fn data_and_format_data_for_gui(
@@ -383,8 +387,8 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         self.internal.data_and_format_data_for_gui()
     }
 
-    pub fn format_data(&mut self) -> TerminalSections<Vec<FormatTag>> {
-        self.internal.format_data()
+    pub fn format_data(&mut self, include_scrollback: bool) -> TerminalSections<Vec<FormatTag>> {
+        self.internal.format_data(include_scrollback)
     }
 
     pub fn cursor_pos(&mut self) -> CursorPos {

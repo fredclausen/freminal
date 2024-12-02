@@ -475,7 +475,7 @@ impl TerminalBufferHolder {
     }
 
     #[must_use]
-    pub fn data(&self) -> TerminalSections<Vec<TChar>> {
+    pub fn data(&self, include_scrollback: bool) -> TerminalSections<Vec<TChar>> {
         let visible_line_ranges = &self.visible_line_ranges;
         if self.buf.is_empty() {
             return TerminalSections {
@@ -494,27 +494,50 @@ impl TerminalBufferHolder {
         let start = visible_line_ranges[0].start;
 
         TerminalSections {
-            scrollback: self.buf[..start].to_vec(),
+            scrollback: if include_scrollback {
+                self.buf[..start].to_vec()
+            } else {
+                vec![]
+            },
             visible: self.buf[start..].to_vec(),
         }
     }
 
     #[must_use]
-    pub fn clip_lines(&mut self, keep_buf_pos: usize) -> Option<Range<usize>> {
-        // FIXME: This arbitrary clipping without context of the line start for where we're clipping back
-        //        is not ideal. We should be able to clip back to the start of the line. We'll end up showing
-        //        the clip position as the start of a new line
-        //        I don't want to calculate line positions for the entire buffer here because it's expensive
-        //        we can probably get clever and walk from the position we're clipping back to the start of the line
-        //        This is a temporary fix to prevent the buffer from growing indefinitely
+    pub fn clip_lines(&mut self) -> Option<Range<usize>> {
+        if self.buf.is_empty() {
+            return None;
+        }
+        // we want to keep the first 2000 lines + length of visible lines
 
-        if keep_buf_pos.saturating_sub(50_000) == 0 {
+        let index = self
+            .buffer_line_ranges
+            .len()
+            .saturating_sub(2000 - self.visible_line_ranges.len() - 1);
+
+        if index == 0 {
             return None;
         }
 
-        self.buf.drain(0..keep_buf_pos.saturating_sub(50_000));
-        self.line_ranges_to_visible_line_ranges();
-        Some(0..keep_buf_pos.saturating_sub(50_000))
+        let keep_buf_pos = self.buffer_line_ranges[index].start - 1;
+
+        self.buf.drain(0..keep_buf_pos);
+        // self.buffer_line_ranges.clear();
+        // self.line_ranges_to_visible_line_ranges();
+
+        // now walk both of the line range buffers and offset them by the keep_buf_pos
+
+        for line_range in &mut self.buffer_line_ranges {
+            line_range.start = line_range.start.saturating_sub(keep_buf_pos);
+            line_range.end = line_range.end.saturating_sub(keep_buf_pos);
+        }
+
+        for line_range in &mut self.visible_line_ranges {
+            line_range.start = line_range.start.saturating_sub(keep_buf_pos);
+            line_range.end = line_range.end.saturating_sub(keep_buf_pos);
+        }
+
+        Some(0..keep_buf_pos)
     }
 
     #[must_use]
