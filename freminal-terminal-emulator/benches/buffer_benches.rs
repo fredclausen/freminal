@@ -8,7 +8,7 @@ use std::io::Read;
 
 fn load_random_file() -> Vec<u8> {
     // load random_crap.txt from ../speed_tests/random_crap.txt
-    let path = std::path::Path::new("../speed_tests/random_crap.txt");
+    let path = std::path::Path::new("../speed_tests/10000_lines.txt");
     let file = std::fs::File::open(path).unwrap();
 
     let mut reader = std::io::BufReader::new(file);

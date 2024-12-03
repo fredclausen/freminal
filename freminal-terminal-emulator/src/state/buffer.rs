@@ -95,36 +95,28 @@ impl TerminalBufferHolder {
 
     pub fn scroll_down(&mut self, num_lines: &usize) {
         if self.buffer_line_ranges.len() == self.visible_line_ranges.len() {
-            info!("not enough lines for scroll");
+            debug!("not enough lines for scroll");
             return;
         }
 
-        info!("entered scroll_down");
         if self.viewable_index_bottom == usize::MAX {
-            info!("Down scroll already is at the bottom");
+            debug!("Down scroll already is at the bottom");
             return;
         }
 
         if self.viewable_index_bottom + num_lines >= self.buffer_line_ranges.len() {
-            info!("Down scroll is now at the bottom");
+            debug!("Down scroll is now at the bottom");
             self.viewable_index_bottom = usize::MAX;
             return;
         }
 
         self.viewable_index_bottom += num_lines;
-        info!("Scrolling down to {}", self.viewable_index_bottom);
+        debug!("Scrolling down to {}", self.viewable_index_bottom);
     }
 
     pub fn scroll_up(&mut self, num_lines: &usize) {
         if self.buffer_line_ranges.len() == self.visible_line_ranges.len() {
-            info!("not enough lines for scroll");
-            return;
-        }
-
-        info!("entered scroll_up");
-        if self.viewable_index_bottom <= self.height {
-            self.viewable_index_bottom = self.height;
-            info!("Up scroll already is at the top");
+            debug!("not enough lines for scroll");
             return;
         }
 
@@ -133,7 +125,13 @@ impl TerminalBufferHolder {
         }
 
         self.viewable_index_bottom = self.viewable_index_bottom.saturating_sub(*num_lines);
-        info!("Scrolling up to {}", self.viewable_index_bottom);
+        if self.viewable_index_bottom < self.height {
+            self.viewable_index_bottom = self.height - 1;
+            debug!("Up scroll already is at the top");
+            return;
+        }
+
+        debug!("Scrolling up to {}", self.viewable_index_bottom);
     }
 
     pub fn scroll(&mut self, direction: &ScrollDirection) {
@@ -600,6 +598,7 @@ impl TerminalBufferHolder {
         let keep_buf_pos = self.buffer_line_ranges[index].start - 1;
 
         self.buf.drain(0..keep_buf_pos);
+        self.buffer_line_ranges.drain(0..index);
 
         // now walk both of the line range buffers and offset them by the keep_buf_pos
 
