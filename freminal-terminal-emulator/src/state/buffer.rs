@@ -87,7 +87,7 @@ impl TerminalBufferHolder {
             return;
         }
 
-        if self.viewable_index_bottom + num_lines == self.buffer_line_ranges.len() {
+        if self.viewable_index_bottom + num_lines >= self.buffer_line_ranges.len() {
             info!("Down scroll is now at the bottom");
             self.viewable_index_bottom = usize::MAX;
             return;
@@ -104,7 +104,8 @@ impl TerminalBufferHolder {
         }
 
         info!("entered scroll_up");
-        if self.viewable_index_bottom == 0 {
+        if self.viewable_index_bottom <= self.height {
+            self.viewable_index_bottom = self.height;
             info!("Up scroll already is at the top");
             return;
         }
@@ -505,6 +506,38 @@ impl TerminalBufferHolder {
     }
 
     #[must_use]
+    pub fn data_for_gui(&self) -> (TerminalSections<Vec<TChar>>, usize) {
+        let end = if self.viewable_index_bottom == usize::MAX {
+            self.buffer_line_ranges.len() - 1
+        } else {
+            self.viewable_index_bottom
+        };
+
+        if self.buf.is_empty() {
+            return (
+                TerminalSections {
+                    scrollback: vec![],
+                    visible: self.buf.clone(),
+                },
+                0,
+            );
+        }
+
+        let start = end.saturating_sub(self.height);
+
+        (
+            TerminalSections {
+                scrollback: vec![],
+                visible: self.buf
+                    [self.buffer_line_ranges[start].start..self.buffer_line_ranges[end].end]
+                    .to_vec(),
+            },
+            start,
+        )
+    }
+
+    // keep around for tests
+    #[must_use]
     pub fn data(&self, include_scrollback: bool) -> TerminalSections<Vec<TChar>> {
         let visible_line_ranges = &self.visible_line_ranges;
         if self.buf.is_empty() {
@@ -515,6 +548,7 @@ impl TerminalBufferHolder {
         }
 
         if visible_line_ranges.is_empty() {
+            warn!("visible line ranges is empty but data in the buffer!");
             return TerminalSections {
                 scrollback: self.buf.clone(),
                 visible: vec![],

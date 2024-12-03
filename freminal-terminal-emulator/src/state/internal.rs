@@ -204,20 +204,18 @@ impl TerminalState {
         TerminalSections<Vec<TChar>>,
         TerminalSections<Vec<FormatTag>>,
     ) {
-        let data = self.get_current_buffer().terminal_buffer.data(false);
-
-        let offset = self
-            .get_current_buffer()
-            .terminal_buffer
-            .get_visible_line_ranges()
-            .first()
-            .unwrap_or(&(0..0))
-            .start;
+        let (data, offset) = self.get_current_buffer().terminal_buffer.data_for_gui();
 
         let format_data = split_format_data_for_scrollback(
             self.get_current_buffer().format_tracker.tags(),
             offset,
             false,
+        );
+
+        info!(
+            "data_and_format_data_for_gui: {} {}",
+            data.visible.len(),
+            format_data.visible.len()
         );
 
         (data, format_data)
