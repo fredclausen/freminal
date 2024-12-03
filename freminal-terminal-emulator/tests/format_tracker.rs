@@ -247,12 +247,12 @@ fn basic_color_tracker_test() {
 
 #[test]
 fn test_range_overlap() {
-    assert!(ranges_overlap(5..10, 7..9));
-    assert!(ranges_overlap(5..10, 8..12));
-    assert!(ranges_overlap(5..10, 3..6));
-    assert!(ranges_overlap(5..10, 2..12));
-    assert!(!ranges_overlap(5..10, 10..12));
-    assert!(!ranges_overlap(5..10, 0..5));
+    assert!(ranges_overlap(&(5..10), &(7..9)));
+    assert!(ranges_overlap(&(5..10), &(8..12)));
+    assert!(ranges_overlap(&(5..10), &(3..6)));
+    assert!(ranges_overlap(&(5..10), &(2..12)));
+    assert!(!ranges_overlap(&(5..10), &(10..12)));
+    assert!(!ranges_overlap(&(5..10), &(0..5)));
 }
 
 fn del_range_test_one(format_tracker: &FormatTracker) {

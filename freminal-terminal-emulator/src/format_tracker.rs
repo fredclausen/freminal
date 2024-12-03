@@ -16,7 +16,7 @@ use anyhow::Result;
 use std::ops::Range;
 
 #[must_use]
-pub const fn ranges_overlap(a: Range<usize>, b: Range<usize>) -> bool {
+pub const fn ranges_overlap(a: &Range<usize>, b: &Range<usize>) -> bool {
     !(a.end <= b.start || a.start >= b.end)
 }
 /// if a and b overlap like
@@ -101,7 +101,7 @@ fn adjust_existing_format_ranges(existing: &mut Vec<FormatTag>, range: &Range<us
     let mut effected_infos = existing
         .iter_mut()
         .enumerate()
-        .filter(|(_i, item)| ranges_overlap(item.start..item.end, range.clone()))
+        .filter(|(_i, item)| ranges_overlap(&(item.start..item.end), range))
         .collect::<Vec<_>>();
 
     let mut to_delete = Vec::new();
@@ -235,7 +235,7 @@ impl FormatTracker {
                 continue;
             }
 
-            if ranges_overlap(range.clone(), info_range.clone()) {
+            if ranges_overlap(&range, &info_range) {
                 if range_fully_contains(&range, &info_range) {
                     to_delete.push(i);
                 } else if range_starts_overlapping(&range, &info_range) {
@@ -263,7 +263,7 @@ impl FormatTracker {
             } else {
                 //assert!(!ranges_overlap(range.clone(), info_range.clone()));
 
-                if ranges_overlap(range.clone(), info_range.clone()) {
+                if ranges_overlap(&range, &info_range) {
                     return Err(anyhow::anyhow!(
                         "Unhandled overlap case {}-{}, {}-{}",
                         info.start,
