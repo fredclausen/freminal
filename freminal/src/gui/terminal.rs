@@ -773,6 +773,7 @@ impl FreminalTerminalWidget {
                 );
             }
 
+            #[cfg(debug_assertions)]
             self.debug_renderer
                 .render(ui, self.previous_pass.canvas_area, Color32::BLUE);
 
@@ -836,6 +837,7 @@ impl FreminalTerminalWidget {
             ui.label("Font size:");
             ui.add(DragValue::new(&mut self.font_size).range(1.0..=100.0));
         });
+        #[cfg(debug_assertions)]
         ui.checkbox(&mut self.debug_renderer.enable, "Debug render");
     }
 }
