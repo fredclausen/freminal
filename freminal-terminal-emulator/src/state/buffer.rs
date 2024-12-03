@@ -612,6 +612,10 @@ impl TerminalBufferHolder {
             line_range.end = line_range.end.saturating_sub(keep_buf_pos);
         }
 
+        if self.viewable_index_bottom != usize::MAX {
+            self.scroll_up(&index);
+        }
+
         Some(0..keep_buf_pos)
     }
 
