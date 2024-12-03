@@ -5,6 +5,7 @@
 
 use super::{cursor::CursorPos, data::TerminalSections, term_char::TChar};
 use anyhow::Result;
+use core::error;
 use freminal_common::scroll::ScrollDirection;
 use std::ops::Range;
 
@@ -76,23 +77,51 @@ impl TerminalBufferHolder {
     }
 
     pub fn scroll_down(&mut self, num_lines: &usize) {
+        if self.buffer_line_ranges.len() == self.visible_line_ranges.len() {
+            info!("not enough lines for scroll");
+            return;
+        }
+
+        info!("entered scroll_down");
         if self.viewable_index_bottom == usize::MAX {
+            info!("Down scroll already is at the bottom");
             return;
         }
 
         if self.viewable_index_bottom + num_lines == self.buffer_line_ranges.len() {
+            info!("Down scroll is now at the bottom");
             self.viewable_index_bottom = usize::MAX;
-        }
-
-        self.viewable_index_bottom += num_lines;
-    }
-
-    pub fn scroll_up(&mut self, num_lines: &usize) {
-        if self.viewable_index_bottom == 0 {
             return;
         }
 
+        self.viewable_index_bottom += num_lines;
+        info!("Scrolling down to {}", self.viewable_index_bottom);
+    }
+
+    pub fn scroll_up(&mut self, num_lines: &usize) {
+        if self.buffer_line_ranges.len() == self.visible_line_ranges.len() {
+            info!("not enough lines for scroll");
+            return;
+        }
+
+        info!("entered scroll_up");
+        if self.viewable_index_bottom == 0 {
+            info!("Up scroll already is at the top");
+            return;
+        }
+
+        if self.viewable_index_bottom == usize::MAX {
+            info!(
+                "Up scroll is now at the top. Setting value to not usize max. {}",
+                self.buffer_line_ranges.len() - 1
+            );
+            info!("line ranges: {:?}", self.buffer_line_ranges);
+            info!("visible line ranges: {:?}", self.visible_line_ranges);
+            self.viewable_index_bottom = self.buffer_line_ranges.len() - 1;
+        }
+
         self.viewable_index_bottom = self.viewable_index_bottom.saturating_sub(*num_lines);
+        info!("Scrolling up to {}", self.viewable_index_bottom);
     }
 
     pub fn scroll(&mut self, direction: &ScrollDirection) {
@@ -129,6 +158,7 @@ impl TerminalBufferHolder {
         cursor_pos: &CursorPos,
         data: &[u8],
     ) -> Result<TerminalBufferInsertResponse> {
+        // info!("inserting data: {:?} with cursor {:?}", data, cursor_pos);
         // loop through all of the characters
         // if the character is utf8, then we need all of the bytes to be written
 
@@ -146,6 +176,7 @@ impl TerminalBufferHolder {
         self.line_ranges_to_visible_line_ranges();
 
         let new_cursor_pos = self.buf_to_cursor_pos(write_range.end);
+        //info!("buffer lines: {:?}", self.buffer_line_ranges);
         Ok(TerminalBufferInsertResponse {
             written_range: write_range,
             insertion_range: inserted_padding,
@@ -522,8 +553,6 @@ impl TerminalBufferHolder {
         let keep_buf_pos = self.buffer_line_ranges[index].start - 1;
 
         self.buf.drain(0..keep_buf_pos);
-        // self.buffer_line_ranges.clear();
-        // self.line_ranges_to_visible_line_ranges();
 
         // now walk both of the line range buffers and offset them by the keep_buf_pos
 
@@ -569,6 +598,7 @@ impl TerminalBufferHolder {
         // can just look up where the cursor is supposed to be and map it back to it's new cursor
         // position
         let pad_response = self.pad_buffer_for_write(cursor_pos, 0);
+
         self.line_ranges_to_visible_line_ranges();
         let buf_pos = pad_response.write_idx;
         let inserted_padding = pad_response.inserted_padding;
@@ -830,7 +860,7 @@ impl TerminalBufferHolder {
         Some(ret)
     }
 
-    fn calculate_line_ranges(&mut self) {
+    pub fn calculate_line_ranges(&mut self) {
         // we need to compare visible line ranges to the bottom x values of buffer line ranges
         // the idea here is that we want to have line ranges for the scroll back buffer, but if
 
@@ -849,13 +879,13 @@ impl TerminalBufferHolder {
         let visible_end = visible_line_ranges[0].end;
         // let mut visible_start = visible_line_ranges[0].start;
         // let mut visible_end = visible_line_ranges[0].end;
-        if let Some(i) = self.buffer_line_ranges.iter().rev().position(|r| {
-            r.contains(&visible_start) && r.contains(&visible_end)
-                || (r.end <= visible_end && r.start >= visible_start)
-        }) {
+        if let Some(i) = self
+            .buffer_line_ranges
+            .iter()
+            .rposition(|r| (r.end <= visible_end && r.start >= visible_start))
+        {
             // if we found the start of the visible lines in the buffer line ranges, we need to update the buffer line ranges
-            self.buffer_line_ranges
-                .truncate(self.buffer_line_ranges.len() - i);
+            self.buffer_line_ranges.truncate(i);
             // buffer_line_ranges.extend_from_slice(visible_line_ranges);
         } else {
             // the visible line ranges do not overlap with the buffer line ranges
@@ -876,6 +906,7 @@ impl TerminalBufferHolder {
                     "visible:\n{:?}\nbuffer:\n{:?}",
                     visible_line_ranges, self.buffer_line_ranges
                 );
+
                 return;
             }
 

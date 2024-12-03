@@ -6,7 +6,7 @@
 use anyhow::Result;
 use core::str;
 use eframe::egui::{self, Color32, Context};
-use freminal_common::colors::TerminalColor;
+use freminal_common::{colors::TerminalColor, scroll::ScrollDirection};
 #[cfg(debug_assertions)]
 use std::time::Instant;
 
@@ -1052,5 +1052,19 @@ impl TerminalState {
         };
 
         Ok(())
+    }
+
+    pub fn scroll(&mut self, scroll: f32) {
+        let current_buffer = &mut self.get_current_buffer().terminal_buffer;
+        // convert the scroll to usize, with a minimum of 1
+        let scroll = scroll.round();
+
+        if scroll < 0.0 {
+            let scoller = ScrollDirection::Down(scroll.abs().max(1.0) as usize);
+            current_buffer.scroll(&scoller);
+        } else {
+            let scroller = ScrollDirection::Up(scroll.max(1.0) as usize);
+            current_buffer.scroll(&scroller);
+        }
     }
 }

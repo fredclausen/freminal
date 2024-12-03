@@ -4,6 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use freminal_common::args::Args;
+use test_log::test;
 
 #[test]
 fn test_args_parse() {

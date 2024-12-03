@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::gui::TerminalEmulator;
+use crate::gui::{terminal, TerminalEmulator};
 
 use freminal_terminal_emulator::{
     ansi_components::modes::rl_bracket::RlBracket,
@@ -194,7 +194,17 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
 
                 continue;
             }
-            Event::MouseWheel { .. } | Event::MouseMoved(_) => {
+            // FIXME: should we do this?
+            Event::MouseMoved(_) => {
+                state_changed = true;
+                continue;
+            }
+            Event::MouseWheel { unit, delta, .. } => {
+                info!("Mouse wheel event: {unit:?} delta: {delta}");
+                if delta.y != 0.0 {
+                    terminal_emulator.internal.scroll(delta.y);
+                }
+
                 state_changed = true;
                 continue;
             }

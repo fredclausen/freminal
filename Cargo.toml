@@ -17,7 +17,7 @@ version = "0.1.0"
 
 [workspace.dependencies]
 anyhow = "1.0.93"
-cargo_metadata = "0.19.0"
+cargo_metadata = "0.19.1"
 clap = { version = "4.5.21", features = ["derive"] }
 clap-cargo = { version = "0.14.1", features = ["cargo_metadata"] }
 clap-verbosity-flag = "3.0.0"
@@ -41,7 +41,7 @@ egui = { version = "0.29.1", default-features = false, features = [
 parking_lot = "0.12.3"
 portable-pty = "0.8.1"
 tar = "0.4.43"
-thiserror = "2.0.3"
+thiserror = "2.0.4"
 tracing = "0.1.40"
 tracing-appender = "0.2.3"
 tracing-log = "0.2.0"
@@ -50,3 +50,4 @@ tracing-subscriber = { version = "0.3.19", features = [
     "parking_lot",
 ] }
 unicode-segmentation = "1.12.0"
+test-log = { version = "0.2.16", features = ["trace"] }

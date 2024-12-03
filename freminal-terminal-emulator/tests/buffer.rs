@@ -1,4 +1,5 @@
 use std::ops::Range;
+use test_log::test;
 
 // Copyright (C) 2024 Fred Clausen
 // Use of this source code is governed by an MIT-style
@@ -1415,8 +1416,9 @@ fn test_line_ranges_from_visible_line_ranges_no_spill() {
 
     // push data in to scrollback
     buffer.insert_data(&result.new_cursor_pos, &data).unwrap();
+    println!("{:?}", buffer.get_line_ranges());
     // buffer_line_ranges should have 10 lines. Visible line ranges should have 5 lines
-    assert_eq!(buffer.get_line_ranges().len(), 10);
+    assert_eq!(buffer.get_line_ranges().len(), 9);
     assert_eq!(buffer.get_visible_line_ranges().len(), 5);
     assert_eq!(
         buffer.get_visible_line_ranges(),
@@ -1429,7 +1431,6 @@ fn test_line_ranges_from_visible_line_ranges_no_spill() {
             5..9,
             10..14,
             15..19,
-            20..20,
             20..24,
             25..29,
             30..34,
@@ -1525,4 +1526,56 @@ fn test_line_ranges_from_visible_line_ranges_spill() {
             55..60
         ]
     );
+}
+
+#[test]
+fn test_weird_fail_case_from_real_world() {
+    let mut buffer = TerminalBufferHolder::new(50, 16);
+
+    let data = b" ".repeat(479);
+    buffer.insert_data(&CursorPos::default(), &data).unwrap();
+    buffer.set_visible_line_ranges(
+        [
+            75..80,
+            81..103,
+            104..123,
+            124..151,
+            152..181,
+            182..211,
+            212..239,
+            240..266,
+            267..293,
+            294..321,
+            322..351,
+            352..382,
+            383..413,
+            414..442,
+            443..470,
+            471..496,
+        ]
+        .to_vec(),
+    );
+    buffer.set_line_ranges(
+        [
+            0..24,
+            25..64,
+            65..87,
+            88..107,
+            108..135,
+            136..165,
+            166..195,
+            196..223,
+            224..250,
+            251..277,
+            278..305,
+            306..335,
+            336..366,
+            367..397,
+            398..426,
+            427..454,
+            455..480,
+        ]
+        .to_vec(),
+    );
+    buffer.calculate_line_ranges();
 }

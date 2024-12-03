@@ -25,6 +25,7 @@ conv.workspace = true
 # dev dependencies
 [dev-dependencies]
 criterion.workspace = true
+test-log.workspace = true
 
 [[bench]]
 name = "buffer_benches"
