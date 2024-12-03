@@ -1,12 +1,18 @@
 import random
+import sys
 
-# we want 1000 lines of random ASCII text. Line length should vary between 1 and 100 characters.
+# get the number of lines to generate from args
+if len(sys.argv) != 2:
+    print("Usage: python random_crap.py <num_lines>")
+    sys.exit(1)
+
+num_lines = int(sys.argv[1])
 
 # open a file
 
-f = open("random_crap.txt", "w")
+f = open(f"{num_lines}_lines.txt", "w")
 
-for i in range(10000):
+for i in range(num_lines):
     line = "".join(
         [chr(random.randint(32, 126)) for i in range(random.randint(0, 100))]
     )
