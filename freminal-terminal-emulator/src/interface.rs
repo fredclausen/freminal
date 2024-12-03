@@ -155,6 +155,7 @@ impl TerminalInput {
 pub fn split_format_data_for_scrollback(
     tags: Vec<FormatTag>,
     scrollback_split: usize,
+    visible_end: usize,
     include_scrollback: bool,
 ) -> TerminalSections<Vec<FormatTag>> {
     let scrollback_tags = if include_scrollback {
@@ -170,9 +171,9 @@ pub fn split_format_data_for_scrollback(
         Vec::new()
     };
 
-    let canvas_tags = tags
+    let canvas_tags: Vec<FormatTag> = tags
         .into_iter()
-        .filter(|tag| tag.end > scrollback_split)
+        .filter(|tag| tag.end > scrollback_split && tag.end <= visible_end)
         .map(|mut tag| {
             tag.start = tag.start.saturating_sub(scrollback_split);
             if tag.end != usize::MAX {
@@ -187,39 +188,6 @@ pub fn split_format_data_for_scrollback(
         visible: canvas_tags,
     }
 }
-
-// #[must_use]
-// pub fn split_format_data_for_scrollback_clamped(
-//     tags: Vec<FormatTag>,
-//     scrollback_split: usize,
-// ) -> TerminalSections<Vec<FormatTag>> {
-//     let scrollback_tags = tags
-//         .iter()
-//         .filter(|tag| tag.start < scrollback_split)
-//         .cloned()
-//         .map(|mut tag| {
-//             tag.end = tag.end.min(scrollback_split);
-//             tag
-//         })
-//         .collect();
-
-//     let canvas_tags = tags
-//         .into_iter()
-//         .filter(|tag| tag.end > scrollback_split)
-//         .map(|mut tag| {
-//             tag.start = tag.start.saturating_sub(scrollback_split);
-//             if tag.end != usize::MAX {
-//                 tag.end -= scrollback_split;
-//             }
-//             tag
-//         })
-//         .collect();
-
-//     TerminalSections {
-//         scrollback: scrollback_tags,
-//         visible: canvas_tags,
-//     }
-// }
 
 pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
     pub internal: TerminalState,
@@ -387,15 +355,12 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         self.internal.data_and_format_data_for_gui()
     }
 
-    pub fn format_data(&mut self, include_scrollback: bool) -> TerminalSections<Vec<FormatTag>> {
-        self.internal.format_data(include_scrollback)
-    }
-
     pub fn cursor_pos(&mut self) -> CursorPos {
         self.internal.cursor_pos()
     }
 
     pub fn show_cursor(&mut self) -> bool {
         self.internal.get_current_buffer().show_cursor == Dectcem::Show
+            && self.internal.show_cursor()
     }
 }

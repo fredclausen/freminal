@@ -75,6 +75,24 @@ impl TerminalBufferHolder {
         }
     }
 
+    #[must_use]
+    pub fn show_cursor(&self, cursor_pos: &CursorPos) -> bool {
+        // FIXME: I think this logic is partially buggy. If the cursor is not in the last line it may break
+        // if we have scrolled more then height from the bottom, we don't want to show the cursor
+        // otherwise, if the cursor_pos.y position is within viewable_index_bottom and viewable_index_bottom - height, we want to show the cursor
+        if self.viewable_index_bottom == usize::MAX {
+            return true;
+        }
+
+        if (self.buffer_line_ranges.len() - 1).saturating_sub(self.height)
+            < self.viewable_index_bottom
+        {
+            return false;
+        }
+
+        cursor_pos.y >= self.viewable_index_bottom.saturating_sub(self.height)
+    }
+
     pub fn scroll_down(&mut self, num_lines: &usize) {
         if self.buffer_line_ranges.len() == self.visible_line_ranges.len() {
             info!("not enough lines for scroll");
@@ -111,12 +129,6 @@ impl TerminalBufferHolder {
         }
 
         if self.viewable_index_bottom == usize::MAX {
-            info!(
-                "Up scroll is now at the top. Setting value to not usize max. {}",
-                self.buffer_line_ranges.len() - 1
-            );
-            info!("line ranges: {:?}", self.buffer_line_ranges);
-            info!("visible line ranges: {:?}", self.visible_line_ranges);
             self.viewable_index_bottom = self.buffer_line_ranges.len() - 1;
         }
 
@@ -506,7 +518,7 @@ impl TerminalBufferHolder {
     }
 
     #[must_use]
-    pub fn data_for_gui(&self) -> (TerminalSections<Vec<TChar>>, usize) {
+    pub fn data_for_gui(&self) -> (TerminalSections<Vec<TChar>>, usize, usize) {
         let end = if self.viewable_index_bottom == usize::MAX {
             self.buffer_line_ranges.len() - 1
         } else {
@@ -520,6 +532,7 @@ impl TerminalBufferHolder {
                     visible: self.buf.clone(),
                 },
                 0,
+                0,
             );
         }
 
@@ -532,7 +545,8 @@ impl TerminalBufferHolder {
                     [self.buffer_line_ranges[start].start..self.buffer_line_ranges[end].end]
                     .to_vec(),
             },
-            start,
+            self.buffer_line_ranges[start].start,
+            self.buffer_line_ranges[end].end,
         )
     }
 
@@ -935,9 +949,6 @@ impl TerminalBufferHolder {
                     && ((visible_start..visible_end).contains(&r.start)
                         || (visible_start..visible_end).contains(&r.end)))
                 {
-                    info!(
-                        "Found range in buffer line ranges that is included in the visible range"
-                    );
                     return Some(index);
                 }
             }

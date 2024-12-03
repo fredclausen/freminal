@@ -63,6 +63,11 @@ impl Buffer {
             saved_cursor_position: None,
         }
     }
+
+    #[must_use]
+    pub fn show_cursor(&self) -> bool {
+        self.terminal_buffer.show_cursor(&self.cursor_state.pos)
+    }
 }
 
 #[derive(Debug)]
@@ -122,6 +127,11 @@ impl TerminalState {
             mouse_position: None,
             window_focused: true,
         }
+    }
+
+    #[must_use]
+    pub fn show_cursor(&mut self) -> bool {
+        self.get_current_buffer().show_cursor()
     }
 
     #[must_use]
@@ -204,38 +214,16 @@ impl TerminalState {
         TerminalSections<Vec<TChar>>,
         TerminalSections<Vec<FormatTag>>,
     ) {
-        let (data, offset) = self.get_current_buffer().terminal_buffer.data_for_gui();
+        let (data, offset, end) = self.get_current_buffer().terminal_buffer.data_for_gui();
 
         let format_data = split_format_data_for_scrollback(
             self.get_current_buffer().format_tracker.tags(),
             offset,
+            end,
             false,
         );
 
-        info!(
-            "data_and_format_data_for_gui: {} {}",
-            data.visible.len(),
-            format_data.visible.len()
-        );
-
         (data, format_data)
-    }
-
-    pub(crate) fn format_data(
-        &mut self,
-        include_scrollback: bool,
-    ) -> TerminalSections<Vec<FormatTag>> {
-        let offset = self
-            .get_current_buffer()
-            .terminal_buffer
-            .data(include_scrollback)
-            .scrollback
-            .len();
-        split_format_data_for_scrollback(
-            self.get_current_buffer().format_tracker.tags(),
-            offset,
-            true,
-        )
     }
 
     #[must_use]

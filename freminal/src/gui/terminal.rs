@@ -199,8 +199,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 state_changed = true;
                 continue;
             }
-            Event::MouseWheel { unit, delta, .. } => {
-                info!("Mouse wheel event: {unit:?} delta: {delta}");
+            Event::MouseWheel { delta, .. } => {
                 if delta.y != 0.0 {
                     terminal_emulator.internal.scroll(delta.y);
                 }
