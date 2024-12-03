@@ -536,7 +536,7 @@ impl TerminalBufferHolder {
             );
         }
 
-        let start = end.saturating_sub(self.height);
+        let start = end.saturating_sub(self.height - 1);
 
         (
             TerminalSections {
