@@ -19,7 +19,7 @@ PRs are welcome. To make sure that your PR is accepted, there are a few things I
 If you don't have the following tools installed, you can install them with the following commands:
 
 ```bash
-cargo install cargo-xtask cargo-docs-rs typos-cli cargo-deny
+cargo install cargo-docs-rs typos-cli cargo-deny
 ```
 
 Before you submit a PR, please run the following commands:
