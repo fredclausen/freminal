@@ -5,7 +5,6 @@
 
 use super::{cursor::CursorPos, data::TerminalSections, term_char::TChar};
 use anyhow::Result;
-use core::error;
 use freminal_common::scroll::ScrollDirection;
 use std::ops::Range;
 
@@ -599,6 +598,9 @@ impl TerminalBufferHolder {
         // position
         let pad_response = self.pad_buffer_for_write(cursor_pos, 0);
 
+        self.visible_line_ranges.clear();
+        self.buffer_line_ranges.clear();
+
         self.line_ranges_to_visible_line_ranges();
         let buf_pos = pad_response.write_idx;
         let inserted_padding = pad_response.inserted_padding;
@@ -860,6 +862,56 @@ impl TerminalBufferHolder {
         Some(ret)
     }
 
+    fn find_index_containing_range(
+        &self,
+        visible_start: usize,
+        visible_end: usize,
+    ) -> Option<usize> {
+        let max = self.buffer_line_ranges.len().saturating_sub(1);
+
+        if max == 0 {
+            return None;
+        }
+
+        for index in (0..=max).rev() {
+            let r = &self.buffer_line_ranges[index];
+            // the base base that we have a range that our range is included/the same as a range already in the buffer
+            if visible_end <= r.end && visible_start >= r.start
+            // the other case is that we're matching against a single character and we want to match if the range is included in the visible_start..visible_end range
+                || (r.start == r.end
+                    && ((visible_start..visible_end).contains(&r.start)
+                        || (visible_start..visible_end).contains(&r.end)))
+            {
+                return Some(index);
+            }
+
+            // otherwise, we need to walk back and see if we can find a range that is included in the visible range
+
+            if index == max {
+                continue;
+            }
+
+            for i in index + 1..=max {
+                let r = r.start..self.buffer_line_ranges[i].end;
+
+                // the base base that we have a range that our range is included/the same as a range already in the buffer
+                if visible_end <= r.end && visible_start >= r.start
+                // the other case is that we're matching against a single character and we want to match if the range is included in the visible_start..visible_end range
+                || (r.start == r.end
+                    && ((visible_start..visible_end).contains(&r.start)
+                        || (visible_start..visible_end).contains(&r.end)))
+                {
+                    info!(
+                        "Found range in buffer line ranges that is included in the visible range"
+                    );
+                    return Some(index);
+                }
+            }
+        }
+
+        None
+    }
+
     pub fn calculate_line_ranges(&mut self) {
         // we need to compare visible line ranges to the bottom x values of buffer line ranges
         // the idea here is that we want to have line ranges for the scroll back buffer, but if
@@ -879,11 +931,8 @@ impl TerminalBufferHolder {
         let visible_end = visible_line_ranges[0].end;
         // let mut visible_start = visible_line_ranges[0].start;
         // let mut visible_end = visible_line_ranges[0].end;
-        if let Some(i) = self
-            .buffer_line_ranges
-            .iter()
-            .rposition(|r| (r.end <= visible_end && r.start >= visible_start))
-        {
+
+        if let Some(i) = self.find_index_containing_range(visible_start, visible_end) {
             // if we found the start of the visible lines in the buffer line ranges, we need to update the buffer line ranges
             self.buffer_line_ranges.truncate(i);
             // buffer_line_ranges.extend_from_slice(visible_line_ranges);
@@ -892,7 +941,8 @@ impl TerminalBufferHolder {
             // this means likely we have added more lines to the buffer then we have visible
             // we need to walk the buffer from the end of line ranges to the start of the visible line ranges to find the start of the visible lines and add those missing lines to the buffer line ranges
             let mut start_pos = visible_start.saturating_sub(1);
-            let end = self.buffer_line_ranges.last().unwrap_or(&(0..0)).end;
+            let mut end = self.buffer_line_ranges.last().unwrap_or(&(0..0)).end;
+            let mut walk_anyway = false;
             if self.buf[end.saturating_sub(1)] == TChar::NewLine {
                 start_pos -= 1;
             }
@@ -906,11 +956,13 @@ impl TerminalBufferHolder {
                     "visible:\n{:?}\nbuffer:\n{:?}",
                     visible_line_ranges, self.buffer_line_ranges
                 );
-
-                return;
+                error!("Resetting line buffer and walking the whole thing. RIP CPU.");
+                self.buffer_line_ranges.clear();
+                end = 0;
+                walk_anyway = true;
             }
 
-            if start_pos != end && start_pos.saturating_sub(1) > 0 {
+            if walk_anyway || (start_pos != end && start_pos.saturating_sub(1) > 0) {
                 let to_add = self.line_ranges(end, start_pos);
 
                 if let Some(to_add) = to_add {

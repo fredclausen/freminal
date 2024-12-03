@@ -4,6 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use anyhow::Result;
+use conv::ConvUtil;
 use core::str;
 use eframe::egui::{self, Color32, Context};
 use freminal_common::{colors::TerminalColor, scroll::ScrollDirection};
@@ -1057,13 +1058,30 @@ impl TerminalState {
     pub fn scroll(&mut self, scroll: f32) {
         let current_buffer = &mut self.get_current_buffer().terminal_buffer;
         // convert the scroll to usize, with a minimum of 1
-        let scroll = scroll.round();
+        let mut scroll = scroll.round();
 
         if scroll < 0.0 {
-            let scoller = ScrollDirection::Down(scroll.abs().max(1.0) as usize);
+            scroll *= -1.0;
+            let scroll_as_usize = match scroll.max(1.0).approx_as::<usize>() {
+                Ok(scroll) => scroll,
+                Err(e) => {
+                    error!("Failed to convert scroll to usize: {e}\nUsing default of 1");
+                    1
+                }
+            };
+
+            let scoller = ScrollDirection::Down(scroll_as_usize);
             current_buffer.scroll(&scoller);
         } else {
-            let scroller = ScrollDirection::Up(scroll.max(1.0) as usize);
+            let scroll_as_usize = match scroll.max(1.0).approx_as::<usize>() {
+                Ok(scroll) => scroll,
+                Err(e) => {
+                    error!("Failed to convert scroll to usize: {e}\nUsing default of 1");
+                    1
+                }
+            };
+
+            let scroller = ScrollDirection::Up(scroll_as_usize);
             current_buffer.scroll(&scroller);
         }
     }

@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::gui::{terminal, TerminalEmulator};
+use crate::gui::TerminalEmulator;
 
 use freminal_terminal_emulator::{
     ansi_components::modes::rl_bracket::RlBracket,
