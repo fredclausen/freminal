@@ -782,7 +782,6 @@ impl TerminalState {
                 // Also, the "clear screen" bit implies to me that the buffer we switch to is *always* new, but is that correct?
                 // This is why we're making a "new" buffer here
                 self.current_buffer = CurrentBuffer::Alternate;
-                self.alternate_buffer = Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT);
             }
             Mode::XtExtscrn(XtExtscrn::Primary) => {
                 debug!("Switching to primary screen buffer");
@@ -793,6 +792,8 @@ impl TerminalState {
                 // See set mode for notes on the cursor pos
 
                 self.current_buffer = CurrentBuffer::Primary;
+                let (width, height) = self.get_current_buffer().terminal_buffer.get_win_size();
+                self.alternate_buffer = Buffer::new(width, height);
             }
             Mode::XtMseWin(XtMseWin::Enabled) => {
                 debug!("Setting focus reporting");
