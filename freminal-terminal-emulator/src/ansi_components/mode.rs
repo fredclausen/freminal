@@ -1,8 +1,8 @@
 use std::fmt;
 
 use super::modes::{
-    decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket, xtextscrn::XtExtscrn,
-    xtmsewin::XtMseWin, xtmsex11::XtMseX11,
+    decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket, srm::Srm,
+    xtextscrn::XtExtscrn, xtmsewin::XtMseWin, xtmsex11::XtMseX11,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -24,6 +24,7 @@ pub enum Mode {
     XtMseWin(XtMseWin),
     XTMseX11(XtMseX11),
     BracketedPaste(RlBracket),
+    Srm(Srm),
     Unknown(Vec<u8>),
 }
 
@@ -32,6 +33,7 @@ pub struct TerminalModes {
     pub cursor_key: Decckm,
     pub bracketed_paste: RlBracket,
     pub focus_reporting: XtMseWin,
+    pub send_receive_mode: Srm,
 }
 
 impl fmt::Display for Mode {
@@ -40,6 +42,7 @@ impl fmt::Display for Mode {
             Self::Decckm(decckm) => write!(f, "{decckm}"),
             Self::Decawm(decawm) => write!(f, "{decawm}"),
             Self::Dectem(dectem) => write!(f, "{dectem}"),
+            Self::Srm(srm) => write!(f, "{srm}"),
             Self::XTMseX11(xt_mse_x11) => write!(f, "{xt_mse_x11}"),
             Self::XtMseWin(xt_mse_win) => write!(f, "{xt_mse_win}"),
             Self::XtExtscrn(xt_extscrn) => write!(f, "{xt_extscrn}"),
@@ -55,10 +58,16 @@ impl fmt::Display for Mode {
 
 #[must_use]
 pub fn terminal_mode_from_params(params: &[u8], mode: &SetMode) -> Mode {
+    info!(
+        "Terminal Mode: {:?}, {:?}",
+        String::from_utf8(params.to_vec()),
+        mode
+    );
     match params {
         // https://vt100.net/docs/vt510-rm/DECCKM.html
         b"?1" => Mode::Decckm(Decckm::new(mode)),
         b"?7" => Mode::Decawm(Decawm::new(mode)),
+        b"?12" => Mode::Srm(Srm::new(mode)),
         b"?25" => Mode::Dectem(Dectcem::new(mode)),
         b"?1000" => Mode::XTMseX11(XtMseX11::new(mode)),
         b"?1004" => Mode::XtMseWin(XtMseWin::new(mode)),
