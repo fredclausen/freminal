@@ -62,7 +62,11 @@ impl TerminalInput {
         match self {
             Self::Ascii(c) => TerminalInputPayload::Single(*c),
             Self::Ctrl(c) => TerminalInputPayload::Single(char_to_ctrl_code(*c)),
-            Self::Enter => TerminalInputPayload::Single(b'\n'),
+            // I have NO idea why this is the case, but just sending a '\n' fucks up some things
+            // For instance nvim and lazygit will not response to an enter key press with \n
+            // The shell itself is fine with \n. So who knows.
+            // TODO: really fix this out one.
+            Self::Enter => TerminalInputPayload::Single(char_to_ctrl_code(b'm')),
             // Hard to tie back, but check default VERASE in terminfo definition
             Self::Backspace => TerminalInputPayload::Single(0x7f),
             Self::Escape => TerminalInputPayload::Single(0x1b),
