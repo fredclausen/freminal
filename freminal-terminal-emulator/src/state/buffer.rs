@@ -669,6 +669,8 @@ impl TerminalBufferHolder {
 
     /// Given terminal height `height`, extract the visible line ranges from all line ranges (which
     /// include scrollback) assuming "visible" is the bottom N lines
+    // FIXME: This is remarkably efficient compared to where we started, but it still could be running 10s of thousands of times per read
+    // We should probably only recalculate what has changed and not the entire deal
     pub fn line_ranges_to_visible_line_ranges(&mut self) {
         let buf = &self.buf;
         let height = self.height;
