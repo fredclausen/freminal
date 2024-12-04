@@ -16,13 +16,15 @@ use crate::{
     ansi_components::{
         line_draw::DecSpecialGraphics,
         mode::{Mode, TerminalModes},
-        modes::{decckm::Decckm, dectcem::Dectcem, xtextscrn::XtExtscrn, xtmsewin::XtMseWin},
+        modes::{
+            decckm::Decckm, dectcem::Dectcem, srm::Srm, xtextscrn::XtExtscrn, xtmsewin::XtMseWin,
+        },
         osc::{AnsiOscInternalType, AnsiOscType, UrlResponse},
         sgr::SelectGraphicRendition,
     },
     format_tracker::{FormatTag, FormatTracker},
     interface::{split_format_data_for_scrollback, TerminalInput, TerminalInputPayload},
-    io::PtyWrite,
+    io::{PtyRead, PtyWrite},
 };
 
 use super::{
@@ -79,6 +81,7 @@ pub struct TerminalState {
     pub modes: TerminalModes,
     pub window_title: Option<String>,
     pub write_tx: crossbeam_channel::Sender<PtyWrite>,
+    pub write_tx_for_echo_back: crossbeam_channel::Sender<PtyRead>,
     pub changed: bool,
     pub ctx: Option<Context>,
     pub leftover_data: Option<Vec<u8>>,
@@ -91,7 +94,10 @@ impl Default for TerminalState {
     /// This method should never really be used. It was added to allow the test suite to pass
     /// The problem here is that you most likely really really want a rx channel to go with the tx channel
     fn default() -> Self {
-        Self::new(crossbeam_channel::unbounded().0)
+        Self::new(
+            crossbeam_channel::unbounded().0,
+            crossbeam_channel::unbounded().0,
+        )
     }
 }
 
@@ -111,7 +117,10 @@ impl PartialEq for TerminalState {
 
 impl TerminalState {
     #[must_use]
-    pub fn new(write_tx: crossbeam_channel::Sender<PtyWrite>) -> Self {
+    pub fn new(
+        write_tx: crossbeam_channel::Sender<PtyWrite>,
+        write_tx_for_echo_back: crossbeam_channel::Sender<PtyRead>,
+    ) -> Self {
         Self {
             parser: FreminalAnsiParser::new(),
             current_buffer: CurrentBuffer::Primary,
@@ -120,6 +129,7 @@ impl TerminalState {
             modes: TerminalModes::default(),
             window_title: None,
             write_tx,
+            write_tx_for_echo_back,
             changed: false,
             ctx: None,
             leftover_data: None,
@@ -1029,15 +1039,54 @@ impl TerminalState {
     /// # Errors
     /// Will return an error if the write fails
     pub fn write(&self, to_write: &TerminalInput) -> Result<()> {
+        let should_write = match to_write {
+            // Normal keypress
+            TerminalInput::Ascii(_) | TerminalInput::KeyPad(_) => true,
+            // Normal keypress with ctrl
+            TerminalInput::Ctrl(_)
+            | TerminalInput::Enter
+            | TerminalInput::Backspace
+            | TerminalInput::ArrowRight
+            | TerminalInput::ArrowLeft
+            | TerminalInput::ArrowUp
+            | TerminalInput::ArrowDown
+            | TerminalInput::Home
+            | TerminalInput::End
+            | TerminalInput::Delete
+            | TerminalInput::Insert
+            | TerminalInput::PageUp
+            | TerminalInput::PageDown
+            | TerminalInput::Tab
+            | TerminalInput::Escape
+            | TerminalInput::InFocus
+            | TerminalInput::LostFocus => false,
+        };
+
         match to_write.to_payload(
             self.get_cursor_key_mode() == Decckm::Application,
             self.get_cursor_key_mode() == Decckm::Application,
         ) {
             TerminalInputPayload::Single(c) => {
                 self.write_tx.send(PtyWrite::Write(vec![c]))?;
+
+                if self.modes.send_receive_mode == Srm::LocalEcho && should_write {
+                    let to_send = PtyRead {
+                        buf: vec![c],
+                        read_amount: 1,
+                    };
+                    self.write_tx_for_echo_back.send(to_send)?;
+                }
             }
             TerminalInputPayload::Many(to_write) => {
                 self.write_tx.send(PtyWrite::Write(to_write.to_vec()))?;
+
+                if self.modes.send_receive_mode == Srm::LocalEcho && should_write {
+                    let to_send = PtyRead {
+                        buf: to_write.to_vec(),
+                        read_amount: to_write.len(),
+                    };
+                    self.write_tx_for_echo_back.send(to_send)?;
+                }
             }
         };
 

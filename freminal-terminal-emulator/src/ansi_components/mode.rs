@@ -58,11 +58,6 @@ impl fmt::Display for Mode {
 
 #[must_use]
 pub fn terminal_mode_from_params(params: &[u8], mode: &SetMode) -> Mode {
-    info!(
-        "Terminal Mode: {:?}, {:?}",
-        String::from_utf8(params.to_vec()),
-        mode
-    );
     match params {
         // https://vt100.net/docs/vt510-rm/DECCKM.html
         b"?1" => Mode::Decckm(Decckm::new(mode)),
