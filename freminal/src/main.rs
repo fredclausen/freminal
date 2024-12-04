@@ -20,6 +20,7 @@ use freminal_terminal_emulator::interface::TerminalEmulator;
 use parking_lot::FairMutex;
 use std::{process, sync::Arc};
 use tracing::Level;
+use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{
     fmt::{self, layer},
     layer::SubscriberExt,
@@ -62,9 +63,16 @@ fn main() {
             .with_span_events(fmt::format::FmtSpan::ACTIVE)
             .compact();
 
-        let file_appender = tracing_appender::rolling::daily("./", "freminal.log");
+        //let file_appender = tracing_appender::rolling::daily("./", "freminal.log");
+        let file_appender = RollingFileAppender::builder()
+            .rotation(Rotation::HOURLY) // rotate log files once every hour
+            .max_log_files(2)
+            .filename_prefix("freminal") // log file names will be prefixed with `myapp.`
+            .filename_suffix("log") // log file names will be suffixed with `.log`
+            .build("./") // try to build an appender that stores log files in `/var/log`
+            .expect("initializing rolling file appender failed");
         subscriber
-            .with(layer().with_ansi(false).pretty().with_writer(file_appender))
+            .with(layer().with_ansi(false).with_writer(file_appender))
             .with(std_out_layer)
             .init();
     } else {
