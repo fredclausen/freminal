@@ -15,7 +15,7 @@ use crate::{
     ansi::{FreminalAnsiParser, TerminalOutput},
     ansi_components::{
         line_draw::DecSpecialGraphics,
-        mode::{Mode, TerminalModes},
+        mode::{Mode, MouseTrack, TerminalModes},
         modes::{decckm::Decckm, dectcem::Dectcem, xtextscrn::XtExtscrn, xtmsewin::XtMseWin},
         osc::{AnsiOscInternalType, AnsiOscType, UrlResponse},
         sgr::SelectGraphicRendition,
@@ -813,8 +813,13 @@ impl TerminalState {
             Mode::XtMseWin(XtMseWin::Disabled) => {
                 self.modes.focus_reporting = XtMseWin::Disabled;
             }
-            Mode::XTMseX11(mouse_mode) => {
-                warn!("XtX10Mouse is not supported: {mouse_mode}");
+            Mode::MouseMode(mode) => {
+                // we want to discard anything that isn't XtMse11 or NoTracking
+                if let MouseTrack::XtMseX11 | MouseTrack::NoTracking = mode {
+                    self.modes.mouse_tracking = mode.clone();
+                } else {
+                    warn!("Unhandled mouse mode: {mode}");
+                }
             }
             Mode::Unknown(_) => {
                 warn!("unhandled set mode: {mode}");

@@ -10,4 +10,3 @@ pub mod rl_bracket;
 pub mod xtcblink;
 pub mod xtextscrn;
 pub mod xtmsewin;
-pub mod xtmsex11;

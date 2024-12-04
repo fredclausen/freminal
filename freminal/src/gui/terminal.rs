@@ -6,7 +6,7 @@
 use crate::gui::TerminalEmulator;
 
 use freminal_terminal_emulator::{
-    ansi_components::modes::rl_bracket::RlBracket,
+    ansi_components::{mode::MouseTrack, modes::rl_bracket::RlBracket},
     format_tracker::FormatTag,
     interface::TerminalInput,
     io::FreminalTermInputOutput,
@@ -56,6 +56,8 @@ fn control_key(key: Key) -> Option<Cow<'static, [TerminalInput]>> {
 fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     input: &InputState,
     terminal_emulator: &mut TerminalEmulator<Io>,
+    character_size_x: f32,
+    character_size_y: f32,
 ) -> bool {
     if input.raw.events.is_empty() {
         return false;
@@ -186,13 +188,31 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 continue;
             }
             Event::PointerButton {
-                button: PointerButton::Primary,
-                pressed: true,
-                ..
+                button,
+                pressed,
+                modifiers,
+                pos,
             } => {
-                left_mouse_button_pressed = true;
+                state_changed = true;
 
-                continue;
+                if *button == PointerButton::Primary && *pressed {
+                    left_mouse_button_pressed = true;
+                }
+
+                if terminal_emulator.internal.modes.mouse_tracking == MouseTrack::NoTracking {
+                    continue;
+                }
+
+                // TODO: We should probably also set the mouse position here
+                //terminal_emulator.set_mouse_position(&Some(pos));
+                encode_x11_mouse_button(
+                    *button,
+                    *pressed,
+                    *modifiers,
+                    *pos,
+                    character_size_x,
+                    character_size_y,
+                )
             }
             // FIXME: should we do this?
             Event::MouseMoved(_) => {
@@ -226,6 +246,57 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     }
 
     left_mouse_button_pressed
+}
+
+fn encode_x11_mouse_button(
+    button: PointerButton,
+    pressed: bool,
+    modifiers: Modifiers,
+    pos: egui::Pos2,
+    character_size_x: f32,
+    character_size_y: f32,
+) -> Cow<'static, [TerminalInput]> {
+    //Normal tracking mode sends an escape sequence on both button press and release. Modifier key (shift, ctrl, meta) information is also sent. It is enabled by specifying parameter 1000 to DECSET. On button press or release, xterm sends CSI M C b C x C y . The low two bits of C b encode button information: 0=MB1 pressed, 1=MB2 pressed, 2=MB3 pressed, 3=release. The next three bits encode the modifiers which were down when the button was pressed and are added together: 4=Shift, 8=Meta, 16=Control
+
+    let mut cb: u8 = 32;
+
+    if !pressed {
+        cb += 3;
+    } else if button == PointerButton::Primary {
+        cb += 0;
+    } else if button == PointerButton::Middle {
+        cb += 1;
+    }
+
+    if modifiers.ctrl || modifiers.command {
+        cb += 16;
+    }
+
+    if modifiers.shift {
+        cb += 4;
+    }
+
+    // This is for meta, but wezterm seems to use alt as the meta?
+    if modifiers.alt {
+        cb += 8;
+    }
+
+    let x = ((pos.x / character_size_x).floor())
+        .approx_as::<u8>()
+        .unwrap_or_else(|_| {
+            error!("Failed to convert {} to u8. Using default of 0", pos.x);
+            0
+        })
+        + 32;
+    let y = ((pos.y / character_size_y).floor())
+        .approx_as::<u8>()
+        .unwrap_or_else(|_| {
+            error!("Failed to convert {} to u8. Using default of 0", pos.y);
+            0
+        })
+        + 32;
+
+    collect_text(&format!("\x1b[M{}{}{}", cb as char, x as char, y as char))
 }
 
 fn paint_cursor(label_rect: Rect, character_size: (f32, f32), cursor_pos: &CursorPos, ui: &Ui) {
@@ -757,8 +828,14 @@ impl FreminalTerminalWidget {
                 terminal_emulator.clear_window_title();
             }
 
-            let left_mouse_button_pressed =
-                ui.input(|input_state| write_input_to_terminal(input_state, terminal_emulator));
+            let left_mouse_button_pressed = ui.input(|input_state| {
+                write_input_to_terminal(
+                    input_state,
+                    terminal_emulator,
+                    self.character_size.0,
+                    self.character_size.1,
+                )
+            });
 
             if terminal_emulator.needs_redraw() {
                 self.previous_pass =
