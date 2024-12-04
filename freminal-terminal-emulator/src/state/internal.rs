@@ -766,6 +766,9 @@ impl TerminalState {
             Mode::BracketedPaste(bracketed_paste) => {
                 self.modes.bracketed_paste = bracketed_paste.clone();
             }
+            Mode::XtCBlink(xtcblink) => {
+                self.modes.cursor_blinking = xtcblink.clone();
+            }
             Mode::XtExtscrn(XtExtscrn::Alternate) => {
                 debug!("Switching to alternate screen buffer");
                 // SPEC Steps:
