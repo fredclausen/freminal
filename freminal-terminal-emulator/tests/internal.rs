@@ -26,9 +26,7 @@ use freminal_terminal_emulator::{
 #[test]
 fn test_internal_terminal_state_new() {
     let (tx, _rx) = crossbeam_channel::unbounded();
-    let (tx_2, _rx_2) = crossbeam_channel::unbounded();
-    let mut terminal_state = TerminalState::new(tx.clone(), tx_2.clone());
-
+    let mut terminal_state = TerminalState::new(tx.clone());
     let ctx = Context::default();
     let expected = TerminalState {
         parser: FreminalAnsiParser::new(),
@@ -37,7 +35,6 @@ fn test_internal_terminal_state_new() {
         modes: TerminalModes::default(),
         window_title: None,
         write_tx: tx,
-        write_tx_for_echo_back: tx_2,
         changed: false,
         ctx: None,
         leftover_data: None,
@@ -118,8 +115,7 @@ fn test_internal_terminal_state_new() {
 #[test]
 fn test_internal_terminal_state_data() {
     let (tx, _rx) = crossbeam_channel::unbounded();
-    let (tx_2, _rx_2) = crossbeam_channel::unbounded();
-    let mut terminal_state = TerminalState::new(tx.clone(), tx_2.clone());
+    let mut terminal_state = TerminalState::new(tx.clone());
 
     // new data for it to process. This is a simple string with no escape codes
     let data = b"Hello, World!";
@@ -154,8 +150,7 @@ fn test_internal_terminal_state_data() {
 #[test]
 fn test_set_cursor_pos() {
     let (tx, _rx) = crossbeam_channel::unbounded();
-    let (tx_2, _rx_2) = crossbeam_channel::unbounded();
-    let mut terminal_state = TerminalState::new(tx.clone(), tx_2.clone());
+    let mut terminal_state = TerminalState::new(tx.clone());
 
     // vector of bytes that represent the string "\0xb[1;1HHello, World!"
     let data: [u8; 19] = [
@@ -185,8 +180,7 @@ fn test_set_cursor_pos() {
 #[test]
 fn test_set_cursor_pos_rel() {
     let (tx, _rx) = crossbeam_channel::unbounded();
-    let (tx_2, _rx_2) = crossbeam_channel::unbounded();
-    let mut terminal_state = TerminalState::new(tx.clone(), tx_2.clone());
+    let mut terminal_state = TerminalState::new(tx.clone());
     let data = b"Hello, World!";
     terminal_state.handle_incoming_data(data);
 
@@ -202,8 +196,7 @@ fn test_set_cursor_pos_rel() {
 #[test]
 fn test_clear_display_from_cursor_to_end_of_display() {
     let (tx, _rx) = crossbeam_channel::unbounded();
-    let (tx_2, _rx_2) = crossbeam_channel::unbounded();
-    let mut terminal_state = TerminalState::new(tx.clone(), tx_2.clone());
+    let mut terminal_state = TerminalState::new(tx.clone());
     let data = b"Hello, World!";
     terminal_state.handle_incoming_data(data);
 
@@ -229,8 +222,7 @@ fn test_clear_display_from_cursor_to_end_of_display() {
 #[test]
 fn test_clear_display_from_start_of_display_to_cursor() {
     let (tx, _rx) = crossbeam_channel::unbounded();
-    let (tx_2, _rx_2) = crossbeam_channel::unbounded();
-    let mut terminal_state = TerminalState::new(tx.clone(), tx_2.clone());
+    let mut terminal_state = TerminalState::new(tx.clone());
     let data = b"Hello, World!";
     terminal_state.handle_incoming_data(data);
 
@@ -256,9 +248,7 @@ fn test_clear_display_from_start_of_display_to_cursor() {
 #[test]
 fn test_clear_display() {
     let (tx, _rx) = crossbeam_channel::unbounded();
-    let (tx_2, _rx_2) = crossbeam_channel::unbounded();
-    let mut terminal_state = TerminalState::new(tx.clone(), tx_2.clone());
-
+    let mut terminal_state = TerminalState::new(tx.clone());
     terminal_state.set_win_size(30, 5);
     // send the control code to clear the display
     // ESC [ Pn J
@@ -341,8 +331,7 @@ fn test_clear_display() {
 #[test]
 fn test_clear_lines() {
     let (tx, _rx) = crossbeam_channel::unbounded();
-    let (tx_2, _rx_2) = crossbeam_channel::unbounded();
-    let mut terminal_state = TerminalState::new(tx.clone(), tx_2.clone());
+    let mut terminal_state = TerminalState::new(tx.clone());
 
     // add some data
     let data = b"Hello, World!\n\rHello, World!\n\rHello, World!\n\rHello, World!\n\rHello, World!\n\rHello, World!";
@@ -409,8 +398,7 @@ fn test_clear_lines() {
 #[test]
 fn test_invalid_sequence() {
     let (tx, _rx) = crossbeam_channel::unbounded();
-    let (tx_2, _rx_2) = crossbeam_channel::unbounded();
-    let mut terminal_state = TerminalState::new(tx.clone(), tx_2.clone());
+    let mut terminal_state = TerminalState::new(tx.clone());
 
     // add some data
     let data = b"Hello, World!";
@@ -430,8 +418,7 @@ fn test_invalid_sequence() {
 #[test]
 fn test_backspace_and_delete_and_spaces() {
     let (tx, _rx) = crossbeam_channel::unbounded();
-    let (tx_2, _rx_2) = crossbeam_channel::unbounded();
-    let mut terminal_state = TerminalState::new(tx.clone(), tx_2.clone());
+    let mut terminal_state = TerminalState::new(tx.clone());
 
     // add some data
     let data = b"Hello, World!";
@@ -483,8 +470,7 @@ fn test_backspace_and_delete_and_spaces() {
 #[test]
 fn test_send_cursor_report() {
     let (tx, rx) = crossbeam_channel::unbounded();
-    let (tx_2, _rx_2) = crossbeam_channel::unbounded();
-    let mut terminal_state = TerminalState::new(tx.clone(), tx_2.clone());
+    let mut terminal_state = TerminalState::new(tx.clone());
 
     // ESC [ n
     // "\0x1b[n" sends a cursor report
@@ -511,8 +497,7 @@ fn test_send_cursor_report() {
 #[test]
 fn test_write_many() {
     let (tx, rx) = crossbeam_channel::unbounded();
-    let (tx_2, _rx_2) = crossbeam_channel::unbounded();
-    let terminal_state = TerminalState::new(tx.clone(), tx_2.clone());
+    let terminal_state = TerminalState::new(tx.clone());
 
     let input = TerminalInput::ArrowRight;
     assert!(terminal_state.write(&input).is_ok());
@@ -532,8 +517,7 @@ fn test_write_many() {
 #[test]
 fn get_cursor_pos() {
     let (tx, _rx) = crossbeam_channel::unbounded();
-    let (tx_2, _rx_2) = crossbeam_channel::unbounded();
-    let mut terminal_state = TerminalState::new(tx.clone(), tx_2.clone());
+    let mut terminal_state = TerminalState::new(tx.clone());
 
     // ESC [ n
     // "\0x1b[n" sends a cursor report
@@ -547,8 +531,7 @@ fn get_cursor_pos() {
 #[test]
 fn test_sgr_sequences() {
     let (tx, _rx) = crossbeam_channel::unbounded();
-    let (tx_2, _rx_2) = crossbeam_channel::unbounded();
-    let mut terminal_state = TerminalState::new(tx.clone(), tx_2.clone());
+    let mut terminal_state = TerminalState::new(tx.clone());
 
     // // add some data
     // let data = b"Hello, World!";

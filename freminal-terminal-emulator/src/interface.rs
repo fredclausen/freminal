@@ -208,7 +208,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
 
         let io = FreminalPtyInputOutput::new(
             read_rx,
-            pty_tx.clone(),
+            pty_tx,
             args.recording.clone(),
             args.shell.clone(),
         )?;
@@ -223,7 +223,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
         }
 
         let ret = Self {
-            internal: TerminalState::new(write_tx.clone(), pty_tx),
+            internal: TerminalState::new(write_tx.clone()),
             _io: io,
             write_tx,
             ctx: None,
