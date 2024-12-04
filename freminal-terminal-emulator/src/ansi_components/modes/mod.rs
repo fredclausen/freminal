@@ -7,7 +7,6 @@ pub mod decawm;
 pub mod decckm;
 pub mod dectcem;
 pub mod rl_bracket;
-pub mod srm;
 pub mod xtextscrn;
 pub mod xtmsewin;
 pub mod xtmsex11;
