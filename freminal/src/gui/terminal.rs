@@ -137,7 +137,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 if let Some(inputs) = control_key(*key) {
                     inputs
                 } else {
-                    info!("Unexpected ctrl key: {}", key.name());
+                    error!("Unexpected ctrl key: {}", key.name());
                     continue;
                 }
             }
@@ -231,9 +231,11 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
             }
             Event::PointerMoved(pos) => {
                 terminal_emulator.set_mouse_position_from_move_event(pos);
-                if (last_reported_mouse_pos.is_some()
-                    && terminal_emulator.internal.modes.mouse_tracking == MouseTrack::XtMseBtn)
-                    || terminal_emulator.internal.modes.mouse_tracking == MouseTrack::XtMseAny
+                if terminal_emulator
+                    .internal
+                    .modes
+                    .mouse_tracking
+                    .should_report_motion()
                 {
                     let previous_mouse_state = last_reported_mouse_pos.clone().unwrap_or_default();
 
@@ -257,14 +259,14 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                         modifiers: previous_mouse_state.modifiers,
                     };
 
-                    let report_motion = terminal_emulator.internal.modes.mouse_tracking
-                        != MouseTrack::NoTracking
-                        || terminal_emulator.internal.modes.mouse_tracking != MouseTrack::XtMseX11
-                        || terminal_emulator.internal.modes.mouse_tracking != MouseTrack::XtMseBtn
-                        || new_mouse_position.should_report(last_reported_mouse_pos.as_ref());
+                    let report_motion = terminal_emulator
+                        .internal
+                        .modes
+                        .mouse_tracking
+                        .should_report_motion()
+                        && new_mouse_position.should_report(last_reported_mouse_pos.as_ref());
 
                     if report_motion {
-                        debug!("going to report motion");
                         last_reported_mouse_pos = Some(new_mouse_position.clone());
                         let encoding = if terminal_emulator.internal.modes.mouse_tracking
                             == MouseTrack::XtMseSgr
@@ -329,7 +331,11 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 // TODO: We should probably also set the mouse position here
                 //terminal_emulator.set_mouse_position(&Some(pos));
                 if *pressed
-                    || terminal_emulator.internal.modes.mouse_tracking == MouseTrack::XtMseAny
+                    || terminal_emulator
+                        .internal
+                        .modes
+                        .mouse_tracking
+                        .should_scroll()
                 {
                     last_reported_mouse_pos = Some(new_mouse_position);
                 } else {
@@ -363,11 +369,6 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 if terminal_emulator.internal.modes.mouse_tracking == MouseTrack::NoTracking
                     || last_reported_mouse_pos.is_none()
                 {
-                    info!(
-                        "No scrolling because {} or {}",
-                        terminal_emulator.internal.modes.mouse_tracking,
-                        last_reported_mouse_pos.is_none()
-                    );
                     continue;
                 }
 
@@ -385,7 +386,6 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                     &new_mouse_position.mouse_position.unwrap(),
                     &encoding,
                 ) {
-                    info!("Scroll response: {:?}", response);
                     response
                 } else {
                     continue;

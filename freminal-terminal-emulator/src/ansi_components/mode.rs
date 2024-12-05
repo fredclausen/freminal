@@ -28,6 +28,34 @@ pub enum MouseTrack {
     XtMseSgrPixels, // ?1016
 }
 
+impl MouseTrack {
+    #[must_use]
+    pub const fn should_scroll(&self) -> bool {
+        match self {
+            Self::NoTracking | Self::XtMsex10 | Self::XtMseX11 => false,
+            Self::XtMseBtn
+            | Self::XtMseAny
+            | Self::XtMseUtf
+            | Self::XtMseSgr
+            | Self::XtMseUrXvt
+            | Self::XtMseSgrPixels => true,
+        }
+    }
+
+    #[must_use]
+    pub const fn should_report_motion(&self) -> bool {
+        match self {
+            Self::NoTracking | Self::XtMsex10 | Self::XtMseX11 => false,
+            Self::XtMseBtn
+            | Self::XtMseAny
+            | Self::XtMseUtf
+            | Self::XtMseSgr
+            | Self::XtMseUrXvt
+            | Self::XtMseSgrPixels => true,
+        }
+    }
+}
+
 impl fmt::Display for MouseTrack {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
