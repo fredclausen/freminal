@@ -759,8 +759,11 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
         .auto_shrink([false, false])
         .stick_to_bottom(true)
         .animated(false)
+        .scroll([false, false])
         .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
         .show(ui, |ui| {
+            ui.style_mut().interaction.selectable_labels = false;
+
             let error_logged_rect =
                 |response: Result<(egui::Response, Option<UiJobAction>)>| match response {
                     Ok((v, action)) => (v.rect, action),
