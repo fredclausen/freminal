@@ -815,7 +815,11 @@ impl TerminalState {
                 self.modes.focus_reporting = XtMseWin::Disabled;
             }
             Mode::MouseMode(mode) => {
-                if let MouseTrack::XtMseX11 | MouseTrack::XtMseBtn | MouseTrack::NoTracking = mode {
+                if let MouseTrack::XtMseX11
+                | MouseTrack::XtMseBtn
+                | MouseTrack::NoTracking
+                | MouseTrack::XtMseAny = mode
+                {
                     self.modes.mouse_tracking = mode.clone();
                 } else {
                     warn!("Unhandled mouse mode: {mode}");

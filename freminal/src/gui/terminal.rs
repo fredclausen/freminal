@@ -60,6 +60,17 @@ struct PreviousMouseState {
     modifiers: Modifiers,
 }
 
+impl Default for PreviousMouseState {
+    fn default() -> Self {
+        Self {
+            button: PointerButton::Primary,
+            button_pressed: false,
+            mouse_position: None,
+            modifiers: Modifiers::default(),
+        }
+    }
+}
+
 impl PreviousMouseState {
     pub fn should_report(&self, new: Option<&Self>) -> bool {
         if let Some(new) = new {
@@ -215,10 +226,11 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
             }
             Event::PointerMoved(pos) => {
                 terminal_emulator.set_mouse_position_from_move_event(pos);
-                if last_reported_mouse_pos.is_some()
-                    && terminal_emulator.internal.modes.mouse_tracking == MouseTrack::XtMseBtn
+                if (last_reported_mouse_pos.is_some()
+                    && terminal_emulator.internal.modes.mouse_tracking == MouseTrack::XtMseBtn)
+                    || terminal_emulator.internal.modes.mouse_tracking == MouseTrack::XtMseAny
                 {
-                    let previous_mouse_state = last_reported_mouse_pos.as_ref().unwrap();
+                    let previous_mouse_state = last_reported_mouse_pos.clone().unwrap_or_default();
 
                     let x = ((pos.x / character_size_x).floor())
                         .approx_as::<u8>()
@@ -240,8 +252,9 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                         modifiers: previous_mouse_state.modifiers,
                     };
 
-                    let report_motion =
-                        new_mouse_position.should_report(last_reported_mouse_pos.as_ref());
+                    let report_motion = terminal_emulator.internal.modes.mouse_tracking
+                        == MouseTrack::XtMseAny
+                        || new_mouse_position.should_report(last_reported_mouse_pos.as_ref());
 
                     if report_motion {
                         debug!("going to report motion");
@@ -299,7 +312,9 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
 
                 // TODO: We should probably also set the mouse position here
                 //terminal_emulator.set_mouse_position(&Some(pos));
-                if *pressed {
+                if *pressed
+                    || terminal_emulator.internal.modes.mouse_tracking == MouseTrack::XtMseAny
+                {
                     last_reported_mouse_pos = Some(new_mouse_position);
                 } else {
                     last_reported_mouse_pos = None;
