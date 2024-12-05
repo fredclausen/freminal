@@ -86,6 +86,12 @@ enum MouseEvent {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+enum MouseEncoding {
+    X11,
+    Sgr,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 struct FreminalMousePosition {
     x: u8,
     y: u8,
@@ -252,18 +258,29 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                     };
 
                     let report_motion = terminal_emulator.internal.modes.mouse_tracking
-                        == MouseTrack::XtMseAny
+                        != MouseTrack::NoTracking
+                        || terminal_emulator.internal.modes.mouse_tracking != MouseTrack::XtMseX11
+                        || terminal_emulator.internal.modes.mouse_tracking != MouseTrack::XtMseBtn
                         || new_mouse_position.should_report(last_reported_mouse_pos.as_ref());
 
                     if report_motion {
                         debug!("going to report motion");
                         last_reported_mouse_pos = Some(new_mouse_position.clone());
+                        let encoding = if terminal_emulator.internal.modes.mouse_tracking
+                            == MouseTrack::XtMseSgr
+                        {
+                            MouseEncoding::Sgr
+                        } else {
+                            MouseEncoding::X11
+                        };
+
                         encode_x11_mouse_button(
                             new_mouse_position.button,
                             true,
                             new_mouse_position.modifiers,
                             &mouse_pos,
                             false,
+                            &encoding,
                         )
                     } else {
                         continue;
@@ -319,7 +336,14 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                     last_reported_mouse_pos = None;
                 }
 
-                encode_x11_mouse_button(*button, *pressed, *modifiers, &mouse_pos, false)
+                let encoding =
+                    if terminal_emulator.internal.modes.mouse_tracking == MouseTrack::XtMseSgr {
+                        MouseEncoding::Sgr
+                    } else {
+                        MouseEncoding::X11
+                    };
+
+                encode_x11_mouse_button(*button, *pressed, *modifiers, &mouse_pos, false, &encoding)
             }
             // FIXME: should we do this?
             Event::MouseMoved(_) => {
@@ -339,15 +363,29 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 if terminal_emulator.internal.modes.mouse_tracking == MouseTrack::NoTracking
                     || last_reported_mouse_pos.is_none()
                 {
+                    info!(
+                        "No scrolling because {} or {}",
+                        terminal_emulator.internal.modes.mouse_tracking,
+                        last_reported_mouse_pos.is_none()
+                    );
                     continue;
                 }
 
                 let new_mouse_position = last_reported_mouse_pos.clone().unwrap();
+                let encoding =
+                    if terminal_emulator.internal.modes.mouse_tracking == MouseTrack::XtMseSgr {
+                        MouseEncoding::Sgr
+                    } else {
+                        MouseEncoding::X11
+                    };
+
                 if let Some(response) = encode_x11_mouse_wheel(
                     *delta,
                     *modifiers,
                     &new_mouse_position.mouse_position.unwrap(),
+                    &encoding,
                 ) {
+                    info!("Scroll response: {:?}", response);
                     response
                 } else {
                     continue;
@@ -435,8 +473,15 @@ fn encode_x11_mouse_wheel(
     delta: Vec2,
     modifiers: Modifiers,
     pos: &FreminalMousePosition,
+    encoding: &MouseEncoding,
 ) -> Option<Cow<'static, [TerminalInput]>> {
-    let mut cb = 32;
+    let padding = if encoding == &MouseEncoding::X11 {
+        32
+    } else {
+        0
+    };
+
+    let mut cb = padding;
 
     cb += encode_mouse_for_x11(&MouseEvent::Scroll(delta), true);
     if cb == 32 {
@@ -444,13 +489,17 @@ fn encode_x11_mouse_wheel(
     }
     cb += encode_modifiers_for_x11(modifiers);
 
-    let x = pos.x + 32;
-    let y = pos.y + 32;
+    let x = pos.x + padding;
+    let y = pos.y + padding;
 
-    Some(collect_text(&format!(
-        "\x1b[M{}{}{}",
-        cb as char, x as char, y as char
-    )))
+    if encoding == &MouseEncoding::X11 {
+        Some(collect_text(&format!(
+            "\x1b[M{}{}{}",
+            cb as char, x as char, y as char
+        )))
+    } else {
+        Some(collect_text(&format!("\x1b[<{cb};{x};{y}M")))
+    }
 }
 
 fn encode_x11_mouse_button(
@@ -459,19 +508,36 @@ fn encode_x11_mouse_button(
     modifiers: Modifiers,
     pos: &FreminalMousePosition,
     report_motion: bool,
+    encoding: &MouseEncoding,
 ) -> Cow<'static, [TerminalInput]> {
     //Normal tracking mode sends an escape sequence on both button press and release. Modifier key (shift, ctrl, meta) information is also sent. It is enabled by specifying parameter 1000 to DECSET. On button press or release, xterm sends CSI M C b C x C y . The low two bits of C b encode button information: 0=MB1 pressed, 1=MB2 pressed, 2=MB3 pressed, 3=release. The next three bits encode the modifiers which were down when the button was pressed and are added together: 4=Shift, 8=Meta, 16=Control
 
+    let padding = if encoding == &MouseEncoding::X11 {
+        32
+    } else {
+        0
+    };
+
     let motion = if report_motion { 32 } else { 0 };
-    let mut cb: u8 = 32;
+    let mut cb: u8 = padding;
 
     cb += encode_mouse_for_x11(&MouseEvent::Button(button), pressed);
     cb += encode_modifiers_for_x11(modifiers);
 
-    let x = pos.x + 32 + motion;
-    let y = pos.y + 32 + motion;
+    let x = pos.x + padding + motion;
+    let y = pos.y + padding + motion;
 
-    collect_text(&format!("\x1b[M{}{}{}", cb as char, x as char, y as char))
+    if encoding == &MouseEncoding::X11 {
+        collect_text(&format!("\x1b[M{}{}{}", cb as char, x as char, y as char))
+    } else {
+        collect_text(&format!(
+            "\x1b[<{};{};{}{}",
+            cb,
+            x,
+            y,
+            if pressed { "M" } else { "m" }
+        ))
+    }
 }
 
 fn paint_cursor(label_rect: Rect, character_size: (f32, f32), cursor_pos: &CursorPos, ui: &Ui) {

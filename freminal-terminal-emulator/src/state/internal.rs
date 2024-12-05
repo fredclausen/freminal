@@ -818,8 +818,10 @@ impl TerminalState {
                 if let MouseTrack::XtMseX11
                 | MouseTrack::XtMseBtn
                 | MouseTrack::NoTracking
-                | MouseTrack::XtMseAny = mode
+                | MouseTrack::XtMseAny
+                | MouseTrack::XtMseSgr = mode
                 {
+                    info!("Setting mode to: {mode}");
                     self.modes.mouse_tracking = mode.clone();
                 } else {
                     warn!("Unhandled mouse mode: {mode}");
