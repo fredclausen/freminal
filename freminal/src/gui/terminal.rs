@@ -82,7 +82,6 @@ impl PreviousMouseState {
 
 enum MouseEvent {
     Button(PointerButton),
-    #[allow(dead_code)]
     Scroll(Vec2),
 }
 
@@ -327,13 +326,32 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 state_changed = true;
                 continue;
             }
-            Event::MouseWheel { delta, .. } => {
+            Event::MouseWheel {
+                delta, modifiers, ..
+            } => {
+                // TODO: should we care if we scrolled in the x axis?
                 if delta.y != 0.0 {
                     terminal_emulator.internal.scroll(delta.y);
                 }
 
                 state_changed = true;
-                continue;
+
+                if terminal_emulator.internal.modes.mouse_tracking == MouseTrack::NoTracking
+                    || last_reported_mouse_pos.is_none()
+                {
+                    continue;
+                }
+
+                let new_mouse_position = last_reported_mouse_pos.clone().unwrap();
+                if let Some(response) = encode_x11_mouse_wheel(
+                    *delta,
+                    *modifiers,
+                    &new_mouse_position.mouse_position.unwrap(),
+                ) {
+                    response
+                } else {
+                    continue;
+                }
             }
             _ => {
                 continue;
@@ -368,22 +386,24 @@ fn encode_mouse_for_x11(button: &MouseEvent, pressed: bool) -> u8 {
             }
             MouseEvent::Scroll(amount) => {
                 // FIXME: This is not correct. eframe encodes a x and y event together I think.
-                // For now we'll prefer the x event as the driver for the scroll
+                // For now we'll prefer the y event as the driver for the scroll
                 // If that is the case should we be sending a two different events for scroll?
 
-                if amount.x != 0.0 {
-                    if amount.x > 0.0 {
+                // if amount.y != 0.0 {
+                //     info!("scrolling y: {}", amount.y);
+                //     if amount.y > 0.0 {
+                //         return 66;
+                //     }
+                //     return 67;
+                // };
+
+                if amount.y != 0.0 {
+                    if amount.y > 0.0 {
                         return 64;
                     }
                     return 65;
                 }
 
-                if amount.y != 0.0 {
-                    if amount.y > 0.0 {
-                        return 66;
-                    }
-                    return 67;
-                };
                 0
             }
         }
@@ -409,6 +429,28 @@ const fn encode_modifiers_for_x11(modifiers: Modifiers) -> u8 {
     }
 
     cb
+}
+
+fn encode_x11_mouse_wheel(
+    delta: Vec2,
+    modifiers: Modifiers,
+    pos: &FreminalMousePosition,
+) -> Option<Cow<'static, [TerminalInput]>> {
+    let mut cb = 32;
+
+    cb += encode_mouse_for_x11(&MouseEvent::Scroll(delta), true);
+    if cb == 32 {
+        return None;
+    }
+    cb += encode_modifiers_for_x11(modifiers);
+
+    let x = pos.x + 32;
+    let y = pos.y + 32;
+
+    Some(collect_text(&format!(
+        "\x1b[M{}{}{}",
+        cb as char, x as char, y as char
+    )))
 }
 
 fn encode_x11_mouse_button(
