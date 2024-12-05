@@ -13,16 +13,19 @@ pub enum SetMode {
     DecRst,
 }
 
+// https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h2-Mouse-Tracking
 #[derive(Debug, Eq, PartialEq, Default, Clone)]
 pub enum MouseTrack {
     #[default]
     NoTracking,
-    XtMsex10, // ?9
-    XtMseX11, // ?1000
-    XtMseBtn, // ?1002
-    XtMseAny, // ?1003
-    XtMseUtf, // ?1005
-    XtMseSgr, // ?1006
+    XtMsex10,       // ?9
+    XtMseX11,       // ?1000
+    XtMseBtn,       // ?1002
+    XtMseAny,       // ?1003
+    XtMseUtf,       // ?1005
+    XtMseSgr,       // ?1006
+    XtMseUrXvt,     // ?1015
+    XtMseSgrPixels, // ?1016
 }
 
 impl fmt::Display for MouseTrack {
@@ -35,6 +38,8 @@ impl fmt::Display for MouseTrack {
             Self::XtMseAny => write!(f, "XtMseAny"),
             Self::XtMseUtf => write!(f, "XtMseUtf"),
             Self::XtMseSgr => write!(f, "XtMseSgr"),
+            Self::XtMseUrXvt => write!(f, "XtMseUrXvt"),
+            Self::XtMseSgrPixels => write!(f, "XtMseSgrPixels"),
         }
     }
 }
@@ -89,6 +94,7 @@ pub fn terminal_mode_from_params(params: &[u8], mode: &SetMode) -> Mode {
         // https://vt100.net/docs/vt510-rm/DECCKM.html
         b"?1" => Mode::Decckm(Decckm::new(mode)),
         b"?7" => Mode::Decawm(Decawm::new(mode)),
+        // TODO: Implement this
         b"?9" => {
             if mode == &SetMode::DecSet {
                 Mode::MouseMode(MouseTrack::XtMsex10)
@@ -120,6 +126,7 @@ pub fn terminal_mode_from_params(params: &[u8], mode: &SetMode) -> Mode {
             }
         }
         b"?1004" => Mode::XtMseWin(XtMseWin::new(mode)),
+        // TODO: Implement this
         b"?1005" => {
             if mode == &SetMode::DecSet {
                 Mode::MouseMode(MouseTrack::XtMseUtf)
@@ -127,9 +134,33 @@ pub fn terminal_mode_from_params(params: &[u8], mode: &SetMode) -> Mode {
                 Mode::MouseMode(MouseTrack::NoTracking)
             }
         }
+        // TODO: Implement this
         b"?1006" => {
             if mode == &SetMode::DecSet {
                 Mode::MouseMode(MouseTrack::XtMseSgr)
+            } else {
+                Mode::MouseMode(MouseTrack::NoTracking)
+            }
+        }
+        // For now, we'll ignore this. Reading documentation it seems like this is
+        // a pretty terrible format to use for mouse tracking.
+        // From the documentation:
+        // However, CSI M  can be mistaken for DL (delete lines), while
+        //   the highlight tracking CSI T  can be mistaken for SD (scroll
+        //   down), and the Window manipulation controls.  For these
+        //   reasons, the 1015 control is not recommended; it is not an
+        //  improvement over 1006.
+        b"?1015" => {
+            if mode == &SetMode::DecSet {
+                Mode::MouseMode(MouseTrack::XtMseUrXvt)
+            } else {
+                Mode::MouseMode(MouseTrack::NoTracking)
+            }
+        }
+        // TODO: Implement this
+        b"?1016" => {
+            if mode == &SetMode::DecSet {
+                Mode::MouseMode(MouseTrack::XtMseSgrPixels)
             } else {
                 Mode::MouseMode(MouseTrack::NoTracking)
             }
