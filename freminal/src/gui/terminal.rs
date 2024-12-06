@@ -228,14 +228,14 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
             }
             Event::WindowFocused(focused) => {
                 terminal_emulator.set_window_focused(*focused);
-                continue;
-            }
-            Event::MouseMoved(pos) => {
-                info!("Mouse moved: {:?}", pos);
+
+                if !*focused {
+                    last_reported_mouse_pos = None;
+                }
+
                 continue;
             }
             Event::PointerMoved(pos) => {
-                info!("Pointer moved: {:?}", pos);
                 terminal_emulator.set_mouse_position_from_move_event(pos);
                 if terminal_emulator
                     .internal
@@ -276,7 +276,6 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                     }
 
                     if report_motion {
-                        info!("Reporting mouse motion");
                         let encoding = if terminal_emulator.internal.modes.mouse_tracking
                             == MouseTrack::XtMseSgr
                         {
@@ -287,7 +286,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
 
                         encode_x11_mouse_button(
                             new_mouse_position.button,
-                            true,
+                            new_mouse_position.button_pressed,
                             new_mouse_position.modifiers,
                             &mouse_pos,
                             false,
@@ -434,14 +433,6 @@ fn encode_mouse_for_x11(button: &MouseEvent, pressed: bool) -> usize {
                 // For now we'll prefer the y event as the driver for the scroll
                 // If that is the case should we be sending a two different events for scroll?
 
-                // if amount.y != 0.0 {
-                //     info!("scrolling y: {}", amount.y);
-                //     if amount.y > 0.0 {
-                //         return 66;
-                //     }
-                //     return 67;
-                // };
-
                 if amount.y != 0.0 {
                     if amount.y > 0.0 {
                         return 64;
@@ -482,7 +473,6 @@ fn encode_x11_mouse_wheel(
     pos: &FreminalMousePosition,
     encoding: &MouseEncoding,
 ) -> Option<Cow<'static, [TerminalInput]>> {
-    info!("Scrolling with position: {:?}, delta: {:?}", pos, delta);
     let padding = if encoding == &MouseEncoding::X11 {
         32
     } else {
