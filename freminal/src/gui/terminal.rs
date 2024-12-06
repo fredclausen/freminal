@@ -248,14 +248,14 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                     let x = ((pos.x / character_size_x).floor())
                         .approx_as::<usize>()
                         .unwrap_or_else(|_| {
-                            error!("Failed to convert {} to u8. Using default of 0", pos.x);
-                            0
+                            error!("Failed to convert {} to u8. Using default of 255", pos.x);
+                            255
                         });
                     let y = ((pos.y / character_size_y).floor())
                         .approx_as::<usize>()
                         .unwrap_or_else(|_| {
-                            error!("Failed to convert {} to u8. Using default of 0", pos.y);
-                            0
+                            error!("Failed to convert {} to u8. Using default of 255", pos.y);
+                            255
                         });
                     let mouse_pos = FreminalMousePosition {
                         x_as_character_column: x,
@@ -271,9 +271,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                     let report_motion =
                         new_mouse_position.should_report(last_reported_mouse_pos.as_ref());
 
-                    if last_reported_mouse_pos.is_none() {
-                        last_reported_mouse_pos = Some(new_mouse_position.clone());
-                    }
+                    last_reported_mouse_pos = Some(new_mouse_position.clone());
 
                     if report_motion {
                         let encoding = if terminal_emulator.internal.modes.mouse_tracking
@@ -311,14 +309,14 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 let x = ((pos.x / character_size_x).floor())
                     .approx_as::<usize>()
                     .unwrap_or_else(|_| {
-                        error!("Failed to convert {} to u8. Using default of 0", pos.x);
-                        0
+                        error!("Failed to convert {} to u8. Using default of 255", pos.x);
+                        255
                     });
                 let y = ((pos.y / character_size_y).floor())
                     .approx_as::<usize>()
                     .unwrap_or_else(|_| {
-                        error!("Failed to convert {} to u8. Using default of 0", pos.y);
-                        0
+                        error!("Failed to convert {} to u8. Using default of 255", pos.y);
+                        255
                     });
                 let mouse_pos = FreminalMousePosition {
                     x_as_character_column: x,
@@ -503,6 +501,7 @@ fn encode_x11_mouse_wheel(
             error!("Failed to convert {} to char. Using default of 256", y);
             255
         });
+        info!("Encoding x: {}, y: {}", x, y);
         Some(collect_text(&format!(
             "\x1b[M{}{}{}",
             cb as char, x as char, y as char
@@ -551,6 +550,7 @@ fn encode_x11_mouse_button(
             255
         });
 
+        info!("Encoding x: {}, y: {}", x, y);
         collect_text(&format!("\x1b[M{}{}{}", cb as char, x as char, y as char))
     } else {
         collect_text(&format!(
