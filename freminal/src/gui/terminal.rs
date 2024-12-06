@@ -93,8 +93,8 @@ enum MouseEncoding {
 
 #[derive(Debug, PartialEq, Clone)]
 struct FreminalMousePosition {
-    x: u8,
-    y: u8,
+    x_as_character_column: usize,
+    y_as_character_row: usize,
 }
 
 #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
@@ -223,13 +223,19 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
             }
             Event::PointerGone => {
                 terminal_emulator.set_mouse_position(&None);
+                last_reported_mouse_pos = None;
                 continue;
             }
             Event::WindowFocused(focused) => {
                 terminal_emulator.set_window_focused(*focused);
                 continue;
             }
+            Event::MouseMoved(pos) => {
+                info!("Mouse moved: {:?}", pos);
+                continue;
+            }
             Event::PointerMoved(pos) => {
+                info!("Pointer moved: {:?}", pos);
                 terminal_emulator.set_mouse_position_from_move_event(pos);
                 if terminal_emulator
                     .internal
@@ -240,18 +246,21 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                     let previous_mouse_state = last_reported_mouse_pos.clone().unwrap_or_default();
 
                     let x = ((pos.x / character_size_x).floor())
-                        .approx_as::<u8>()
+                        .approx_as::<usize>()
                         .unwrap_or_else(|_| {
                             error!("Failed to convert {} to u8. Using default of 0", pos.x);
                             0
                         });
                     let y = ((pos.y / character_size_y).floor())
-                        .approx_as::<u8>()
+                        .approx_as::<usize>()
                         .unwrap_or_else(|_| {
                             error!("Failed to convert {} to u8. Using default of 0", pos.y);
                             0
                         });
-                    let mouse_pos = FreminalMousePosition { x, y };
+                    let mouse_pos = FreminalMousePosition {
+                        x_as_character_column: x,
+                        y_as_character_row: y,
+                    };
                     let new_mouse_position = PreviousMouseState {
                         button: previous_mouse_state.button,
                         button_pressed: previous_mouse_state.button_pressed,
@@ -259,15 +268,15 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                         modifiers: previous_mouse_state.modifiers,
                     };
 
-                    let report_motion = terminal_emulator
-                        .internal
-                        .modes
-                        .mouse_tracking
-                        .should_report_motion()
-                        && new_mouse_position.should_report(last_reported_mouse_pos.as_ref());
+                    let report_motion =
+                        new_mouse_position.should_report(last_reported_mouse_pos.as_ref());
+
+                    if last_reported_mouse_pos.is_none() {
+                        last_reported_mouse_pos = Some(new_mouse_position.clone());
+                    }
 
                     if report_motion {
-                        last_reported_mouse_pos = Some(new_mouse_position.clone());
+                        info!("Reporting mouse motion");
                         let encoding = if terminal_emulator.internal.modes.mouse_tracking
                             == MouseTrack::XtMseSgr
                         {
@@ -301,18 +310,21 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
             } => {
                 state_changed = true;
                 let x = ((pos.x / character_size_x).floor())
-                    .approx_as::<u8>()
+                    .approx_as::<usize>()
                     .unwrap_or_else(|_| {
                         error!("Failed to convert {} to u8. Using default of 0", pos.x);
                         0
                     });
                 let y = ((pos.y / character_size_y).floor())
-                    .approx_as::<u8>()
+                    .approx_as::<usize>()
                     .unwrap_or_else(|_| {
                         error!("Failed to convert {} to u8. Using default of 0", pos.y);
                         0
                     });
-                let mouse_pos = FreminalMousePosition { x, y };
+                let mouse_pos = FreminalMousePosition {
+                    x_as_character_column: x,
+                    y_as_character_row: y,
+                };
                 let new_mouse_position = PreviousMouseState {
                     button: *button,
                     button_pressed: *pressed,
@@ -350,11 +362,6 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                     };
 
                 encode_x11_mouse_button(*button, *pressed, *modifiers, &mouse_pos, false, &encoding)
-            }
-            // FIXME: should we do this?
-            Event::MouseMoved(_) => {
-                state_changed = true;
-                continue;
             }
             Event::MouseWheel {
                 delta, modifiers, ..
@@ -412,7 +419,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     (left_mouse_button_pressed, last_reported_mouse_pos)
 }
 
-fn encode_mouse_for_x11(button: &MouseEvent, pressed: bool) -> u8 {
+fn encode_mouse_for_x11(button: &MouseEvent, pressed: bool) -> usize {
     if pressed {
         match button {
             MouseEvent::Button(PointerButton::Primary) => 0,
@@ -450,7 +457,7 @@ fn encode_mouse_for_x11(button: &MouseEvent, pressed: bool) -> u8 {
     }
 }
 
-const fn encode_modifiers_for_x11(modifiers: Modifiers) -> u8 {
+const fn encode_modifiers_for_x11(modifiers: Modifiers) -> usize {
     let mut cb = 0;
 
     if modifiers.ctrl || modifiers.command {
@@ -475,6 +482,7 @@ fn encode_x11_mouse_wheel(
     pos: &FreminalMousePosition,
     encoding: &MouseEncoding,
 ) -> Option<Cow<'static, [TerminalInput]>> {
+    info!("Scrolling with position: {:?}, delta: {:?}", pos, delta);
     let padding = if encoding == &MouseEncoding::X11 {
         32
     } else {
@@ -489,10 +497,22 @@ fn encode_x11_mouse_wheel(
     }
     cb += encode_modifiers_for_x11(modifiers);
 
-    let x = pos.x + padding;
-    let y = pos.y + padding;
+    let x = pos.x_as_character_column + padding;
+    let y = pos.y_as_character_row + padding;
 
     if encoding == &MouseEncoding::X11 {
+        let cb = cb.approx_as::<u8>().unwrap_or_else(|_| {
+            error!("Failed to convert {} to char. Using default of 256", cb);
+            255
+        });
+        let x = x.approx_as::<u8>().unwrap_or_else(|_| {
+            error!("Failed to convert {} to char. Using default of 256", x);
+            255
+        });
+        let y = y.approx_as::<u8>().unwrap_or_else(|_| {
+            error!("Failed to convert {} to char. Using default of 256", y);
+            255
+        });
         Some(collect_text(&format!(
             "\x1b[M{}{}{}",
             cb as char, x as char, y as char
@@ -519,15 +539,28 @@ fn encode_x11_mouse_button(
     };
 
     let motion = if report_motion { 32 } else { 0 };
-    let mut cb: u8 = padding;
+    let mut cb: usize = padding;
 
     cb += encode_mouse_for_x11(&MouseEvent::Button(button), pressed);
     cb += encode_modifiers_for_x11(modifiers);
 
-    let x = pos.x + padding + motion;
-    let y = pos.y + padding + motion;
+    let x = pos.x_as_character_column + padding + motion;
+    let y = pos.y_as_character_row + padding + motion;
 
     if encoding == &MouseEncoding::X11 {
+        let cb = cb.approx_as::<u8>().unwrap_or_else(|_| {
+            error!("Failed to convert {} to char. Using default of 256", cb);
+            255
+        });
+        let x = x.approx_as::<u8>().unwrap_or_else(|_| {
+            error!("Failed to convert {} to char. Using default of 256", x);
+            255
+        });
+        let y = y.approx_as::<u8>().unwrap_or_else(|_| {
+            error!("Failed to convert {} to char. Using default of 256", y);
+            255
+        });
+
         collect_text(&format!("\x1b[M{}{}{}", cb as char, x as char, y as char))
     } else {
         collect_text(&format!(

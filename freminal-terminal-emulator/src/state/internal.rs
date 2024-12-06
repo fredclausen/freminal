@@ -819,7 +819,8 @@ impl TerminalState {
                 | MouseTrack::XtMseBtn
                 | MouseTrack::NoTracking
                 | MouseTrack::XtMseAny
-                | MouseTrack::XtMseSgr = mode
+                //| MouseTrack::XtMseSgr
+                 = mode
                 {
                     info!("Setting mode to: {mode}");
                     self.modes.mouse_tracking = mode.clone();
