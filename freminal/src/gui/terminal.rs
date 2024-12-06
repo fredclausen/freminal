@@ -3,15 +3,17 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::gui::TerminalEmulator;
+use crate::gui::{
+    mouse::{
+        handle_pointer_button, handle_pointer_moved, FreminalMousePosition, PreviousMouseState,
+    },
+    TerminalEmulator,
+};
 
 use freminal_terminal_emulator::{
-    ansi_components::{
-        mode::{MouseEncoding, MouseTrack},
-        modes::rl_bracket::RlBracket,
-    },
+    ansi_components::modes::rl_bracket::RlBracket,
     format_tracker::FormatTag,
-    interface::TerminalInput,
+    interface::{collect_text, TerminalInput},
     io::FreminalTermInputOutput,
     state::{cursor::CursorPos, fonts::FontDecorations, term_char::TChar},
 };
@@ -19,7 +21,7 @@ use freminal_terminal_emulator::{
 use eframe::egui::{
     self, scroll_area::ScrollBarVisibility, text::LayoutJob, Color32, Context, CursorIcon,
     DragValue, Event, InputState, Key, Modifiers, OpenUrl, PointerButton, Pos2, Rect, Stroke,
-    TextFormat, TextStyle, Ui, Vec2,
+    TextFormat, TextStyle, Ui,
 };
 
 use super::{
@@ -29,14 +31,6 @@ use super::{
 use anyhow::Result;
 use conv::{ConvUtil, ValueFrom};
 use std::borrow::Cow;
-
-fn collect_text(text: &String) -> Cow<'static, [TerminalInput]> {
-    text.as_bytes()
-        .iter()
-        .map(|c| TerminalInput::Ascii(*c))
-        .collect::<Vec<_>>()
-        .into()
-}
 
 fn control_key(key: Key) -> Option<Cow<'static, [TerminalInput]>> {
     if key >= Key::A && key <= Key::Z {
@@ -53,65 +47,6 @@ fn control_key(key: Key) -> Option<Cow<'static, [TerminalInput]>> {
     }
 
     None
-}
-
-#[derive(Debug, PartialEq, Clone)]
-struct PreviousMouseState {
-    button: PointerButton,
-    button_pressed: bool,
-    mouse_position: Option<FreminalMousePosition>,
-    modifiers: Modifiers,
-}
-
-impl Default for PreviousMouseState {
-    fn default() -> Self {
-        Self {
-            button: PointerButton::Primary,
-            button_pressed: false,
-            mouse_position: None,
-            modifiers: Modifiers::default(),
-        }
-    }
-}
-
-impl PreviousMouseState {
-    pub const fn new_from_previous_mouse_state(
-        &self,
-        position: Option<FreminalMousePosition>,
-    ) -> Self {
-        Self {
-            button: self.button,
-            button_pressed: self.button_pressed,
-            mouse_position: position,
-            modifiers: self.modifiers,
-        }
-    }
-    pub fn should_report(&self, new: Option<&Self>) -> bool {
-        if let Some(new) = new {
-            return self.mouse_position != new.mouse_position;
-        }
-        false
-    }
-}
-
-enum MouseEvent {
-    Button(PointerButton),
-    Scroll(Vec2),
-}
-
-#[derive(Debug, PartialEq, Clone)]
-struct FreminalMousePosition {
-    x_as_character_column: usize,
-    y_as_character_row: usize,
-}
-
-impl FreminalMousePosition {
-    pub const fn new(x: usize, y: usize) -> Self {
-        Self {
-            x_as_character_column: x,
-            y_as_character_row: y,
-        }
-    }
 }
 
 #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
@@ -254,50 +189,40 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
             }
             Event::PointerMoved(pos) => {
                 terminal_emulator.set_mouse_position_from_move_event(pos);
-                if terminal_emulator
-                    .internal
-                    .modes
-                    .mouse_tracking
-                    .should_report_motion()
-                {
-                    let previous_mouse_state = last_reported_mouse_pos.clone().unwrap_or_default();
-
-                    let (x, y) =
-                        encode_egui_mouse_pos_as_usize(*pos, (character_size_x, character_size_y));
-                    let mouse_pos = FreminalMousePosition::new(x, y);
-                    let new_mouse_position = PreviousMouseState::new_from_previous_mouse_state(
-                        &previous_mouse_state,
-                        Some(mouse_pos.clone()),
-                    );
-
-                    let report_motion =
-                        new_mouse_position.should_report(last_reported_mouse_pos.as_ref());
-
-                    last_reported_mouse_pos = Some(new_mouse_position.clone());
-
-                    if report_motion {
-                        let encoding = terminal_emulator
-                            .internal
-                            .modes
-                            .mouse_tracking
-                            .get_encoding();
-
-                        encode_x11_mouse_button(
-                            new_mouse_position.button,
-                            new_mouse_position.button_pressed,
-                            new_mouse_position.modifiers,
-                            &mouse_pos,
-                            false,
-                            &encoding,
+                let (x, y) =
+                    encode_egui_mouse_pos_as_usize(*pos, (character_size_x, character_size_y));
+                let position = FreminalMousePosition::new(x, y, pos.x, pos.y);
+                let (previous, current) =
+                    if let Some(last_mouse_position) = &mut last_reported_mouse_pos {
+                        (
+                            last_mouse_position.clone(),
+                            last_mouse_position.new_from_previous_mouse_state(position),
                         )
                     } else {
-                        continue;
-                    }
+                        (
+                            PreviousMouseState::default(),
+                            PreviousMouseState::new(
+                                PointerButton::Primary,
+                                false,
+                                position,
+                                Modifiers::default(),
+                            ),
+                        )
+                    };
+
+                let res = handle_pointer_moved(
+                    &previous,
+                    &current,
+                    &terminal_emulator.internal.modes.mouse_tracking,
+                );
+
+                last_reported_mouse_pos = Some(current);
+
+                if let Some(res) = res {
+                    res
                 } else {
                     continue;
-                };
-
-                continue;
+                }
             }
             Event::PointerButton {
                 button,
@@ -306,45 +231,30 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 pos,
             } => {
                 state_changed = true;
+
                 let (x, y) =
                     encode_egui_mouse_pos_as_usize(*pos, (character_size_x, character_size_y));
-                let mouse_pos = FreminalMousePosition::new(x, y);
-                let new_mouse_position = PreviousMouseState {
-                    button: *button,
-                    button_pressed: *pressed,
-                    mouse_position: Some(mouse_pos.clone()),
-                    modifiers: *modifiers,
-                };
+                let mouse_pos = FreminalMousePosition::new(x, y, pos.x, pos.y);
+                let new_mouse_position =
+                    PreviousMouseState::new(*button, *pressed, mouse_pos.clone(), *modifiers);
+
+                let response = handle_pointer_button(
+                    *button,
+                    &new_mouse_position,
+                    &terminal_emulator.internal.modes.mouse_tracking,
+                );
+
+                last_reported_mouse_pos = Some(new_mouse_position.clone());
 
                 if *button == PointerButton::Primary && *pressed {
                     left_mouse_button_pressed = true;
                 }
 
-                if terminal_emulator.internal.modes.mouse_tracking == MouseTrack::NoTracking {
+                if let Some(response) = response {
+                    response
+                } else {
                     continue;
                 }
-
-                // TODO: We should probably also set the mouse position here
-                //terminal_emulator.set_mouse_position(&Some(pos));
-                if *pressed
-                    || terminal_emulator
-                        .internal
-                        .modes
-                        .mouse_tracking
-                        .should_scroll()
-                {
-                    last_reported_mouse_pos = Some(new_mouse_position);
-                } else {
-                    last_reported_mouse_pos = None;
-                }
-
-                let encoding = terminal_emulator
-                    .internal
-                    .modes
-                    .mouse_tracking
-                    .get_encoding();
-
-                encode_x11_mouse_button(*button, *pressed, *modifiers, &mouse_pos, false, &encoding)
             }
             Event::MouseWheel {
                 delta, modifiers, ..
@@ -356,29 +266,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
 
                 state_changed = true;
 
-                if terminal_emulator.internal.modes.mouse_tracking == MouseTrack::NoTracking
-                    || last_reported_mouse_pos.is_none()
-                {
-                    continue;
-                }
-
-                let new_mouse_position = last_reported_mouse_pos.clone().unwrap();
-                let encoding = terminal_emulator
-                    .internal
-                    .modes
-                    .mouse_tracking
-                    .get_encoding();
-
-                if let Some(response) = encode_x11_mouse_wheel(
-                    *delta,
-                    *modifiers,
-                    &new_mouse_position.mouse_position.unwrap(),
-                    &encoding,
-                ) {
-                    response
-                } else {
-                    continue;
-                }
+                continue;
             }
             _ => {
                 continue;
@@ -416,148 +304,6 @@ fn encode_egui_mouse_pos_as_usize(pos: Pos2, character_size: (f32, f32)) -> (usi
         });
 
     (x, y)
-}
-
-fn encode_mouse_for_x11(button: &MouseEvent, pressed: bool) -> usize {
-    if pressed {
-        match button {
-            MouseEvent::Button(PointerButton::Primary) => 0,
-            MouseEvent::Button(PointerButton::Middle) => 1,
-            MouseEvent::Button(PointerButton::Secondary) => 2,
-            MouseEvent::Button(_) => {
-                error!("Unsupported mouse button. Treating as left mouse button");
-                0
-            }
-            MouseEvent::Scroll(amount) => {
-                // FIXME: This is not correct. eframe encodes a x and y event together I think.
-                // For now we'll prefer the y event as the driver for the scroll
-                // If that is the case should we be sending a two different events for scroll?
-
-                if amount.y != 0.0 {
-                    if amount.y > 0.0 {
-                        return 64;
-                    }
-                    return 65;
-                }
-
-                0
-            }
-        }
-    } else {
-        3
-    }
-}
-
-const fn encode_modifiers_for_x11(modifiers: Modifiers) -> usize {
-    let mut cb = 0;
-
-    if modifiers.ctrl || modifiers.command {
-        cb += 16;
-    }
-
-    if modifiers.shift {
-        cb += 4;
-    }
-
-    // This is for meta, but wezterm seems to use alt as the meta?
-    if modifiers.alt {
-        cb += 8;
-    }
-
-    cb
-}
-
-fn encode_cb_and_x_and_y_as_u8_from_usize(cb: usize, x: usize, y: usize) -> (u8, u8, u8) {
-    let cb = cb.approx_as::<u8>().unwrap_or_else(|_| {
-        error!("Failed to convert {} to char. Using default of 255", cb);
-        255
-    });
-
-    let x = x.approx_as::<u8>().unwrap_or_else(|_| {
-        error!("Failed to convert {} to char. Using default of 255", x);
-        255
-    });
-    let y = y.approx_as::<u8>().unwrap_or_else(|_| {
-        error!("Failed to convert {} to char. Using default of 255", y);
-        255
-    });
-
-    (cb, x, y)
-}
-
-fn encode_x11_mouse_wheel(
-    delta: Vec2,
-    modifiers: Modifiers,
-    pos: &FreminalMousePosition,
-    encoding: &MouseEncoding,
-) -> Option<Cow<'static, [TerminalInput]>> {
-    let padding = if encoding == &MouseEncoding::X11 {
-        32
-    } else {
-        0
-    };
-
-    let mut cb = padding;
-
-    cb += encode_mouse_for_x11(&MouseEvent::Scroll(delta), true);
-    if cb == 32 {
-        return None;
-    }
-    cb += encode_modifiers_for_x11(modifiers);
-
-    let x = pos.x_as_character_column + padding;
-    let y = pos.y_as_character_row + padding;
-
-    if encoding == &MouseEncoding::X11 {
-        let (cb, x, y) = encode_cb_and_x_and_y_as_u8_from_usize(cb, x, y);
-
-        Some(collect_text(&format!(
-            "\x1b[M{}{}{}",
-            cb as char, x as char, y as char
-        )))
-    } else {
-        Some(collect_text(&format!("\x1b[<{cb};{x};{y}M")))
-    }
-}
-
-fn encode_x11_mouse_button(
-    button: PointerButton,
-    pressed: bool,
-    modifiers: Modifiers,
-    pos: &FreminalMousePosition,
-    report_motion: bool,
-    encoding: &MouseEncoding,
-) -> Cow<'static, [TerminalInput]> {
-    //Normal tracking mode sends an escape sequence on both button press and release. Modifier key (shift, ctrl, meta) information is also sent. It is enabled by specifying parameter 1000 to DECSET. On button press or release, xterm sends CSI M C b C x C y . The low two bits of C b encode button information: 0=MB1 pressed, 1=MB2 pressed, 2=MB3 pressed, 3=release. The next three bits encode the modifiers which were down when the button was pressed and are added together: 4=Shift, 8=Meta, 16=Control
-
-    let padding = if encoding == &MouseEncoding::X11 {
-        32
-    } else {
-        0
-    };
-
-    let motion = if report_motion { 32 } else { 0 };
-    let mut cb: usize = padding;
-
-    cb += encode_mouse_for_x11(&MouseEvent::Button(button), pressed);
-    cb += encode_modifiers_for_x11(modifiers);
-
-    let x = pos.x_as_character_column + padding + motion;
-    let y = pos.y_as_character_row + padding + motion;
-
-    if encoding == &MouseEncoding::X11 {
-        let (cb, x, y) = encode_cb_and_x_and_y_as_u8_from_usize(cb, x, y);
-
-        collect_text(&format!("\x1b[M{}{}{}", cb as char, x as char, y as char))
-    } else {
-        collect_text(&format!(
-            "\x1b[<{};{};{}{}",
-            cb,
-            x,
-            y,
-            if pressed { "M" } else { "m" }
-        ))
-    }
 }
 
 fn paint_cursor(label_rect: Rect, character_size: (f32, f32), cursor_pos: &CursorPos, ui: &Ui) {

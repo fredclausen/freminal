@@ -44,48 +44,48 @@ impl MouseTrack {
         }
     }
 
-    #[must_use]
-    pub const fn should_scroll(&self) -> bool {
-        match self {
-            Self::NoTracking | Self::XtMsex10 | Self::XtMseX11 => false,
-            Self::XtMseBtn
-            | Self::XtMseAny
-            | Self::XtMseUtf
-            | Self::XtMseSgr
-            | Self::XtMseUrXvt
-            | Self::XtMseSgrPixels => true,
-        }
-    }
+    // #[must_use]
+    // pub const fn should_scroll(&self) -> bool {
+    //     match self {
+    //         Self::NoTracking | Self::XtMsex10 | Self::XtMseX11 => false,
+    //         Self::XtMseBtn
+    //         | Self::XtMseAny
+    //         | Self::XtMseUtf
+    //         | Self::XtMseSgr
+    //         | Self::XtMseUrXvt
+    //         | Self::XtMseSgrPixels => true,
+    //     }
+    // }
 
-    /// Function to determine if motion is require to be reported
-    #[must_use]
-    pub const fn should_report_motion(&self) -> bool {
-        match self {
-            Self::NoTracking | Self::XtMsex10 | Self::XtMseX11 => false,
-            Self::XtMseBtn
-            | Self::XtMseAny
-            | Self::XtMseUtf
-            | Self::XtMseSgr
-            | Self::XtMseUrXvt
-            | Self::XtMseSgrPixels => true,
-        }
-    }
+    // /// Function to determine if motion is require to be reported
+    // #[must_use]
+    // pub const fn should_report_motion(&self) -> bool {
+    //     match self {
+    //         Self::NoTracking | Self::XtMsex10 | Self::XtMseX11 => false,
+    //         Self::XtMseBtn
+    //         | Self::XtMseAny
+    //         | Self::XtMseUtf
+    //         | Self::XtMseSgr
+    //         | Self::XtMseUrXvt
+    //         | Self::XtMseSgrPixels => true,
+    //     }
+    // }
 
-    /// Function to determine if button presses should be tracked. x10 only wants button presses, everybody else
-    /// cares if the button is pressed or released.
-    #[must_use]
-    pub const fn should_track_button_presses(&self) -> bool {
-        match self {
-            Self::NoTracking | Self::XtMsex10 => false,
-            Self::XtMseX11
-            | Self::XtMseBtn
-            | Self::XtMseAny
-            | Self::XtMseUtf
-            | Self::XtMseSgr
-            | Self::XtMseUrXvt
-            | Self::XtMseSgrPixels => true,
-        }
-    }
+    // /// Function to determine if button presses should be tracked. x10 only wants button presses, everybody else
+    // /// cares if the button is pressed or released.
+    // #[must_use]
+    // pub const fn should_retain_position_with_button_down(&self) -> bool {
+    //     match self {
+    //         Self::NoTracking | Self::XtMsex10 => false,
+    //         Self::XtMseX11
+    //         | Self::XtMseBtn
+    //         | Self::XtMseAny
+    //         | Self::XtMseUtf
+    //         | Self::XtMseSgr
+    //         | Self::XtMseUrXvt
+    //         | Self::XtMseSgrPixels => true,
+    //     }
+    // }
 }
 
 impl fmt::Display for MouseTrack {

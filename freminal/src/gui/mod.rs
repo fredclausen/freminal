@@ -17,6 +17,7 @@ use parking_lot::FairMutex;
 use terminal::FreminalTerminalWidget;
 pub mod colors;
 pub mod fonts;
+pub mod mouse;
 pub mod terminal;
 
 fn set_egui_options(ctx: &egui::Context) {

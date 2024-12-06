@@ -3,6 +3,8 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+use std::borrow::Cow;
+
 use crate::ansi_components::modes::dectcem::Dectcem;
 use crate::format_tracker::FormatTag;
 use crate::io::FreminalPtyInputOutput;
@@ -23,6 +25,15 @@ const fn char_to_ctrl_code(c: u8) -> u8 {
     // https://catern.com/posts/terminal_quirks.html
     // man ascii
     c & 0b0001_1111
+}
+
+#[must_use]
+pub fn collect_text(text: &String) -> Cow<'static, [TerminalInput]> {
+    text.as_bytes()
+        .iter()
+        .map(|c| TerminalInput::Ascii(*c))
+        .collect::<Vec<_>>()
+        .into()
 }
 
 #[derive(Eq, PartialEq, Debug)]
