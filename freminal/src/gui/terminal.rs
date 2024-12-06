@@ -6,7 +6,10 @@
 use crate::gui::TerminalEmulator;
 
 use freminal_terminal_emulator::{
-    ansi_components::{mode::MouseTrack, modes::rl_bracket::RlBracket},
+    ansi_components::{
+        mode::{MouseEncoding, MouseTrack},
+        modes::rl_bracket::RlBracket,
+    },
     format_tracker::FormatTag,
     interface::TerminalInput,
     io::FreminalTermInputOutput,
@@ -15,8 +18,8 @@ use freminal_terminal_emulator::{
 
 use eframe::egui::{
     self, scroll_area::ScrollBarVisibility, text::LayoutJob, Color32, Context, CursorIcon,
-    DragValue, Event, InputState, Key, Modifiers, OpenUrl, PointerButton, Rect, Stroke, TextFormat,
-    TextStyle, Ui, Vec2,
+    DragValue, Event, InputState, Key, Modifiers, OpenUrl, PointerButton, Pos2, Rect, Stroke,
+    TextFormat, TextStyle, Ui, Vec2,
 };
 
 use super::{
@@ -72,6 +75,17 @@ impl Default for PreviousMouseState {
 }
 
 impl PreviousMouseState {
+    pub const fn new_from_previous_mouse_state(
+        &self,
+        position: Option<FreminalMousePosition>,
+    ) -> Self {
+        Self {
+            button: self.button,
+            button_pressed: self.button_pressed,
+            mouse_position: position,
+            modifiers: self.modifiers,
+        }
+    }
     pub fn should_report(&self, new: Option<&Self>) -> bool {
         if let Some(new) = new {
             return self.mouse_position != new.mouse_position;
@@ -86,15 +100,18 @@ enum MouseEvent {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-enum MouseEncoding {
-    X11,
-    Sgr,
-}
-
-#[derive(Debug, PartialEq, Clone)]
 struct FreminalMousePosition {
     x_as_character_column: usize,
     y_as_character_row: usize,
+}
+
+impl FreminalMousePosition {
+    pub const fn new(x: usize, y: usize) -> Self {
+        Self {
+            x_as_character_column: x,
+            y_as_character_row: y,
+        }
+    }
 }
 
 #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
@@ -245,28 +262,13 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 {
                     let previous_mouse_state = last_reported_mouse_pos.clone().unwrap_or_default();
 
-                    let x = ((pos.x / character_size_x).floor())
-                        .approx_as::<usize>()
-                        .unwrap_or_else(|_| {
-                            error!("Failed to convert {} to u8. Using default of 255", pos.x);
-                            255
-                        });
-                    let y = ((pos.y / character_size_y).floor())
-                        .approx_as::<usize>()
-                        .unwrap_or_else(|_| {
-                            error!("Failed to convert {} to u8. Using default of 255", pos.y);
-                            255
-                        });
-                    let mouse_pos = FreminalMousePosition {
-                        x_as_character_column: x,
-                        y_as_character_row: y,
-                    };
-                    let new_mouse_position = PreviousMouseState {
-                        button: previous_mouse_state.button,
-                        button_pressed: previous_mouse_state.button_pressed,
-                        mouse_position: Some(mouse_pos.clone()),
-                        modifiers: previous_mouse_state.modifiers,
-                    };
+                    let (x, y) =
+                        encode_egui_mouse_pos_as_usize(*pos, (character_size_x, character_size_y));
+                    let mouse_pos = FreminalMousePosition::new(x, y);
+                    let new_mouse_position = PreviousMouseState::new_from_previous_mouse_state(
+                        &previous_mouse_state,
+                        Some(mouse_pos.clone()),
+                    );
 
                     let report_motion =
                         new_mouse_position.should_report(last_reported_mouse_pos.as_ref());
@@ -274,13 +276,11 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                     last_reported_mouse_pos = Some(new_mouse_position.clone());
 
                     if report_motion {
-                        let encoding = if terminal_emulator.internal.modes.mouse_tracking
-                            == MouseTrack::XtMseSgr
-                        {
-                            MouseEncoding::Sgr
-                        } else {
-                            MouseEncoding::X11
-                        };
+                        let encoding = terminal_emulator
+                            .internal
+                            .modes
+                            .mouse_tracking
+                            .get_encoding();
 
                         encode_x11_mouse_button(
                             new_mouse_position.button,
@@ -306,22 +306,9 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 pos,
             } => {
                 state_changed = true;
-                let x = ((pos.x / character_size_x).floor())
-                    .approx_as::<usize>()
-                    .unwrap_or_else(|_| {
-                        error!("Failed to convert {} to u8. Using default of 255", pos.x);
-                        255
-                    });
-                let y = ((pos.y / character_size_y).floor())
-                    .approx_as::<usize>()
-                    .unwrap_or_else(|_| {
-                        error!("Failed to convert {} to u8. Using default of 255", pos.y);
-                        255
-                    });
-                let mouse_pos = FreminalMousePosition {
-                    x_as_character_column: x,
-                    y_as_character_row: y,
-                };
+                let (x, y) =
+                    encode_egui_mouse_pos_as_usize(*pos, (character_size_x, character_size_y));
+                let mouse_pos = FreminalMousePosition::new(x, y);
                 let new_mouse_position = PreviousMouseState {
                     button: *button,
                     button_pressed: *pressed,
@@ -351,12 +338,11 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                     last_reported_mouse_pos = None;
                 }
 
-                let encoding =
-                    if terminal_emulator.internal.modes.mouse_tracking == MouseTrack::XtMseSgr {
-                        MouseEncoding::Sgr
-                    } else {
-                        MouseEncoding::X11
-                    };
+                let encoding = terminal_emulator
+                    .internal
+                    .modes
+                    .mouse_tracking
+                    .get_encoding();
 
                 encode_x11_mouse_button(*button, *pressed, *modifiers, &mouse_pos, false, &encoding)
             }
@@ -377,12 +363,11 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 }
 
                 let new_mouse_position = last_reported_mouse_pos.clone().unwrap();
-                let encoding =
-                    if terminal_emulator.internal.modes.mouse_tracking == MouseTrack::XtMseSgr {
-                        MouseEncoding::Sgr
-                    } else {
-                        MouseEncoding::X11
-                    };
+                let encoding = terminal_emulator
+                    .internal
+                    .modes
+                    .mouse_tracking
+                    .get_encoding();
 
                 if let Some(response) = encode_x11_mouse_wheel(
                     *delta,
@@ -414,6 +399,23 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     }
 
     (left_mouse_button_pressed, last_reported_mouse_pos)
+}
+
+fn encode_egui_mouse_pos_as_usize(pos: Pos2, character_size: (f32, f32)) -> (usize, usize) {
+    let x = ((pos.x / character_size.0).floor())
+        .approx_as::<usize>()
+        .unwrap_or_else(|_| {
+            error!("Failed to convert {} to u8. Using default of 255", pos.x);
+            255
+        });
+    let y = ((pos.y / character_size.1).floor())
+        .approx_as::<usize>()
+        .unwrap_or_else(|_| {
+            error!("Failed to convert {} to u8. Using default of 255", pos.y);
+            255
+        });
+
+    (x, y)
 }
 
 fn encode_mouse_for_x11(button: &MouseEvent, pressed: bool) -> usize {
@@ -465,6 +467,24 @@ const fn encode_modifiers_for_x11(modifiers: Modifiers) -> usize {
     cb
 }
 
+fn encode_cb_and_x_and_y_as_u8_from_usize(cb: usize, x: usize, y: usize) -> (u8, u8, u8) {
+    let cb = cb.approx_as::<u8>().unwrap_or_else(|_| {
+        error!("Failed to convert {} to char. Using default of 255", cb);
+        255
+    });
+
+    let x = x.approx_as::<u8>().unwrap_or_else(|_| {
+        error!("Failed to convert {} to char. Using default of 255", x);
+        255
+    });
+    let y = y.approx_as::<u8>().unwrap_or_else(|_| {
+        error!("Failed to convert {} to char. Using default of 255", y);
+        255
+    });
+
+    (cb, x, y)
+}
+
 fn encode_x11_mouse_wheel(
     delta: Vec2,
     modifiers: Modifiers,
@@ -489,19 +509,8 @@ fn encode_x11_mouse_wheel(
     let y = pos.y_as_character_row + padding;
 
     if encoding == &MouseEncoding::X11 {
-        let cb = cb.approx_as::<u8>().unwrap_or_else(|_| {
-            error!("Failed to convert {} to char. Using default of 256", cb);
-            255
-        });
-        let x = x.approx_as::<u8>().unwrap_or_else(|_| {
-            error!("Failed to convert {} to char. Using default of 256", x);
-            255
-        });
-        let y = y.approx_as::<u8>().unwrap_or_else(|_| {
-            error!("Failed to convert {} to char. Using default of 256", y);
-            255
-        });
-        info!("Encoding x: {}, y: {}", x, y);
+        let (cb, x, y) = encode_cb_and_x_and_y_as_u8_from_usize(cb, x, y);
+
         Some(collect_text(&format!(
             "\x1b[M{}{}{}",
             cb as char, x as char, y as char
@@ -537,20 +546,8 @@ fn encode_x11_mouse_button(
     let y = pos.y_as_character_row + padding + motion;
 
     if encoding == &MouseEncoding::X11 {
-        let cb = cb.approx_as::<u8>().unwrap_or_else(|_| {
-            error!("Failed to convert {} to char. Using default of 256", cb);
-            255
-        });
-        let x = x.approx_as::<u8>().unwrap_or_else(|_| {
-            error!("Failed to convert {} to char. Using default of 256", x);
-            255
-        });
-        let y = y.approx_as::<u8>().unwrap_or_else(|_| {
-            error!("Failed to convert {} to char. Using default of 256", y);
-            255
-        });
+        let (cb, x, y) = encode_cb_and_x_and_y_as_u8_from_usize(cb, x, y);
 
-        info!("Encoding x: {}, y: {}", x, y);
         collect_text(&format!("\x1b[M{}{}{}", cb as char, x as char, y as char))
     } else {
         collect_text(&format!(

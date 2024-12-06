@@ -13,6 +13,12 @@ pub enum SetMode {
     DecRst,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum MouseEncoding {
+    X11,
+    Sgr,
+}
+
 // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h2-Mouse-Tracking
 #[derive(Debug, Eq, PartialEq, Default, Clone)]
 pub enum MouseTrack {
@@ -30,6 +36,15 @@ pub enum MouseTrack {
 
 impl MouseTrack {
     #[must_use]
+    pub fn get_encoding(&self) -> MouseEncoding {
+        if self == &Self::XtMseSgr {
+            MouseEncoding::Sgr
+        } else {
+            MouseEncoding::X11
+        }
+    }
+
+    #[must_use]
     pub const fn should_scroll(&self) -> bool {
         match self {
             Self::NoTracking | Self::XtMsex10 | Self::XtMseX11 => false,
@@ -42,11 +57,28 @@ impl MouseTrack {
         }
     }
 
+    /// Function to determine if motion is require to be reported
     #[must_use]
     pub const fn should_report_motion(&self) -> bool {
         match self {
             Self::NoTracking | Self::XtMsex10 | Self::XtMseX11 => false,
             Self::XtMseBtn
+            | Self::XtMseAny
+            | Self::XtMseUtf
+            | Self::XtMseSgr
+            | Self::XtMseUrXvt
+            | Self::XtMseSgrPixels => true,
+        }
+    }
+
+    /// Function to determine if button presses should be tracked. x10 only wants button presses, everybody else
+    /// cares if the button is pressed or released.
+    #[must_use]
+    pub const fn should_track_button_presses(&self) -> bool {
+        match self {
+            Self::NoTracking | Self::XtMsex10 => false,
+            Self::XtMseX11
+            | Self::XtMseBtn
             | Self::XtMseAny
             | Self::XtMseUtf
             | Self::XtMseSgr
