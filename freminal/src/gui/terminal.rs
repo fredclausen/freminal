@@ -239,7 +239,12 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 let mouse_pos = FreminalMousePosition::new(x, y, pos.x, pos.y);
                 let new_mouse_position =
                     PreviousMouseState::new(*button, *pressed, mouse_pos.clone(), *modifiers);
-
+                // let previous_mouse_button =
+                //     if let Some(last_reported_mouse_pos) = &last_reported_mouse_pos {
+                //         last_reported_mouse_pos.button
+                //     } else {
+                //         PointerButton::None
+                //     };
                 let response = handle_pointer_button(
                     *button,
                     &new_mouse_position,

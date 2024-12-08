@@ -9,7 +9,7 @@ use conv::ConvUtil;
 use eframe::egui::{Modifiers, PointerButton, Vec2};
 use freminal_terminal_emulator::{
     ansi_components::mode::{MouseEncoding, MouseTrack},
-    interface::{raw_ascii_bytes_to_terminal_input, TerminalInput},
+    interface::{collect_text, raw_ascii_bytes_to_terminal_input, TerminalInput},
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -310,9 +310,7 @@ fn encode_x11_mouse_wheel(
             b'\x1b', b'[', b'M', cb, x, y,
         ]))
     } else {
-        Some(raw_ascii_bytes_to_terminal_input(&[
-            b'\x1b', b'<', cb, b';', x, b';', y, b'M',
-        ]))
+        Some(collect_text(&format!("\x1b[<{cb};{x};{y}M",)))
     }
 }
 
@@ -334,8 +332,13 @@ fn encode_x11_mouse_button(
 
     let motion = if report_motion { 32 } else { 0 };
     let mut cb: usize = padding + motion;
+    let internal_pressed = if encoding == &MouseEncoding::X11 {
+        pressed
+    } else {
+        true
+    };
 
-    cb += encode_mouse_for_x11(&MouseEvent::Button(button), pressed);
+    cb += encode_mouse_for_x11(&MouseEvent::Button(button), internal_pressed);
     cb += encode_modifiers_for_x11(modifiers);
 
     let x = pos.x_as_character_column + padding;
@@ -344,15 +347,9 @@ fn encode_x11_mouse_button(
     if encoding == &MouseEncoding::X11 {
         raw_ascii_bytes_to_terminal_input(&[b'\x1b', b'[', b'M', cb, x, y])
     } else {
-        raw_ascii_bytes_to_terminal_input(&[
-            b'\x1b',
-            b'<',
-            cb,
-            b';',
-            x,
-            b';',
-            y,
-            if pressed { b'M' } else { b'm' },
-        ])
+        collect_text(&format!(
+            "\x1b[<{cb};{x};{y}{}",
+            if pressed { "M" } else { "m" }
+        ))
     }
 }

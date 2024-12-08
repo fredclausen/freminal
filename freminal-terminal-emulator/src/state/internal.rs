@@ -822,7 +822,7 @@ impl TerminalState {
                 | MouseTrack::XtMseAny
                 | MouseTrack::XtMseSgr = mode
                 {
-                    info!("Setting mode to: {mode}");
+                    debug!("Setting mode to: {mode}");
                     self.modes.mouse_tracking = mode.clone();
                 } else {
                     warn!("Unhandled mouse mode: {mode}");
