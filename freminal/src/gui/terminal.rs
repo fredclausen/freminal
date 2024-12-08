@@ -191,6 +191,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 terminal_emulator.set_mouse_position_from_move_event(pos);
                 let (x, y) =
                     encode_egui_mouse_pos_as_usize(*pos, (character_size_x, character_size_y));
+
                 let position = FreminalMousePosition::new(x, y, pos.x, pos.y);
                 let (previous, current) =
                     if let Some(last_mouse_position) = &mut last_reported_mouse_pos {
@@ -293,13 +294,13 @@ fn encode_egui_mouse_pos_as_usize(pos: Pos2, character_size: (f32, f32)) -> (usi
     let x = ((pos.x / character_size.0).floor())
         .approx_as::<usize>()
         .unwrap_or_else(|_| {
-            error!("Failed to convert {} to u8. Using default of 255", pos.x);
+            error!("Failed to convert {} to usize. Using default of 255", pos.x);
             255
         });
     let y = ((pos.y / character_size.1).floor())
         .approx_as::<usize>()
         .unwrap_or_else(|_| {
-            error!("Failed to convert {} to u8. Using default of 255", pos.y);
+            error!("Failed to convert {} to usize. Using default of 255", pos.y);
             255
         });
 

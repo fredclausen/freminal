@@ -222,6 +222,13 @@ const fn encode_modifiers_for_x11(modifiers: Modifiers) -> usize {
 }
 
 fn encode_cb_and_x_and_y_as_u8_from_usize(cb: usize, x: usize, y: usize) -> (u8, u8, u8) {
+    if x > 0x100 {
+        error!("X: {x} is out of range");
+    }
+    if y > 0x100 {
+        error!("Y: {y} is out of range");
+    }
+
     let cb = cb.approx_as::<u8>().unwrap_or_else(|_| {
         error!("Failed to convert {} to char. Using default of 255", cb);
         255
@@ -261,16 +268,28 @@ fn encode_x11_mouse_wheel(
 
     let x = pos.x_as_character_column + padding;
     let y = pos.y_as_character_row + padding;
+    let (cb, x, y) = encode_cb_and_x_and_y_as_u8_from_usize(cb, x, y);
 
     if encoding == &MouseEncoding::X11 {
-        let (cb, x, y) = encode_cb_and_x_and_y_as_u8_from_usize(cb, x, y);
-
-        Some(collect_text(&format!(
-            "\x1b[M{}{}{}",
-            cb as char, x as char, y as char
-        )))
+        Some(Cow::Owned(vec![
+            TerminalInput::Ascii(b'\x1b'),
+            TerminalInput::Ascii(b'['),
+            TerminalInput::Ascii(b'M'),
+            TerminalInput::Ascii(cb),
+            TerminalInput::Ascii(x),
+            TerminalInput::Ascii(y),
+        ]))
     } else {
-        Some(collect_text(&format!("\x1b[<{cb};{x};{y}M")))
+        Some(Cow::Owned(vec![
+            TerminalInput::Ascii(b'\x1b'),
+            TerminalInput::Ascii(b'<'),
+            TerminalInput::Ascii(cb),
+            TerminalInput::Ascii(b';'),
+            TerminalInput::Ascii(x),
+            TerminalInput::Ascii(b';'),
+            TerminalInput::Ascii(y),
+            TerminalInput::Ascii(b'M'),
+        ]))
     }
 }
 
@@ -291,25 +310,35 @@ fn encode_x11_mouse_button(
     };
 
     let motion = if report_motion { 32 } else { 0 };
-    let mut cb: usize = padding;
+    let mut cb: usize = padding + motion;
 
     cb += encode_mouse_for_x11(&MouseEvent::Button(button), pressed);
     cb += encode_modifiers_for_x11(modifiers);
 
-    let x = pos.x_as_character_column + padding + motion;
-    let y = pos.y_as_character_row + padding + motion;
-
+    let x = pos.x_as_character_column + padding;
+    let y = pos.y_as_character_row + padding;
+    let (cb, x, y) = encode_cb_and_x_and_y_as_u8_from_usize(cb, x, y);
     if encoding == &MouseEncoding::X11 {
-        let (cb, x, y) = encode_cb_and_x_and_y_as_u8_from_usize(cb, x, y);
+        Cow::Owned(vec![
+            TerminalInput::Ascii(b'\x1b'),
+            TerminalInput::Ascii(b'['),
+            TerminalInput::Ascii(b'M'),
+            TerminalInput::Ascii(cb),
+            TerminalInput::Ascii(x),
+            TerminalInput::Ascii(y),
+        ])
 
-        collect_text(&format!("\x1b[M{}{}{}", cb as char, x as char, y as char))
+        //collect_text(&format!("\x1b[M{}{}{}", cb as char, x as char, y as char))
     } else {
-        collect_text(&format!(
-            "\x1b[<{};{};{}{}",
-            cb,
-            x,
-            y,
-            if pressed { "M" } else { "m" }
-        ))
+        Cow::Owned(vec![
+            TerminalInput::Ascii(b'\x1b'),
+            TerminalInput::Ascii(b'<'),
+            TerminalInput::Ascii(cb),
+            TerminalInput::Ascii(b';'),
+            TerminalInput::Ascii(x),
+            TerminalInput::Ascii(b';'),
+            TerminalInput::Ascii(y),
+            TerminalInput::Ascii(if pressed { b'M' } else { b'm' }),
+        ])
     }
 }
