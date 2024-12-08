@@ -9,7 +9,7 @@ use conv::ConvUtil;
 use eframe::egui::{Modifiers, PointerButton, Vec2};
 use freminal_terminal_emulator::{
     ansi_components::mode::{MouseEncoding, MouseTrack},
-    interface::{collect_text, TerminalInput},
+    interface::TerminalInput,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -246,7 +246,8 @@ fn encode_cb_and_x_and_y_as_u8_from_usize(cb: usize, x: usize, y: usize) -> (u8,
     (cb, x, y)
 }
 
-fn encode_x11_mouse_wheel(
+#[must_use]
+pub fn encode_x11_mouse_wheel(
     delta: Vec2,
     modifiers: Modifiers,
     pos: &FreminalMousePosition,

@@ -5,7 +5,8 @@
 
 use crate::gui::{
     mouse::{
-        handle_pointer_button, handle_pointer_moved, FreminalMousePosition, PreviousMouseState,
+        encode_x11_mouse_wheel, handle_pointer_button, handle_pointer_moved, FreminalMousePosition,
+        PreviousMouseState,
     },
     TerminalEmulator,
 };
@@ -261,13 +262,33 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 delta, modifiers, ..
             } => {
                 // TODO: should we care if we scrolled in the x axis?
-                if delta.y != 0.0 {
-                    terminal_emulator.internal.scroll(delta.y);
+                if delta.y == 0.0 {
+                    continue;
                 }
+                terminal_emulator.internal.scroll(delta.y);
 
                 state_changed = true;
 
-                continue;
+                if let Some(last_mouse_position) = &last_reported_mouse_pos {
+                    let response = encode_x11_mouse_wheel(
+                        *delta,
+                        *modifiers,
+                        &last_mouse_position.mouse_position,
+                        &terminal_emulator
+                            .internal
+                            .modes
+                            .mouse_tracking
+                            .get_encoding(),
+                    );
+
+                    if let Some(response) = response {
+                        response
+                    } else {
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
             }
             _ => {
                 continue;
