@@ -5,7 +5,7 @@
 
 use crate::gui::{
     mouse::{
-        encode_x11_mouse_wheel, handle_pointer_button, handle_pointer_moved, FreminalMousePosition,
+        handle_pointer_button, handle_pointer_moved, handle_pointer_scroll, FreminalMousePosition,
         PreviousMouseState,
     },
     TerminalEmulator,
@@ -269,16 +269,16 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
 
                 state_changed = true;
 
-                if let Some(last_mouse_position) = &last_reported_mouse_pos {
-                    let response = encode_x11_mouse_wheel(
+                if let Some(last_mouse_position) = &mut last_reported_mouse_pos {
+                    // update the modifiers if necessary
+                    if last_mouse_position.modifiers != *modifiers {
+                        last_mouse_position.modifiers = *modifiers;
+                        *last_mouse_position = last_mouse_position.clone();
+                    }
+                    let response = handle_pointer_scroll(
                         *delta,
-                        *modifiers,
-                        &last_mouse_position.mouse_position,
-                        &terminal_emulator
-                            .internal
-                            .modes
-                            .mouse_tracking
-                            .get_encoding(),
+                        last_mouse_position,
+                        &terminal_emulator.internal.modes.mouse_tracking,
                     );
 
                     if let Some(response) = response {

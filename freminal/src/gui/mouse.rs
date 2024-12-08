@@ -173,6 +173,25 @@ pub fn handle_pointer_moved(
     }
 }
 
+#[must_use]
+pub fn handle_pointer_scroll(
+    delta: Vec2,
+    current_state: &PreviousMouseState,
+    mouse_track: &MouseTrack,
+) -> Option<Cow<'static, [TerminalInput]>> {
+    match mouse_track {
+        MouseTrack::XtMseX11 | MouseTrack::XtMseBtn | MouseTrack::XtMseAny => {
+            encode_x11_mouse_wheel(
+                delta,
+                current_state.modifiers,
+                &current_state.mouse_position,
+                &mouse_track.get_encoding(),
+            )
+        }
+        _ => None,
+    }
+}
+
 fn encode_mouse_for_x11(button: &MouseEvent, pressed: bool) -> usize {
     if pressed {
         match button {
@@ -248,7 +267,7 @@ fn encode_cb_and_x_and_y_as_u8_from_usize(cb: usize, x: usize, y: usize) -> (u8,
 }
 
 #[must_use]
-pub fn encode_x11_mouse_wheel(
+fn encode_x11_mouse_wheel(
     delta: Vec2,
     modifiers: Modifiers,
     pos: &FreminalMousePosition,
