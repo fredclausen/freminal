@@ -120,17 +120,21 @@ pub fn handle_pointer_button(
             }
             None
         }
-        MouseTrack::XtMseX11 | MouseTrack::XtMseBtn | MouseTrack::XtMseAny => {
-            Some(encode_x11_mouse_button(
-                button,
-                current_state.button_pressed,
-                current_state.modifiers,
-                &current_state.mouse_position,
-                false,
-                &mouse_track.get_encoding(),
-            ))
-        }
-        _ => None,
+        MouseTrack::XtMseX11
+        | MouseTrack::XtMseBtn
+        | MouseTrack::XtMseAny
+        | MouseTrack::XtMseSgr => Some(encode_x11_mouse_button(
+            button,
+            current_state.button_pressed,
+            current_state.modifiers,
+            &current_state.mouse_position,
+            false,
+            &mouse_track.get_encoding(),
+        )),
+        MouseTrack::NoTracking
+        | MouseTrack::XtMseUtf
+        | MouseTrack::XtMseUrXvt
+        | MouseTrack::XtMseSgrPixels => None,
     }
 }
 
@@ -155,7 +159,7 @@ pub fn handle_pointer_moved(
 
             None
         }
-        MouseTrack::XtMseAny => {
+        MouseTrack::XtMseAny | MouseTrack::XtMseSgr => {
             if previous_state.should_report(current_state) {
                 return Some(encode_x11_mouse_button(
                     current_state.button,
@@ -169,7 +173,12 @@ pub fn handle_pointer_moved(
 
             None
         }
-        _ => None,
+        MouseTrack::NoTracking
+        | MouseTrack::XtMsex10
+        | MouseTrack::XtMseX11
+        | MouseTrack::XtMseUtf
+        | MouseTrack::XtMseUrXvt
+        | MouseTrack::XtMseSgrPixels => None,
     }
 }
 
@@ -180,15 +189,20 @@ pub fn handle_pointer_scroll(
     mouse_track: &MouseTrack,
 ) -> Option<Cow<'static, [TerminalInput]>> {
     match mouse_track {
-        MouseTrack::XtMseX11 | MouseTrack::XtMseBtn | MouseTrack::XtMseAny => {
-            encode_x11_mouse_wheel(
-                delta,
-                current_state.modifiers,
-                &current_state.mouse_position,
-                &mouse_track.get_encoding(),
-            )
-        }
-        _ => None,
+        MouseTrack::XtMseX11
+        | MouseTrack::XtMseBtn
+        | MouseTrack::XtMseAny
+        | MouseTrack::XtMseSgr => encode_x11_mouse_wheel(
+            delta,
+            current_state.modifiers,
+            &current_state.mouse_position,
+            &mouse_track.get_encoding(),
+        ),
+        MouseTrack::NoTracking
+        | MouseTrack::XtMsex10
+        | MouseTrack::XtMseUtf
+        | MouseTrack::XtMseUrXvt
+        | MouseTrack::XtMseSgrPixels => None,
     }
 }
 
