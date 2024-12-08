@@ -9,7 +9,7 @@ use conv::ConvUtil;
 use eframe::egui::{Modifiers, PointerButton, Vec2};
 use freminal_terminal_emulator::{
     ansi_components::mode::{MouseEncoding, MouseTrack},
-    interface::TerminalInput,
+    interface::{raw_ascii_bytes_to_terminal_input, TerminalInput},
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -68,6 +68,7 @@ pub enum MouseEvent {
     Scroll(Vec2),
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct FreminalMousePosition {
     pub(crate) x_as_character_column: usize,
@@ -272,24 +273,12 @@ pub fn encode_x11_mouse_wheel(
     let (cb, x, y) = encode_cb_and_x_and_y_as_u8_from_usize(cb, x, y);
 
     if encoding == &MouseEncoding::X11 {
-        Some(Cow::Owned(vec![
-            TerminalInput::Ascii(b'\x1b'),
-            TerminalInput::Ascii(b'['),
-            TerminalInput::Ascii(b'M'),
-            TerminalInput::Ascii(cb),
-            TerminalInput::Ascii(x),
-            TerminalInput::Ascii(y),
+        Some(raw_ascii_bytes_to_terminal_input(&[
+            b'\x1b', b'[', b'M', cb, x, y,
         ]))
     } else {
-        Some(Cow::Owned(vec![
-            TerminalInput::Ascii(b'\x1b'),
-            TerminalInput::Ascii(b'<'),
-            TerminalInput::Ascii(cb),
-            TerminalInput::Ascii(b';'),
-            TerminalInput::Ascii(x),
-            TerminalInput::Ascii(b';'),
-            TerminalInput::Ascii(y),
-            TerminalInput::Ascii(b'M'),
+        Some(raw_ascii_bytes_to_terminal_input(&[
+            b'\x1b', b'<', cb, b';', x, b';', y, b'M',
         ]))
     }
 }
@@ -320,26 +309,17 @@ fn encode_x11_mouse_button(
     let y = pos.y_as_character_row + padding;
     let (cb, x, y) = encode_cb_and_x_and_y_as_u8_from_usize(cb, x, y);
     if encoding == &MouseEncoding::X11 {
-        Cow::Owned(vec![
-            TerminalInput::Ascii(b'\x1b'),
-            TerminalInput::Ascii(b'['),
-            TerminalInput::Ascii(b'M'),
-            TerminalInput::Ascii(cb),
-            TerminalInput::Ascii(x),
-            TerminalInput::Ascii(y),
-        ])
-
-        //collect_text(&format!("\x1b[M{}{}{}", cb as char, x as char, y as char))
+        raw_ascii_bytes_to_terminal_input(&[b'\x1b', b'[', b'M', cb, x, y])
     } else {
-        Cow::Owned(vec![
-            TerminalInput::Ascii(b'\x1b'),
-            TerminalInput::Ascii(b'<'),
-            TerminalInput::Ascii(cb),
-            TerminalInput::Ascii(b';'),
-            TerminalInput::Ascii(x),
-            TerminalInput::Ascii(b';'),
-            TerminalInput::Ascii(y),
-            TerminalInput::Ascii(if pressed { b'M' } else { b'm' }),
+        raw_ascii_bytes_to_terminal_input(&[
+            b'\x1b',
+            b'<',
+            cb,
+            b';',
+            x,
+            b';',
+            y,
+            if pressed { b'M' } else { b'm' },
         ])
     }
 }

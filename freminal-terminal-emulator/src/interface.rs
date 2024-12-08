@@ -36,6 +36,14 @@ pub fn collect_text(text: &String) -> Cow<'static, [TerminalInput]> {
         .into()
 }
 
+#[must_use]
+pub fn raw_ascii_bytes_to_terminal_input(buf: &[u8]) -> Cow<'static, [TerminalInput]> {
+    buf.iter()
+        .map(|c| TerminalInput::Ascii(*c))
+        .collect::<Vec<_>>()
+        .into()
+}
+
 #[derive(Eq, PartialEq, Debug)]
 pub enum TerminalInputPayload {
     Single(u8),
