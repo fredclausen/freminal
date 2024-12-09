@@ -52,6 +52,49 @@ impl FreminalGui {
     }
 }
 
+fn handle_window_manipulation(
+    ui: &egui::Ui,
+    terminal_emulator: &mut TerminalEmulator<FreminalPtyInputOutput>,
+) {
+    for window_event in terminal_emulator.internal.window_commands.drain(..) {
+        match window_event {
+            WindowManipulation::DeIconifyWindow => {
+                ui.ctx()
+                    .send_viewport_cmd(ViewportCommand::Minimized(false));
+            }
+            WindowManipulation::MinimizeWindow => {
+                ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
+            }
+            WindowManipulation::MoveWindow(x, y) => {
+                let x = x.approx_as::<f32>().unwrap_or_default();
+                let y = y.approx_as::<f32>().unwrap_or_default();
+
+                ui.ctx()
+                    .send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(x, y)));
+            }
+            WindowManipulation::ResizeWindow(width, height) => {
+                let width = width.approx_as::<f32>().unwrap_or_default();
+                let height = height.approx_as::<f32>().unwrap_or_default();
+
+                ui.ctx()
+                    .send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(width, height)));
+            }
+            WindowManipulation::MaximizeWindow => {
+                ui.ctx().send_viewport_cmd(ViewportCommand::Maximized(true));
+            }
+            WindowManipulation::RestoreNonMaximizedWindow => {
+                ui.ctx()
+                    .send_viewport_cmd(ViewportCommand::Maximized(false));
+            }
+            // These are ignored. eGui doesn't give us a stacking order thing (that I can tell)
+            // refresh window is already happening because we ended up here.
+            WindowManipulation::RefreshWindow
+            | WindowManipulation::LowerWindowToBottomOfStackingOrder
+            | WindowManipulation::RaiseWindowToTopOfStackingOrder => (),
+        }
+    }
+}
+
 impl eframe::App for FreminalGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // log the frame time
@@ -77,39 +120,7 @@ impl eframe::App for FreminalGui {
                 error!("failed to set window size {e}");
             }
 
-            for window_event in lock.internal.window_commands.drain(..) {
-                match window_event {
-                    WindowManipulation::DeIconifyWindow => {
-                        ui.ctx()
-                            .send_viewport_cmd(ViewportCommand::Minimized(false));
-                    }
-                    WindowManipulation::MinimizeWindow => {
-                        ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
-                    }
-                    WindowManipulation::MoveWindow(x, y) => {
-                        let x = x.approx_as::<f32>().unwrap_or_default();
-                        let y = y.approx_as::<f32>().unwrap_or_default();
-
-                        ui.ctx()
-                            .send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(x, y)));
-                    }
-                    WindowManipulation::ResizeWindow(width, height) => {
-                        let width = width.approx_as::<f32>().unwrap_or_default();
-                        let height = height.approx_as::<f32>().unwrap_or_default();
-
-                        ui.ctx()
-                            .send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(
-                                width, height,
-                            )));
-                    }
-                    // These are ignored. eGui doesn't give us a stacking order thing (that I can tell)
-                    // refresh window is already happening because we ended up here.
-                    WindowManipulation::RefreshWindow
-                    | WindowManipulation::LowerWindowToBottomOfStackingOrder
-                    | WindowManipulation::RaiseWindowToTopOfStackingOrder => (),
-                }
-            }
-
+            handle_window_manipulation(ui, &mut lock);
             self.terminal_widget.show(ui, &mut lock);
         });
 
