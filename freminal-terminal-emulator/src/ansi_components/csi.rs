@@ -12,6 +12,7 @@ use super::{
         cup::ansi_parser_inner_csi_finished_set_position_h,
         cuu::ansi_parser_inner_csi_finished_move_up,
         dch::ansi_parser_inner_csi_finished_set_position_p,
+        decscusr::ansi_parser_inner_csi_finished_set_position_q,
         ech::ansi_parser_inner_csi_finished_set_position_x,
         ed::ansi_parser_inner_csi_finished_set_position_j,
         el::ansi_parser_inner_csi_finished_set_position_k, ict::ansi_parser_inner_csi_finished_ich,
@@ -189,12 +190,7 @@ impl AnsiCsiParser {
                 Ok(Some(ParserInner::Empty))
             }
             AnsiCsiParserState::Finished(b'q') => {
-                warn!(
-                    "Unhandled (known) csi code: {:?}",
-                    std::char::from_u32(u32::from(b))
-                );
-                output.push(TerminalOutput::Skipped);
-                Ok(Some(ParserInner::Empty))
+                ansi_parser_inner_csi_finished_set_position_q(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'r') => {
                 warn!(

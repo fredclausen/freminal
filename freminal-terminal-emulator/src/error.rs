@@ -38,4 +38,6 @@ pub enum ParserFailures {
     UnhandledICHCommand(String),
     #[error("Invalid TChar: {0:?}")]
     InvalidTChar(Vec<u8>),
+    #[error("Invalid set cursor style (DECSCUSR) set position sequence: {0}")]
+    UnhandledDECSCUSRCommand(String),
 }

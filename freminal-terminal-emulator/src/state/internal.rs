@@ -1012,6 +1012,9 @@ impl TerminalState {
                     self.modes.cursor_key = Decckm::Application;
                 }
                 TerminalOutput::NormalKeypadMode => self.modes.cursor_key = Decckm::Ansi,
+                TerminalOutput::CursorVisualStyle(style) => {
+                    warn!("Ignoring cursor visual style: {style:?}");
+                }
                 TerminalOutput::Invalid => {
                     info!("Unhandled terminal output: {segment:?}");
                 }

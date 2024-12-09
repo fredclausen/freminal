@@ -10,6 +10,7 @@ pub mod cuf;
 pub mod cup;
 pub mod cuu;
 pub mod dch;
+pub mod decscusr;
 pub mod ech;
 pub mod ed;
 pub mod el;
