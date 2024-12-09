@@ -21,7 +21,9 @@ use crate::{
         sgr::SelectGraphicRendition,
     },
     format_tracker::{FormatTag, FormatTracker},
-    interface::{split_format_data_for_scrollback, TerminalInput, TerminalInputPayload},
+    interface::{
+        collect_text, split_format_data_for_scrollback, TerminalInput, TerminalInputPayload,
+    },
     io::PtyWrite,
 };
 
@@ -853,13 +855,12 @@ impl TerminalState {
                         // lets get the color as a hex string
 
                         let (r, g, b, a) = Color32::BLACK.to_tuple();
+                        let output = collect_text(&format!(
+                            "\x1b]11;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\"
+                        ));
 
-                        let formatted_string =
-                            format!("\x1b]11;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\");
-                        let output = formatted_string.as_bytes();
-
-                        for byte in output {
-                            self.write(&TerminalInput::Ascii(*byte))
+                        for byte in output.iter() {
+                            self.write(byte)
                                 .expect("Failed to write osc color response");
                         }
                     }
@@ -880,13 +881,12 @@ impl TerminalState {
                         // lets get the color as a hex string
                         let (r, g, b, a) = Color32::WHITE.to_tuple();
 
-                        let formatted_string =
-                            format!("\x1b]10;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\");
+                        let output = collect_text(&format!(
+                            "\x1b]10;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\"
+                        ));
 
-                        let output = formatted_string.as_bytes();
-
-                        for byte in output {
-                            self.write(&TerminalInput::Ascii(*byte))
+                        for byte in output.iter() {
+                            self.write(byte)
                                 .expect("Failed to write osc color response");
                         }
                     }
@@ -912,12 +912,10 @@ impl TerminalState {
 
         let x = current_buffer.cursor_state.pos.x + 1;
         let y = current_buffer.cursor_state.pos.y + 1;
-        let formatted_string = format!("\x1b[{y};{x}R");
-        let output = formatted_string.as_bytes();
+        let output = collect_text(&format!("\x1b[{y};{x}R"));
 
-        for byte in output {
-            self.write(&TerminalInput::Ascii(*byte))
-                .expect("Failed to write cursor position report");
+        for input in output.iter() {
+            self.write(input).expect("Failed to write cursor position");
         }
     }
 
