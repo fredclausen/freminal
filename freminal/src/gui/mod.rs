@@ -55,6 +55,9 @@ impl FreminalGui {
 fn handle_window_manipulation(
     ui: &egui::Ui,
     terminal_emulator: &mut TerminalEmulator<FreminalPtyInputOutput>,
+    font_width: usize,
+    font_height: usize,
+    window_width: egui::Rect,
 ) {
     for window_event in terminal_emulator.internal.window_commands.drain(..) {
         match window_event {
@@ -86,6 +89,22 @@ fn handle_window_manipulation(
                 ui.ctx()
                     .send_viewport_cmd(ViewportCommand::Maximized(false));
             }
+            WindowManipulation::ResizeWindowToLinesAndColumns(input_height, input_width) => {
+                let available_height = ui.available_height();
+                let available_width = ui.available_width();
+                let width_difference = window_width.width() - available_width;
+                let height_difference = window_width.height() - available_height;
+                let width = input_width * font_width;
+                let height = input_height * font_height;
+
+                let width = width.approx_as::<f32>().unwrap_or_default() + width_difference;
+                let height = height.approx_as::<f32>().unwrap_or_default() + height_difference;
+
+                // FIXME: We can have an off by one because of all the rounding that happens with font height/width
+
+                ui.ctx()
+                    .send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(width, height)));
+            }
             // These are ignored. eGui doesn't give us a stacking order thing (that I can tell)
             // refresh window is already happening because we ended up here.
             WindowManipulation::RefreshWindow
@@ -107,20 +126,27 @@ impl eframe::App for FreminalGui {
             let (width_chars, height_chars) = self.terminal_widget.calculate_available_size(ui);
             let (font_width, font_height) =
                 get_char_size(ui.ctx(), self.terminal_widget.get_font_size());
-            //FIXME: I know the value for font_width and font_height is going to fit within the usize range
-            // Shut up clippy lint for now
-            // but I want to idoimatically convert it to usize
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            let font_width = font_width.round() as usize;
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            let font_height = font_height.round() as usize;
+
+            let font_width = font_width.round().approx_as::<usize>().unwrap_or_else(|e| {
+                error!("Failed to convert font width to usize: {e}. Using 12 as default");
+                12
+            });
+
+            let font_height = font_height
+                .round()
+                .approx_as::<usize>()
+                .unwrap_or_else(|e| {
+                    error!("Failed to convert font height to usize: {e}. Using 12 as default");
+                    12
+                });
 
             let mut lock = self.terminal_emulator.lock();
             if let Err(e) = lock.set_win_size(width_chars, height_chars, font_width, font_height) {
                 error!("failed to set window size {e}");
             }
 
-            handle_window_manipulation(ui, &mut lock);
+            let window_width = ctx.input(|i: &egui::InputState| i.screen_rect());
+            handle_window_manipulation(ui, &mut lock, font_width, font_height, window_width);
             self.terminal_widget.show(ui, &mut lock);
         });
 
