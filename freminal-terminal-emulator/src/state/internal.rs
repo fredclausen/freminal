@@ -923,6 +923,22 @@ impl TerminalState {
         }
     }
 
+    pub fn report_window_state(&mut self, minimized: bool) {
+        let output = if minimized {
+            collect_text(&"\x1b[2t".to_string())
+        } else {
+            collect_text(&"\x1b[1t".to_string())
+        };
+        for input in output.iter() {
+            match self.write(input) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to write window state: {e}");
+                }
+            }
+        }
+    }
+
     pub(crate) fn clip_buffer_lines(&mut self) {
         let current_buffer = self.get_current_buffer();
 

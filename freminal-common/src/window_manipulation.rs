@@ -21,6 +21,7 @@ pub enum WindowManipulation {
     NotFullScreen,
     FullScreen,
     ToggleFullScreen,
+    ReportWindowState,
 }
 
 impl TryFrom<(usize, usize, usize)> for WindowManipulation {
@@ -41,6 +42,7 @@ impl TryFrom<(usize, usize, usize)> for WindowManipulation {
             (10, 0, 0) => Ok(Self::NotFullScreen),
             (10, 1, 0) => Ok(Self::FullScreen),
             (10, 2, 0) => Ok(Self::ToggleFullScreen),
+            (11, 0, 0) => Ok(Self::ReportWindowState),
             _ => Err(anyhow::anyhow!("Invalid WindowManipulation")),
         }
     }

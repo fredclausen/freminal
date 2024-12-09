@@ -59,7 +59,13 @@ fn handle_window_manipulation(
     font_height: usize,
     window_width: egui::Rect,
 ) {
-    for window_event in terminal_emulator.internal.window_commands.drain(..) {
+    let window_commands: Vec<_> = terminal_emulator
+        .internal
+        .window_commands
+        .drain(..)
+        .collect();
+    for window_event in window_commands {
+        info!("event: {:?}", window_event);
         match window_event {
             WindowManipulation::DeIconifyWindow => {
                 ui.ctx()
@@ -117,6 +123,12 @@ fn handle_window_manipulation(
                 let current_status = ui.ctx().input(|i| i.viewport().fullscreen.unwrap_or(false));
                 ui.ctx()
                     .send_viewport_cmd(ViewportCommand::Fullscreen(!current_status));
+            }
+            WindowManipulation::ReportWindowState => {
+                let current_status = ui.ctx().input(|i| i.viewport().minimized.unwrap_or(false));
+                terminal_emulator
+                    .internal
+                    .report_window_state(current_status);
             }
             // These are ignored. eGui doesn't give us a stacking order thing (that I can tell)
             // refresh window is already happening because we ended up here.
