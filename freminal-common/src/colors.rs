@@ -122,9 +122,9 @@ impl fmt::Display for TerminalColor {
 }
 
 impl std::str::FromStr for TerminalColor {
-    type Err = ();
+    type Err = anyhow::Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> anyhow::Result<Self> {
         let ret = match s {
             "default" => Self::Default,
             "default_background" => Self::DefaultBackground,
@@ -145,7 +145,7 @@ impl std::str::FromStr for TerminalColor {
             "bright magenta" => Self::BrightMagenta,
             "bright cyan" => Self::BrightCyan,
             "bright white" => Self::BrightWhite,
-            _ => return Err(()),
+            _ => return Err(anyhow::anyhow!("Invalid color string")),
         };
         Ok(ret)
     }

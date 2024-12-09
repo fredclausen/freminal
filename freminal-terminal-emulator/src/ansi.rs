@@ -108,22 +108,18 @@ pub fn extract_param(idx: usize, params: &[Option<usize>]) -> Option<usize> {
 
 /// # Errors
 /// Will return an error if the parameter is not a valid number
-pub fn split_params_into_semicolon_delimited_usize(
-    params: &[u8],
-) -> Result<Vec<Option<usize>>, anyhow::Error> {
+pub fn split_params_into_semicolon_delimited_usize(params: &[u8]) -> Result<Vec<Option<usize>>> {
     let params = params
         .split(|b| *b == b';')
         .map(parse_param_as::<usize>)
-        .collect::<Result<Vec<Option<usize>>, anyhow::Error>>();
+        .collect::<Result<Vec<Option<usize>>>>();
 
     params
 }
 
 /// # Errors
 /// Will return an error if the parameter is not a valid number
-pub fn parse_param_as<T: std::str::FromStr>(
-    param_bytes: &[u8],
-) -> Result<Option<T>, anyhow::Error> {
+pub fn parse_param_as<T: std::str::FromStr>(param_bytes: &[u8]) -> Result<Option<T>> {
     let param_str = std::str::from_utf8(param_bytes)?;
     if param_str.is_empty() {
         return Ok(None);

@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use crate::ansi::{ParserInner, TerminalOutput};
 use crate::error::ParserFailures;
-use anyhow::Result;
+use anyhow::{Error, Result};
 
 #[derive(Eq, PartialEq, Debug)]
 pub enum AnsiOscInternalType {
@@ -345,9 +345,9 @@ pub enum AnsiOscToken {
 }
 
 impl FromStr for AnsiOscToken {
-    type Err = ();
+    type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self> {
         s.parse::<u8>().map_or_else(
             |_| Ok(Self::String(s.to_string())),
             |value| Ok(Self::U8(value)),
@@ -363,7 +363,7 @@ pub fn split_params_into_semicolon_delimited_usize(
     let params = params
         .split(|b| *b == b';')
         .map(parse_param_as::<AnsiOscToken>)
-        .collect::<Result<Vec<Option<AnsiOscToken>>, anyhow::Error>>();
+        .collect::<Result<Vec<Option<AnsiOscToken>>>>();
 
     params
 }

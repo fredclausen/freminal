@@ -254,13 +254,15 @@ impl eframe::App for FreminalGui {
 /// Will return an error if the GUI fails to run
 pub fn run(
     terminal_emulator: Arc<FairMutex<TerminalEmulator<FreminalPtyInputOutput>>>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let native_options = eframe::NativeOptions::default();
 
-    eframe::run_native(
+    match eframe::run_native(
         "Freminal",
         native_options,
         Box::new(move |cc| Ok(Box::new(FreminalGui::new(cc, terminal_emulator)))),
-    )?;
-    Ok(())
+    ) {
+        Ok(()) => Ok(()),
+        Err(e) => Err(anyhow::anyhow!(e.to_string())),
+    }
 }

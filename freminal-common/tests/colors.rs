@@ -357,7 +357,7 @@ fn test_color_from_string() {
     assert_eq!(color, TerminalColor::BrightWhite);
 
     let color = "sucks".parse::<TerminalColor>();
-    assert_eq!(color, Err(()));
+    assert!(color.is_err());
 }
 
 #[test]

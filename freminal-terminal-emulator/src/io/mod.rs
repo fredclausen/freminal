@@ -4,10 +4,10 @@
 // https://opensource.org/licenses/MIT.
 
 mod pty;
+use anyhow::{Error, Result};
 use conv::ValueFrom;
 use portable_pty::PtySize;
 pub use pty::FreminalPtyInputOutput;
-
 // pub type TermIoErr = Box<dyn std::error::Error>;
 
 // pub enum ReadResponse {
@@ -24,9 +24,9 @@ pub struct FreminalTerminalSize {
 }
 
 impl TryFrom<FreminalTerminalSize> for PtySize {
-    type Error = anyhow::Error;
+    type Error = Error;
 
-    fn try_from(value: FreminalTerminalSize) -> Result<Self, Self::Error> {
+    fn try_from(value: FreminalTerminalSize) -> Result<Self> {
         Ok(Self {
             rows: u16::value_from(value.height)?,
             cols: u16::value_from(value.width)?,
