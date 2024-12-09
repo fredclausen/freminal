@@ -102,6 +102,11 @@ impl eframe::App for FreminalGui {
                                 width, height,
                             )));
                     }
+                    // These are ignored. eGui doesn't give us a stacking order thing (that I can tell)
+                    // refresh window is already happening because we ended up here.
+                    WindowManipulation::RefreshWindow
+                    | WindowManipulation::LowerWindowToBottomOfStackingOrder
+                    | WindowManipulation::RaiseWindowToTopOfStackingOrder => (),
                 }
             }
 

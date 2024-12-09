@@ -12,6 +12,9 @@ pub enum WindowManipulation {
     MinimizeWindow,
     MoveWindow(usize, usize),
     ResizeWindow(usize, usize),
+    RaiseWindowToTopOfStackingOrder,
+    LowerWindowToBottomOfStackingOrder,
+    RefreshWindow,
 }
 
 impl TryFrom<(usize, usize, usize)> for WindowManipulation {
@@ -23,6 +26,9 @@ impl TryFrom<(usize, usize, usize)> for WindowManipulation {
             (2, 0, 0) => Ok(Self::MinimizeWindow),
             (3, x, y) => Ok(Self::MoveWindow(x, y)),
             (4, x, y) => Ok(Self::ResizeWindow(x, y)),
+            (5, 0, 0) => Ok(Self::RaiseWindowToTopOfStackingOrder),
+            (6, 0, 0) => Ok(Self::LowerWindowToBottomOfStackingOrder),
+            (7, 0, 0) => Ok(Self::RefreshWindow),
             _ => Err(anyhow::anyhow!("Invalid WindowManipulation")),
         }
     }
