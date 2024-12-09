@@ -320,14 +320,24 @@ fn encode_egui_mouse_pos_as_usize(pos: Pos2, character_size: (f32, f32)) -> (usi
     let x = ((pos.x / character_size.0).floor())
         .approx_as::<usize>()
         .unwrap_or_else(|_| {
-            error!("Failed to convert {} to usize. Using default of 255", pos.x);
-            255
+            if pos.x > 0.0 {
+                error!("Failed to convert {} to usize. Using default of 255", pos.x);
+                255
+            } else {
+                error!("Failed to convert {} to usize. Using default of 0", pos.x);
+                0
+            }
         });
     let y = ((pos.y / character_size.1).floor())
         .approx_as::<usize>()
         .unwrap_or_else(|_| {
-            error!("Failed to convert {} to usize. Using default of 255", pos.y);
-            255
+            if pos.x > 0.0 {
+                error!("Failed to convert {} to usize. Using default of 255", pos.y);
+                255
+            } else {
+                error!("Failed to convert {} to usize. Using default of 0", pos.y);
+                0
+            }
         });
 
     (x, y)
