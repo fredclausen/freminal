@@ -10,15 +10,19 @@ use anyhow::Result;
 pub enum WindowManipulation {
     DeIconifyWindow,
     MinimizeWindow,
+    MoveWindow(usize, usize),
+    ResizeWindow(usize, usize),
 }
 
 impl TryFrom<(usize, usize, usize)> for WindowManipulation {
     type Error = anyhow::Error;
 
-    fn try_from((a, b, c): (usize, usize, usize)) -> Result<Self> {
-        match (a, b, c) {
+    fn try_from((command, param_ps2, param_ps3): (usize, usize, usize)) -> Result<Self> {
+        match (command, param_ps2, param_ps3) {
             (1, 0, 0) => Ok(Self::DeIconifyWindow),
             (2, 0, 0) => Ok(Self::MinimizeWindow),
+            (3, x, y) => Ok(Self::MoveWindow(x, y)),
+            (4, x, y) => Ok(Self::ResizeWindow(x, y)),
             _ => Err(anyhow::anyhow!("Invalid WindowManipulation")),
         }
     }

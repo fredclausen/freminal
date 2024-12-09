@@ -9,7 +9,8 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use eframe::egui::{self, CentralPanel, ViewportCommand};
+use conv::ConvUtil;
+use eframe::egui::{self, CentralPanel, Pos2, Vec2, ViewportCommand};
 use fonts::get_char_size;
 use freminal_common::window_manipulation::WindowManipulation;
 use freminal_terminal_emulator::interface::TerminalEmulator;
@@ -84,6 +85,22 @@ impl eframe::App for FreminalGui {
                     }
                     WindowManipulation::MinimizeWindow => {
                         ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
+                    }
+                    WindowManipulation::MoveWindow(x, y) => {
+                        let x = x.approx_as::<f32>().unwrap_or_default();
+                        let y = y.approx_as::<f32>().unwrap_or_default();
+
+                        ui.ctx()
+                            .send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(x, y)));
+                    }
+                    WindowManipulation::ResizeWindow(width, height) => {
+                        let width = width.approx_as::<f32>().unwrap_or_default();
+                        let height = height.approx_as::<f32>().unwrap_or_default();
+
+                        ui.ctx()
+                            .send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(
+                                width, height,
+                            )));
                     }
                 }
             }
