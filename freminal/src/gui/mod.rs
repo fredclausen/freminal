@@ -52,6 +52,7 @@ impl FreminalGui {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn handle_window_manipulation(
     ui: &egui::Ui,
     terminal_emulator: &mut TerminalEmulator<FreminalPtyInputOutput>,
@@ -65,7 +66,6 @@ fn handle_window_manipulation(
         .drain(..)
         .collect();
     for window_event in window_commands {
-        info!("event: {:?}", window_event);
         match window_event {
             WindowManipulation::DeIconifyWindow => {
                 ui.ctx()
@@ -129,6 +129,62 @@ fn handle_window_manipulation(
                 terminal_emulator
                     .internal
                     .report_window_state(current_status);
+            }
+            WindowManipulation::ReportWindowPositionWholeWindow => {
+                let position = ui
+                    .ctx()
+                    .input(|i| {
+                        i.raw.viewport().outer_rect.unwrap_or_else(|| {
+                            error!("Failed to get viewport position. Using 0 as default");
+                            egui::Rect::from_min_size(Pos2::new(0.0, 0.0), Vec2::new(0.0, 0.0))
+                        })
+                    })
+                    .min;
+
+                let pos_x = position.x.approx_as::<usize>().unwrap_or_else(|e| {
+                    error!("Failed to convert position x to usize: {e}. Using 0 as default");
+                    0
+                });
+                let pos_y = position.y.approx_as::<usize>().unwrap_or_else(|e| {
+                    error!("Failed to convert position y to usize: {e}. Using 0 as default");
+                    0
+                });
+
+                terminal_emulator
+                    .internal
+                    .report_window_position(pos_x, pos_y);
+            }
+            WindowManipulation::ReportWindowPositionTextArea => {
+                let position = ui
+                    .ctx()
+                    .input(|i| {
+                        i.raw.viewport().outer_rect.unwrap_or_else(|| {
+                            error!("Failed to get viewport position. Using 0 as default");
+                            egui::Rect::from_min_size(Pos2::new(0.0, 0.0), Vec2::new(0.0, 0.0))
+                        })
+                    })
+                    .min;
+
+                let available_height = ui.available_height();
+                let available_width = ui.available_width();
+                let width_difference = window_width.width() - available_width;
+                let height_difference = window_width.height() - available_height;
+                let pos_x = (position.y + height_difference)
+                    .approx_as::<usize>()
+                    .unwrap_or_else(|e| {
+                        error!("Failed to convert position x to usize: {e}. Using 0 as default");
+                        0
+                    });
+                let pos_y = (position.y + width_difference)
+                    .approx_as::<usize>()
+                    .unwrap_or_else(|e| {
+                        error!("Failed to convert position y to usize: {e}. Using 0 as default");
+                        0
+                    });
+
+                terminal_emulator
+                    .internal
+                    .report_window_position(pos_x, pos_y);
             }
             // These are ignored. eGui doesn't give us a stacking order thing (that I can tell)
             // refresh window is already happening because we ended up here.

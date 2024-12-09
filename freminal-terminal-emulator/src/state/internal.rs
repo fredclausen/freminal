@@ -939,6 +939,18 @@ impl TerminalState {
         }
     }
 
+    pub fn report_window_position(&mut self, x: usize, y: usize) {
+        let output = collect_text(&format!("\x1b[3;{x};{y}t"));
+        for input in output.iter() {
+            match self.write(input) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to write window position: {e}");
+                }
+            }
+        }
+    }
+
     pub(crate) fn clip_buffer_lines(&mut self) {
         let current_buffer = self.get_current_buffer();
 
