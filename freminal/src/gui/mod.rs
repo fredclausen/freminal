@@ -9,8 +9,9 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use eframe::egui::{self, CentralPanel};
+use eframe::egui::{self, CentralPanel, ViewportCommand};
 use fonts::get_char_size;
+use freminal_common::window_manipulation::WindowManipulation;
 use freminal_terminal_emulator::interface::TerminalEmulator;
 use freminal_terminal_emulator::io::FreminalPtyInputOutput;
 use parking_lot::FairMutex;
@@ -73,6 +74,18 @@ impl eframe::App for FreminalGui {
             let mut lock = self.terminal_emulator.lock();
             if let Err(e) = lock.set_win_size(width_chars, height_chars, font_width, font_height) {
                 error!("failed to set window size {e}");
+            }
+
+            for window_event in lock.internal.window_commands.drain(..) {
+                match window_event {
+                    WindowManipulation::DeIconifyWindow => {
+                        ui.ctx()
+                            .send_viewport_cmd(ViewportCommand::Minimized(false));
+                    }
+                    WindowManipulation::MinimizeWindow => {
+                        ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
+                    }
+                }
             }
 
             self.terminal_widget.show(ui, &mut lock);

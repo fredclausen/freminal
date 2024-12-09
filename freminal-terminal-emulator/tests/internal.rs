@@ -42,6 +42,7 @@ fn test_internal_terminal_state_new() {
         current_buffer: CurrentBuffer::Primary,
         mouse_position: None,
         window_focused: true,
+        window_commands: vec![],
     };
 
     assert_eq!(terminal_state, expected);

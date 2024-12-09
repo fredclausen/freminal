@@ -7,7 +7,9 @@ use anyhow::Result;
 use conv::ConvUtil;
 use core::str;
 use eframe::egui::{self, Color32, Context};
-use freminal_common::{colors::TerminalColor, scroll::ScrollDirection};
+use freminal_common::{
+    colors::TerminalColor, scroll::ScrollDirection, window_manipulation::WindowManipulation,
+};
 #[cfg(debug_assertions)]
 use std::time::Instant;
 
@@ -87,6 +89,7 @@ pub struct TerminalState {
     pub character_replace: DecSpecialGraphics,
     pub mouse_position: Option<egui::Pos2>,
     pub window_focused: bool,
+    pub window_commands: Vec<WindowManipulation>,
 }
 
 impl Default for TerminalState {
@@ -128,6 +131,7 @@ impl TerminalState {
             character_replace: DecSpecialGraphics::DontReplace,
             mouse_position: None,
             window_focused: true,
+            window_commands: Vec::new(),
         }
     }
 
@@ -1013,6 +1017,7 @@ impl TerminalState {
                 TerminalOutput::CursorVisualStyle(style) => {
                     debug!("Ignoring cursor visual style: {style:?}");
                 }
+                TerminalOutput::WindowManipulation(manip) => self.window_commands.push(manip),
                 TerminalOutput::Invalid => {
                     info!("Unhandled terminal output: {segment:?}");
                 }

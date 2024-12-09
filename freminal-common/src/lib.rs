@@ -17,6 +17,7 @@ pub mod args;
 pub mod colors;
 pub mod cursor;
 pub mod scroll;
+pub mod window_manipulation;
 
 #[macro_use]
 extern crate tracing;

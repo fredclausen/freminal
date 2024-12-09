@@ -15,7 +15,7 @@ use crate::{
 };
 
 use anyhow::Result;
-use freminal_common::cursor::CursorVisualStyle;
+use freminal_common::{cursor::CursorVisualStyle, window_manipulation::WindowManipulation};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum TerminalOutput {
@@ -48,6 +48,7 @@ pub enum TerminalOutput {
     Skipped,
     DecSpecialGraphics(DecSpecialGraphics),
     CursorVisualStyle(CursorVisualStyle),
+    WindowManipulation(WindowManipulation),
 }
 
 // impl format display for TerminalOutput
@@ -92,6 +93,9 @@ impl std::fmt::Display for TerminalOutput {
             Self::NormalKeypadMode => write!(f, "NormalKeypadMode"),
             Self::CursorVisualStyle(cursor_visual_style) => {
                 write!(f, "CursorVisualStyle({cursor_visual_style:?})")
+            }
+            Self::WindowManipulation(window_manipulation) => {
+                write!(f, "WindowManipulation({window_manipulation:?})")
             }
         }
     }

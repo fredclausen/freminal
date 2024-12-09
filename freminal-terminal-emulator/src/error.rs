@@ -40,4 +40,6 @@ pub enum ParserFailures {
     InvalidTChar(Vec<u8>),
     #[error("Invalid set cursor style (DECSCUSR) set position sequence: {0}")]
     UnhandledDECSCUSRCommand(String),
+    #[error("Invalid window manipulation (DECSLPP) set position sequence: {0}")]
+    UnhandledDECSLPPCommand(String),
 }
