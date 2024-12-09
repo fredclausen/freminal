@@ -105,6 +105,19 @@ fn handle_window_manipulation(
                 ui.ctx()
                     .send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(width, height)));
             }
+            WindowManipulation::NotFullScreen => {
+                ui.ctx()
+                    .send_viewport_cmd(ViewportCommand::Fullscreen(false));
+            }
+            WindowManipulation::FullScreen => {
+                ui.ctx()
+                    .send_viewport_cmd(ViewportCommand::Fullscreen(true));
+            }
+            WindowManipulation::ToggleFullScreen => {
+                let current_status = ui.ctx().input(|i| i.viewport().fullscreen.unwrap_or(false));
+                ui.ctx()
+                    .send_viewport_cmd(ViewportCommand::Fullscreen(!current_status));
+            }
             // These are ignored. eGui doesn't give us a stacking order thing (that I can tell)
             // refresh window is already happening because we ended up here.
             WindowManipulation::RefreshWindow

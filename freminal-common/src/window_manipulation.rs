@@ -18,6 +18,9 @@ pub enum WindowManipulation {
     ResizeWindowToLinesAndColumns(usize, usize),
     MaximizeWindow,
     RestoreNonMaximizedWindow,
+    NotFullScreen,
+    FullScreen,
+    ToggleFullScreen,
 }
 
 impl TryFrom<(usize, usize, usize)> for WindowManipulation {
@@ -35,6 +38,9 @@ impl TryFrom<(usize, usize, usize)> for WindowManipulation {
             (8, x, y) => Ok(Self::ResizeWindowToLinesAndColumns(x, y)),
             (9, 1, 0) => Ok(Self::MaximizeWindow),
             (9, 0, 0) => Ok(Self::RestoreNonMaximizedWindow),
+            (10, 0, 0) => Ok(Self::NotFullScreen),
+            (10, 1, 0) => Ok(Self::FullScreen),
+            (10, 2, 0) => Ok(Self::ToggleFullScreen),
             _ => Err(anyhow::anyhow!("Invalid WindowManipulation")),
         }
     }
