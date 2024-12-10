@@ -47,6 +47,8 @@ pub struct TerminalBufferHolder {
     visible_line_ranges: Vec<Range<usize>>,
     buffer_line_ranges: Vec<Range<usize>>,
     viewable_index_bottom: usize, // usize::MAX represents the bottom of the buffer
+    top_margin: usize,
+    bottom_margin: usize,
 }
 
 impl Default for TerminalBufferHolder {
@@ -58,6 +60,8 @@ impl Default for TerminalBufferHolder {
             visible_line_ranges: Vec::with_capacity(24),
             buffer_line_ranges: Vec::with_capacity(5000),
             viewable_index_bottom: usize::MAX,
+            top_margin: 0,
+            bottom_margin: usize::MAX,
         }
     }
 }
@@ -72,6 +76,8 @@ impl TerminalBufferHolder {
             visible_line_ranges: Vec::with_capacity(height),
             buffer_line_ranges: Vec::with_capacity(5000),
             viewable_index_bottom: usize::MAX,
+            top_margin: 0,
+            bottom_margin: usize::MAX,
         }
     }
 
@@ -708,7 +714,14 @@ impl TerminalBufferHolder {
         }
     }
 
-    pub fn set_top_and_bottom_margins(&mut self, _top_margin: usize, _bottom_margin: usize) {}
+    pub fn set_top_and_bottom_margins(&mut self, top_margin: usize, bottom_margin: usize) {
+        self.top_margin = top_margin.saturating_sub(1);
+        self.bottom_margin = if bottom_margin == 0 {
+            usize::MAX
+        } else {
+            bottom_margin.saturating_sub(1)
+        };
+    }
 
     /// Given terminal height `height`, extract the visible line ranges from all line ranges (which
     /// include scrollback) assuming "visible" is the bottom N lines

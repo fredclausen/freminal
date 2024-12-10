@@ -1087,7 +1087,6 @@ impl TerminalState {
     }
 
     pub fn set_top_and_bottom_margins(&mut self, top: usize, bottom: usize) {
-        info!("Setting top and bottom margins: {top} - {bottom}");
         let current_buffer = self.get_current_buffer();
 
         current_buffer
