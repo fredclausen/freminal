@@ -144,6 +144,7 @@ pub enum AnsiOscType {
     // if we go tabbed, we'll need to handle 2 differently
     SetTitleBar(String),
     Url(UrlResponse),
+    RemoteHost(String),
 }
 
 impl std::fmt::Display for AnsiOscType {
@@ -158,6 +159,7 @@ impl std::fmt::Display for AnsiOscType {
             Self::Url(url) => write!(f, "Url({url})"),
             Self::SetTitleBar(value) => write!(f, "SetTitleBar({value:?})"),
             Self::Ftcs(value) => write!(f, "Ftcs ({value:?})"),
+            Self::RemoteHost(value) => write!(f, "RemoteHost ({value:?})"),
         }
     }
 }
@@ -273,7 +275,7 @@ impl AnsiOscParser {
                                 AnsiOscType::RequestColorQueryForeground(osc_internal_type),
                             ));
                         }
-                        OscTarget::TitleBar => {
+                        OscTarget::TitleBar | OscTarget::IconName => {
                             output.push(TerminalOutput::OscResponse(AnsiOscType::SetTitleBar(
                                 osc_internal_type.to_string(),
                             )));
@@ -284,13 +286,11 @@ impl AnsiOscParser {
                                 osc_internal_type.to_string(),
                             )));
                         }
-                        OscTarget::IconName => {
-                            warn!("IconName is not supported");
-                            output.push(TerminalOutput::Skipped);
-                        }
+
                         OscTarget::RemoteHost => {
-                            warn!("RemoteHost is not supported");
-                            output.push(TerminalOutput::Skipped);
+                            output.push(TerminalOutput::OscResponse(AnsiOscType::RemoteHost(
+                                osc_internal_type.to_string(),
+                            )));
                         }
                         OscTarget::Url => {
                             let url_response = UrlResponse::from(params);

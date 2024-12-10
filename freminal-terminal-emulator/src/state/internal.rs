@@ -897,6 +897,13 @@ impl TerminalState {
             AnsiOscType::Ftcs(value) => {
                 warn!("Ftcs is not supported: {value}");
             }
+            // FIXME: I think once we get in to muxxing we'll need to handle this
+            // I think the idea here is that OSC 7 is emitted to inform the terminal of the current working directory
+            // So that if you open a new tab in the terminal, it will start in the same directory as the current tab
+            // https://github.com/jarun/nnn/issues/1147
+            AnsiOscType::RemoteHost(value) => {
+                debug!("Received for remote host: {value}");
+            }
         }
     }
 
