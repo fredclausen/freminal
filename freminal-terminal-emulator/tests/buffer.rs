@@ -10,6 +10,7 @@ use anyhow::Result;
 use freminal_terminal_emulator::state::{
     buffer::{TerminalBufferHolder, TerminalBufferInsertResponse},
     cursor::CursorPos,
+    internal::BufferType,
     term_char::TChar,
 };
 
@@ -62,7 +63,7 @@ fn crlf(pos: &mut CursorPos) {
 
 #[test]
 fn test_insert_utf8_data() {
-    let mut buffer = TerminalBufferHolder::new(10, 10);
+    let mut buffer = TerminalBufferHolder::new(10, 10, BufferType::Primary);
     let response = buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"asdf")
         .unwrap();
@@ -136,7 +137,7 @@ fn test_calc_line_ranges() {
 
 #[test]
 fn test_canvas_clear_forwards() {
-    let mut buffer = TerminalBufferHolder::new(5, 5);
+    let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     // Push enough data to get some in scrollback
     buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"012343456789\n0123456789\n1234")
@@ -191,7 +192,7 @@ fn test_canvas_clear_forwards() {
 
     // A few special cases.
     // 1. Truncating on beginning of line and previous char was not a newline
-    let mut buffer = TerminalBufferHolder::new(5, 5);
+    let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"012340123401234012340123401234")
         .unwrap();
@@ -212,7 +213,7 @@ fn test_canvas_clear_forwards() {
     assert_eq!(buffer.data(true).visible, expected);
 
     // 2. Truncating on beginning of line and previous char was a newline
-    let mut buffer = TerminalBufferHolder::new(5, 5);
+    let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     buffer
         .insert_data(
             &CursorPos { x: 0, y: 0 },
@@ -224,7 +225,7 @@ fn test_canvas_clear_forwards() {
     assert_eq!(buffer.data(true).visible, expected);
 
     // 3. Truncating on a newline
-    let mut buffer = TerminalBufferHolder::new(5, 5);
+    let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"\n\n\n\n\n\n")
         .unwrap();
@@ -242,7 +243,7 @@ fn test_canvas_clear_forwards() {
 
 #[test]
 fn test_canvas_clear() {
-    let mut buffer = TerminalBufferHolder::new(5, 5);
+    let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789")
         .unwrap();
@@ -252,7 +253,7 @@ fn test_canvas_clear() {
 
 #[test]
 fn test_terminal_buffer_overwrite_early_newline() {
-    let mut buffer = TerminalBufferHolder::new(5, 5);
+    let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"012\n3456789")
         .unwrap();
@@ -296,7 +297,7 @@ fn test_terminal_buffer_overwrite_early_newline() {
 
 #[test]
 fn test_terminal_buffer_overwrite_no_newline() {
-    let mut buffer = TerminalBufferHolder::new(5, 5);
+    let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789")
         .unwrap();
@@ -341,7 +342,7 @@ fn test_terminal_buffer_overwrite_no_newline() {
 fn test_terminal_buffer_overwrite_late_newline() {
     // This should behave exactly as test_terminal_buffer_overwrite_no_newline(), except with a
     // neline between lines 1 and 2
-    let mut buffer = TerminalBufferHolder::new(5, 5);
+    let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"01234\n56789")
         .unwrap();
@@ -384,7 +385,7 @@ fn test_terminal_buffer_overwrite_late_newline() {
 
 #[test]
 fn test_terminal_buffer_insert_unallocated_data() {
-    let mut buffer = TerminalBufferHolder::new(10, 10);
+    let mut buffer = TerminalBufferHolder::new(10, 10, BufferType::Primary);
     buffer
         .insert_data(&CursorPos { x: 4, y: 5 }, b"hello world")
         .unwrap();
@@ -458,7 +459,7 @@ fn test_terminal_buffer_insert_unallocated_data() {
 
 #[test]
 fn test_canvas_scrolling() {
-    let mut canvas = TerminalBufferHolder::new(10, 3);
+    let mut canvas = TerminalBufferHolder::new(10, 3, BufferType::Primary);
     let initial_cursor_pos = CursorPos { x: 0, y: 0 };
 
     // Simulate real terminal usage where newlines are injected with cursor moves
@@ -507,7 +508,7 @@ fn test_canvas_scrolling() {
 
 #[test]
 fn test_canvas_delete_forwards() {
-    let mut canvas = TerminalBufferHolder::new(10, 5);
+    let mut canvas = TerminalBufferHolder::new(10, 5, BufferType::Primary);
 
     canvas
         .insert_data(&CursorPos { x: 0, y: 0 }, b"asdf\n123456789012345")
@@ -603,7 +604,7 @@ fn test_canvas_delete_forwards() {
 #[test]
 #[allow(clippy::too_many_lines)]
 fn test_canvas_insert_spaces() {
-    let mut canvas = TerminalBufferHolder::new(10, 5);
+    let mut canvas = TerminalBufferHolder::new(10, 5, BufferType::Primary);
     canvas
         .insert_data(&CursorPos { x: 0, y: 0 }, b"asdf\n123456789012345")
         .unwrap();
@@ -772,7 +773,7 @@ fn test_canvas_insert_spaces() {
 
 #[test]
 fn test_clear_line_forwards() {
-    let mut canvas = TerminalBufferHolder::new(10, 5);
+    let mut canvas = TerminalBufferHolder::new(10, 5, BufferType::Primary);
     canvas
         .insert_data(&CursorPos { x: 0, y: 0 }, b"asdf\n123456789012345")
         .unwrap();
@@ -859,7 +860,7 @@ fn test_resize_expand() {
     // Ensure that on window size increase, text stays in same spot relative to cursor position
     // This was problematic with our initial implementation. It's less of a problem after some
     // later improvements, but we can keep the test to make sure it still seems sane
-    let mut canvas = TerminalBufferHolder::new(10, 6);
+    let mut canvas = TerminalBufferHolder::new(10, 6, BufferType::Primary);
 
     let cursor_pos = CursorPos { x: 0, y: 0 };
     let response = simulate_resize(&mut canvas, 10, 5, &cursor_pos).unwrap();
@@ -884,7 +885,7 @@ fn test_resize_expand() {
 
 #[test]
 fn test_insert_lines() {
-    let mut canvas = TerminalBufferHolder::new(5, 5);
+    let mut canvas = TerminalBufferHolder::new(5, 5, BufferType::Primary);
 
     // Test empty canvas
     let response = canvas.insert_lines(&CursorPos { x: 0, y: 0 }, 3);
@@ -988,7 +989,7 @@ fn test_insert_lines() {
 
 #[test]
 fn test_clear_line() {
-    let mut canvas = TerminalBufferHolder::new(5, 5);
+    let mut canvas = TerminalBufferHolder::new(5, 5, BufferType::Primary);
 
     // Test empty canvas
     let response = canvas.clear_line(&CursorPos { x: 0, y: 0 });
@@ -1072,7 +1073,7 @@ fn test_clear_line() {
 
 #[test]
 fn clear_line_backwards() {
-    let mut canvas = TerminalBufferHolder::new(5, 5);
+    let mut canvas = TerminalBufferHolder::new(5, 5, BufferType::Primary);
 
     // Test empty canvas
     let response = canvas.clear_line_backwards(&CursorPos { x: 0, y: 0 });
@@ -1134,7 +1135,7 @@ fn clear_line_backwards() {
 
 #[test]
 fn test_clear_backwards() {
-    let mut canvas = TerminalBufferHolder::new(5, 5);
+    let mut canvas = TerminalBufferHolder::new(5, 5, BufferType::Primary);
 
     // Test empty canvas
     let response = canvas.clear_backwards(&CursorPos { x: 0, y: 0 }).unwrap();
@@ -1227,7 +1228,7 @@ fn test_clear_backwards() {
 
 #[test]
 fn test_clear_visible() {
-    let mut canvas = TerminalBufferHolder::new(5, 5);
+    let mut canvas = TerminalBufferHolder::new(5, 5, BufferType::Primary);
 
     // Test edge wrapped
     canvas
@@ -1273,7 +1274,7 @@ fn test_clear_visible() {
 #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
 #[test]
 fn test_visible_line_ranges_parsing() {
-    let mut buf = TerminalBufferHolder::new(5, 5);
+    let mut buf = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     let data = vec![
         TChar::Ascii(b'0'), // 0 1
         TChar::Ascii(b'1'), // 1 1
@@ -1305,7 +1306,7 @@ fn test_visible_line_ranges_parsing() {
     assert_eq!(visible_line_ranges[3], expected[3]);
     assert_eq!(visible_line_ranges[4], expected[4]);
 
-    let mut buf = TerminalBufferHolder::new(15, 15);
+    let mut buf = TerminalBufferHolder::new(15, 15, BufferType::Primary);
 
     // no scrollback, new line before width reached
     let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
@@ -1322,7 +1323,7 @@ fn test_visible_line_ranges_parsing() {
     assert_eq!(visible_line_ranges[5], 55..55);
 
     // scrollback, new line before width reached
-    let mut buf = TerminalBufferHolder::new(15, 4);
+    let mut buf = TerminalBufferHolder::new(15, 4, BufferType::Primary);
 
     let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
     buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
@@ -1335,7 +1336,7 @@ fn test_visible_line_ranges_parsing() {
     assert_eq!(visible_line_ranges[3], 55..55);
 
     // no scrollback, new line after width reached
-    let mut buf = TerminalBufferHolder::new(10, 15);
+    let mut buf = TerminalBufferHolder::new(10, 15, BufferType::Primary);
 
     let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
     buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
@@ -1350,7 +1351,7 @@ fn test_visible_line_ranges_parsing() {
     assert_eq!(visible_line_ranges[5], 55..55);
 
     // scrollback, new line after width reached
-    let mut buf = TerminalBufferHolder::new(15, 4);
+    let mut buf = TerminalBufferHolder::new(15, 4, BufferType::Primary);
     let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
     buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
     let visible_line_ranges = buf.get_visible_line_ranges();
@@ -1362,7 +1363,7 @@ fn test_visible_line_ranges_parsing() {
     assert_eq!(visible_line_ranges[3], 55..55);
 
     // no scrollback, no new lines
-    let mut buf = TerminalBufferHolder::new(10, 15);
+    let mut buf = TerminalBufferHolder::new(10, 15, BufferType::Primary);
     let data = b"01234567890123456789012345678901234567890123456789";
     buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
     let visible_line_ranges = buf.get_visible_line_ranges();
@@ -1375,7 +1376,7 @@ fn test_visible_line_ranges_parsing() {
     assert_eq!(visible_line_ranges[4], 40..50);
 
     // scrollback, no new lines
-    let mut buf = TerminalBufferHolder::new(10, 4);
+    let mut buf = TerminalBufferHolder::new(10, 4, BufferType::Primary);
     let data = b"01234567890123456789012345678901234567890123456789";
     buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
     let visible_line_ranges = buf.get_visible_line_ranges();
@@ -1386,7 +1387,7 @@ fn test_visible_line_ranges_parsing() {
     assert_eq!(visible_line_ranges[2], 30..40);
     assert_eq!(visible_line_ranges[3], 40..50);
 
-    let mut buffer = TerminalBufferHolder::new(5, 5);
+    let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     // Push enough data to get some in scrollback
     buffer
         .insert_data(&CursorPos { x: 0, y: 0 }, b"012343456789\n0123456789\n1234")
@@ -1404,7 +1405,7 @@ fn test_visible_line_ranges_parsing() {
 #[test]
 fn test_line_ranges_from_visible_line_ranges_no_spill() {
     // buffer with initial data that does not spill in to scrollback
-    let mut buffer = TerminalBufferHolder::new(5, 5);
+    let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     // add some data
     let data = b"1234\n".repeat(4);
     let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
@@ -1443,7 +1444,7 @@ fn test_line_ranges_from_visible_line_ranges_no_spill() {
 #[test]
 fn test_line_ranges_from_visible_line_ranges_spill() {
     // buffer with initial data that does not spill in to scrollback
-    let mut buffer = TerminalBufferHolder::new(5, 5);
+    let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     // add some data
     let data = b"1234\n".repeat(5);
     let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
@@ -1487,7 +1488,7 @@ fn test_line_ranges_from_visible_line_ranges_spill() {
     );
 
     // now lets test with buffers that wrap and don't have newlines
-    let mut buffer = TerminalBufferHolder::new(5, 5);
+    let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     let data = b"12345".repeat(6);
     let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
 
@@ -1530,7 +1531,7 @@ fn test_line_ranges_from_visible_line_ranges_spill() {
 
 #[test]
 fn test_weird_fail_case_from_real_world() {
-    let mut buffer = TerminalBufferHolder::new(50, 16);
+    let mut buffer = TerminalBufferHolder::new(50, 16, BufferType::Primary);
 
     let data = b" ".repeat(479);
     buffer.insert_data(&CursorPos::default(), &data).unwrap();
@@ -1627,7 +1628,7 @@ fn test_weird_fail_case_from_real_world() {
 
 #[test]
 fn test_line_ranges_that_do_overlap_subsequent_range() {
-    let mut buffer = TerminalBufferHolder::new(50, 16);
+    let mut buffer = TerminalBufferHolder::new(50, 16, BufferType::Primary);
 
     let data = b" ".repeat(478);
     buffer.insert_data(&CursorPos::default(), &data).unwrap();

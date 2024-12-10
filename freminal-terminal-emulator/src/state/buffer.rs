@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use super::{cursor::CursorPos, data::TerminalSections, term_char::TChar};
+use super::{cursor::CursorPos, data::TerminalSections, internal::BufferType, term_char::TChar};
 use anyhow::Result;
 use freminal_common::scroll::ScrollDirection;
 use std::ops::Range;
@@ -49,6 +49,7 @@ pub struct TerminalBufferHolder {
     viewable_index_bottom: usize, // usize::MAX represents the bottom of the buffer
     top_margin: usize,
     bottom_margin: usize,
+    buffer_type: BufferType,
 }
 
 impl Default for TerminalBufferHolder {
@@ -62,13 +63,14 @@ impl Default for TerminalBufferHolder {
             viewable_index_bottom: usize::MAX,
             top_margin: 0,
             bottom_margin: usize::MAX,
+            buffer_type: BufferType::Primary,
         }
     }
 }
 
 impl TerminalBufferHolder {
     #[must_use]
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn new(width: usize, height: usize, buffer_type: BufferType) -> Self {
         Self {
             buf: Vec::with_capacity(500_000),
             width,
@@ -78,6 +80,7 @@ impl TerminalBufferHolder {
             viewable_index_bottom: usize::MAX,
             top_margin: 0,
             bottom_margin: usize::MAX,
+            buffer_type,
         }
     }
 
@@ -845,7 +848,14 @@ impl TerminalBufferHolder {
 
         self.visible_line_ranges = ret;
 
-        self.calculate_line_ranges();
+        match self.buffer_type {
+            BufferType::Primary => {
+                self.calculate_line_ranges();
+            }
+            BufferType::Alternate => {
+                self.buffer_line_ranges = self.visible_line_ranges.clone();
+            }
+        }
     }
 
     // FIXME: can we combine this with the above function? Or separate out the internal logic of each function to a common function?

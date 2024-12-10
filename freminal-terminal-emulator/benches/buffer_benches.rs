@@ -4,6 +4,7 @@ use criterion::BenchmarkId;
 use criterion::Criterion;
 
 use freminal_terminal_emulator::state::internal::Buffer;
+use freminal_terminal_emulator::state::internal::BufferType;
 use std::io::Read;
 
 fn load_random_file() -> Vec<u8> {
@@ -25,7 +26,7 @@ fn bench_display_vec_tchar_large_chunk(bench: &mut Criterion) {
     let mut group = bench.benchmark_group("display_vec_tchar_large_chunk");
     group.bench_with_input(BenchmarkId::from_parameter("test"), &data, |b, data| {
         b.iter(|| {
-            let mut buf = Buffer::new(100, 80);
+            let mut buf = Buffer::new(100, 80, BufferType::Primary);
 
             let response = buf
                 .terminal_buffer
@@ -52,7 +53,7 @@ fn bench_display_vec_tchar_chunked(bench: &mut Criterion) {
     let mut group = bench.benchmark_group("display_vec_tchar_chunked");
     group.bench_with_input(BenchmarkId::from_parameter("test"), &data, |b, data| {
         b.iter(|| {
-            let mut buf = Buffer::new(100, 80);
+            let mut buf = Buffer::new(100, 80, BufferType::Primary);
 
             for chunk in data {
                 let response = buf

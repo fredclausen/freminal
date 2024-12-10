@@ -41,7 +41,7 @@ pub const TERMINAL_WIDTH: usize = 50;
 pub const TERMINAL_HEIGHT: usize = 16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum CurrentBuffer {
+pub enum BufferType {
     #[default]
     Primary,
     Alternate,
@@ -65,16 +65,20 @@ impl Default for Buffer {
             format_tracker: FormatTracker::new(),
             saved_cursor_position: None,
             show_cursor: Dectcem::default(),
-            terminal_buffer: TerminalBufferHolder::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
+            terminal_buffer: TerminalBufferHolder::new(
+                TERMINAL_WIDTH,
+                TERMINAL_HEIGHT,
+                BufferType::Primary,
+            ),
         }
     }
 }
 
 impl Buffer {
     #[must_use]
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn new(width: usize, height: usize, buffer_type: BufferType) -> Self {
         Self {
-            terminal_buffer: TerminalBufferHolder::new(width, height),
+            terminal_buffer: TerminalBufferHolder::new(width, height, buffer_type),
             format_tracker: FormatTracker::new(),
             cursor_state: CursorState::default(),
             show_cursor: Dectcem::default(),
@@ -92,7 +96,7 @@ impl Buffer {
 #[derive(Debug)]
 pub struct TerminalState {
     pub parser: FreminalAnsiParser,
-    pub current_buffer: CurrentBuffer,
+    pub current_buffer: BufferType,
     pub primary_buffer: Buffer,
     pub alternate_buffer: Buffer,
     pub modes: TerminalModes,
@@ -132,9 +136,9 @@ impl TerminalState {
     pub fn new(write_tx: crossbeam_channel::Sender<PtyWrite>) -> Self {
         Self {
             parser: FreminalAnsiParser::new(),
-            current_buffer: CurrentBuffer::Primary,
-            primary_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
-            alternate_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
+            current_buffer: BufferType::Primary,
+            primary_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT, BufferType::Primary),
+            alternate_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT, BufferType::Alternate),
             modes: TerminalModes::default(),
             write_tx,
             changed: false,
@@ -183,8 +187,8 @@ impl TerminalState {
 
     pub fn get_current_buffer(&mut self) -> &mut Buffer {
         match self.current_buffer {
-            CurrentBuffer::Primary => &mut self.primary_buffer,
-            CurrentBuffer::Alternate => &mut self.alternate_buffer,
+            BufferType::Primary => &mut self.primary_buffer,
+            BufferType::Alternate => &mut self.alternate_buffer,
         }
     }
 
@@ -791,8 +795,8 @@ impl TerminalState {
                 // This is why we're making a "new" buffer here
 
                 let (width, height) = self.get_current_buffer().terminal_buffer.get_win_size();
-                self.alternate_buffer = Buffer::new(width, height);
-                self.current_buffer = CurrentBuffer::Alternate;
+                self.alternate_buffer = Buffer::new(width, height, BufferType::Alternate);
+                self.current_buffer = BufferType::Alternate;
             }
             Mode::XtExtscrn(XtExtscrn::Primary) => {
                 debug!("Switching to primary screen buffer");
@@ -802,9 +806,9 @@ impl TerminalState {
                 // 3. Clear the screen
                 // See set mode for notes on the cursor pos
 
-                self.current_buffer = CurrentBuffer::Primary;
+                self.current_buffer = BufferType::Primary;
                 let (width, height) = self.get_current_buffer().terminal_buffer.get_win_size();
-                self.alternate_buffer = Buffer::new(width, height);
+                self.alternate_buffer = Buffer::new(width, height, BufferType::Alternate);
             }
             Mode::XtMseWin(XtMseWin::Enabled) => {
                 debug!("Setting focus reporting");
@@ -1053,7 +1057,7 @@ impl TerminalState {
 
     pub(crate) fn clip_buffer_lines(&mut self) {
         match self.current_buffer {
-            CurrentBuffer::Primary => {
+            BufferType::Primary => {
                 let current_buffer = self.get_current_buffer();
 
                 if let Some(range) = current_buffer
@@ -1068,7 +1072,7 @@ impl TerminalState {
                     }
                 }
             }
-            CurrentBuffer::Alternate => {
+            BufferType::Alternate => {
                 let current_buffer = self.get_current_buffer();
 
                 if let Some(range) = current_buffer
@@ -1227,6 +1231,10 @@ impl TerminalState {
     }
 
     pub fn scroll(&mut self, scroll: f32) {
+        if self.current_buffer == BufferType::Alternate {
+            return;
+        }
+
         let current_buffer = &mut self.get_current_buffer().terminal_buffer;
         // convert the scroll to usize, with a minimum of 1
         let mut scroll = scroll.round();

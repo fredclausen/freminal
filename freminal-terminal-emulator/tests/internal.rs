@@ -18,7 +18,7 @@ use freminal_terminal_emulator::{
     state::{
         cursor::{CursorPos, CursorState, ReverseVideo, StateColors},
         fonts::{FontDecorations, FontWeight},
-        internal::{Buffer, CurrentBuffer, TerminalState, TERMINAL_HEIGHT, TERMINAL_WIDTH},
+        internal::{Buffer, BufferType, TerminalState, TERMINAL_HEIGHT, TERMINAL_WIDTH},
         term_char::{display_vec_tchar_as_string, TChar},
     },
 };
@@ -30,15 +30,15 @@ fn test_internal_terminal_state_new() {
     let ctx = Context::default();
     let expected = TerminalState {
         parser: FreminalAnsiParser::new(),
-        primary_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
-        alternate_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
+        primary_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT, BufferType::Primary),
+        alternate_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT, BufferType::Alternate),
         modes: TerminalModes::default(),
         write_tx: tx,
         changed: false,
         ctx: None,
         leftover_data: None,
         character_replace: DecSpecialGraphics::DontReplace,
-        current_buffer: CurrentBuffer::Primary,
+        current_buffer: BufferType::Primary,
         mouse_position: None,
         window_focused: true,
         window_commands: vec![],
@@ -615,7 +615,7 @@ fn test_sgr_sequences() {
                                 font_weight: FontWeight::Bold,
                                 ..CursorState::default()
                             },
-                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT, BufferType::Primary)
                         },
                         write_tx: tx.clone(),
                         changed: true,
@@ -632,7 +632,7 @@ fn test_sgr_sequences() {
                                 font_decorations: vec![FontDecorations::Faint],
                                 ..CursorState::default()
                             },
-                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT, BufferType::Primary)
                         },
                         write_tx: tx.clone(),
                         changed: true,
@@ -649,7 +649,7 @@ fn test_sgr_sequences() {
                                 font_decorations: vec![FontDecorations::Italic],
                                 ..CursorState::default()
                             },
-                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT, BufferType::Primary)
                         },
                         write_tx: tx.clone(),
                         changed: true,
@@ -666,7 +666,7 @@ fn test_sgr_sequences() {
                                 font_decorations: vec![FontDecorations::Underline],
                                 ..CursorState::default()
                             },
-                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT, BufferType::Primary)
                         },
                         write_tx: tx.clone(),
                         changed: true,
@@ -686,7 +686,7 @@ fn test_sgr_sequences() {
                                 },
                                 ..CursorState::default()
                             },
-                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT, BufferType::Primary)
                         },
                         write_tx: tx.clone(),
                         changed: true,
@@ -703,7 +703,7 @@ fn test_sgr_sequences() {
                                 font_decorations: vec![FontDecorations::Strikethrough],
                                 ..CursorState::default()
                             },
-                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT, BufferType::Primary)
                         },
                         write_tx: tx.clone(),
                         changed: true,
@@ -723,7 +723,7 @@ fn test_sgr_sequences() {
                                 },
                                 ..CursorState::default()
                             },
-                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT, BufferType::Primary)
                         },
                         write_tx: tx.clone(),
                         changed: true,
@@ -743,7 +743,7 @@ fn test_sgr_sequences() {
                                 },
                                 ..CursorState::default()
                             },
-                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT, BufferType::Primary)
                         },
                         write_tx: tx.clone(),
                         changed: true,
@@ -763,7 +763,7 @@ fn test_sgr_sequences() {
                                 },
                                 ..CursorState::default()
                             },
-                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT)
+                            ..Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT, BufferType::Primary)
                         },
                         write_tx: tx.clone(),
                         changed: true,
