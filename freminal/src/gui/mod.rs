@@ -65,6 +65,8 @@ fn handle_window_manipulation(
         .window_commands
         .drain(..)
         .collect();
+    // FIXME: when we end up muxxing/tabbing this, some of these events related to window size/position needs to be adjusted.
+    // https://teratermproject.github.io/manual/5/en/about/ctrlseq.html
     for window_event in window_commands {
         match window_event {
             WindowManipulation::DeIconifyWindow => {
@@ -185,6 +187,41 @@ fn handle_window_manipulation(
                 terminal_emulator
                     .internal
                     .report_window_position(pos_x, pos_y);
+            }
+            WindowManipulation::ReportWindowSizeInPixels => {
+                let position = ui.ctx().input(|i| {
+                    i.raw.viewport().outer_rect.unwrap_or_else(|| {
+                        error!("Failed to get viewport position. Using 0 as default");
+                        egui::Rect::from_min_size(Pos2::new(0.0, 0.0), Vec2::new(0.0, 0.0))
+                    })
+                });
+
+                let width = position.max.x - position.min.x;
+                let height = position.max.y - position.min.y;
+
+                let pos_x = width.approx_as::<usize>().unwrap_or_else(|e| {
+                    error!("Failed to convert position x to usize: {e}. Using 0 as default");
+                    0
+                });
+                let pos_y = height.approx_as::<usize>().unwrap_or_else(|e| {
+                    error!("Failed to convert position y to usize: {e}. Using 0 as default");
+                    0
+                });
+
+                terminal_emulator.internal.report_window_size(pos_x, pos_y);
+            }
+            WindowManipulation::ReportWindowTextAreaSizeInPixels => {
+                let size = ui.ctx().screen_rect().max;
+                let pos_x = size.x.approx_as::<usize>().unwrap_or_else(|e| {
+                    error!("Failed to convert position x to usize: {e}. Using 0 as default");
+                    0
+                });
+                let pos_y = size.y.approx_as::<usize>().unwrap_or_else(|e| {
+                    error!("Failed to convert position y to usize: {e}. Using 0 as default");
+                    0
+                });
+
+                terminal_emulator.internal.report_window_size(pos_x, pos_y);
             }
             // These are ignored. eGui doesn't give us a stacking order thing (that I can tell)
             // refresh window is already happening because we ended up here.
