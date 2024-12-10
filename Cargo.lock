@@ -1154,6 +1154,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "freminal-grid"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "tracing",
+]
+
+[[package]]
 name = "freminal-terminal-emulator"
 version = "0.1.0"
 dependencies = [
