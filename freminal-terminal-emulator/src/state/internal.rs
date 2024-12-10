@@ -963,6 +963,18 @@ impl TerminalState {
         }
     }
 
+    pub fn report_root_window_size(&mut self, width: usize, height: usize) {
+        let output = collect_text(&format!("\x1b[5;{height};{width}t"));
+        for input in output.iter() {
+            match self.write(input) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to write window size: {e}");
+                }
+            }
+        }
+    }
+
     pub(crate) fn clip_buffer_lines(&mut self) {
         let current_buffer = self.get_current_buffer();
 

@@ -26,6 +26,7 @@ pub enum WindowManipulation {
     ReportWindowPositionTextArea,
     ReportWindowSizeInPixels,
     ReportWindowTextAreaSizeInPixels,
+    ReportRootWindowSizeInPixels,
 }
 
 impl TryFrom<(usize, usize, usize)> for WindowManipulation {
@@ -51,6 +52,7 @@ impl TryFrom<(usize, usize, usize)> for WindowManipulation {
             (13, 2, 0) => Ok(Self::ReportWindowPositionTextArea),
             (14, 0 | 1, 0) => Ok(Self::ReportWindowSizeInPixels),
             (14, 2, 0) => Ok(Self::ReportWindowTextAreaSizeInPixels),
+            (15, 0, 0) => Ok(Self::ReportRootWindowSizeInPixels),
             _ => Err(anyhow::anyhow!("Invalid WindowManipulation")),
         }
     }
