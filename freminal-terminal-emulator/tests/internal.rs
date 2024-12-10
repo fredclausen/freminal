@@ -33,7 +33,6 @@ fn test_internal_terminal_state_new() {
         primary_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
         alternate_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
         modes: TerminalModes::default(),
-        window_title: None,
         write_tx: tx,
         changed: false,
         ctx: None,
@@ -72,11 +71,6 @@ fn test_internal_terminal_state_new() {
     let (width, height) = terminal_state.get_win_size();
     assert_eq!(width, 69);
     assert_eq!(height, 69);
-
-    terminal_state.window_title = Some("test".to_string());
-    assert_eq!(terminal_state.get_window_title(), Some("test".to_string()));
-    terminal_state.clear_window_title();
-    assert_eq!(terminal_state.get_window_title(), None);
 
     let cursor_key_mode = terminal_state.get_cursor_key_mode();
     assert_eq!(cursor_key_mode, Decckm::default());

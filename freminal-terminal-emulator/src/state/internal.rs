@@ -81,7 +81,6 @@ pub struct TerminalState {
     pub primary_buffer: Buffer,
     pub alternate_buffer: Buffer,
     pub modes: TerminalModes,
-    pub window_title: Option<String>,
     pub write_tx: crossbeam_channel::Sender<PtyWrite>,
     pub changed: bool,
     pub ctx: Option<Context>,
@@ -106,7 +105,6 @@ impl PartialEq for TerminalState {
             && self.primary_buffer == other.primary_buffer
             && self.alternate_buffer == other.alternate_buffer
             && self.modes == other.modes
-            && self.window_title == other.window_title
             && self.changed == other.changed
             && self.ctx == other.ctx
             && self.leftover_data == other.leftover_data
@@ -123,7 +121,6 @@ impl TerminalState {
             primary_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
             alternate_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
             modes: TerminalModes::default(),
-            window_title: None,
             write_tx,
             changed: false,
             ctx: None,
@@ -181,11 +178,6 @@ impl TerminalState {
         self.get_current_buffer().terminal_buffer.get_win_size()
     }
 
-    #[must_use]
-    pub fn get_window_title(&self) -> Option<String> {
-        self.window_title.clone()
-    }
-
     pub(crate) fn data(&mut self, include_scrollback: bool) -> TerminalSections<Vec<TChar>> {
         self.get_current_buffer()
             .terminal_buffer
@@ -235,10 +227,6 @@ impl TerminalState {
     #[must_use]
     pub fn cursor_pos(&mut self) -> CursorPos {
         self.get_current_buffer().cursor_state.pos.clone()
-    }
-
-    pub fn clear_window_title(&mut self) {
-        self.window_title = None;
     }
 
     pub fn set_win_size(
@@ -903,7 +891,8 @@ impl TerminalState {
                 }
             }
             AnsiOscType::SetTitleBar(title) => {
-                self.window_title = Some(title);
+                self.window_commands
+                    .push(WindowManipulation::SetTitleBarText(title));
             }
             AnsiOscType::Ftcs(value) => {
                 warn!("Ftcs is not supported: {value}");
@@ -1011,8 +1000,20 @@ impl TerminalState {
         }
     }
 
-    pub fn report_title(&mut self, title: &str) {
+    pub fn report_icon_label(&mut self, title: &str) {
         let output = collect_text(&format!("\x1b]L{title}\x1b\\"));
+        for input in output.iter() {
+            match self.write(input) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to write title: {e}");
+                }
+            }
+        }
+    }
+
+    pub fn report_title(&mut self, title: &str) {
+        let output = collect_text(&format!("\x1b]l{title}\x1b\\"));
         for input in output.iter() {
             match self.write(input) {
                 Ok(()) => (),

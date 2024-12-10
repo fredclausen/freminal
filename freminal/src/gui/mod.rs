@@ -36,6 +36,7 @@ fn set_egui_options(ctx: &egui::Context) {
 struct FreminalGui {
     terminal_emulator: Arc<FairMutex<TerminalEmulator<FreminalPtyInputOutput>>>,
     terminal_widget: FreminalTerminalWidget,
+    window_title_stack: Vec<String>,
 }
 
 impl FreminalGui {
@@ -48,6 +49,7 @@ impl FreminalGui {
         Self {
             terminal_emulator,
             terminal_widget: FreminalTerminalWidget::new(&cc.egui_ctx),
+            window_title_stack: Vec::new(),
         }
     }
 }
@@ -59,6 +61,7 @@ fn handle_window_manipulation(
     font_width: usize,
     font_height: usize,
     window_width: egui::Rect,
+    title_stack: &mut Vec<String>,
 ) {
     let window_commands: Vec<_> = terminal_emulator
         .internal
@@ -268,6 +271,14 @@ fn handle_window_manipulation(
                     .internal
                     .report_root_terminal_size_in_characters(width, height);
             }
+            WindowManipulation::ReportIconLabel => {
+                let title = ui.ctx().input(|r| r.raw.viewport().title.clone());
+                let title = title.unwrap_or_else(|| {
+                    error!("Failed to get viewport title. Using Freminal");
+                    "Freminal".to_string()
+                });
+                terminal_emulator.internal.report_icon_label(&title);
+            }
             WindowManipulation::ReportTitle => {
                 let title = ui.ctx().input(|r| r.raw.viewport().title.clone());
                 let title = title.unwrap_or_else(|| {
@@ -275,6 +286,28 @@ fn handle_window_manipulation(
                     "Freminal".to_string()
                 });
                 terminal_emulator.internal.report_title(&title);
+            }
+            WindowManipulation::SetTitleBarText(title) => {
+                ui.ctx()
+                    .send_viewport_cmd(egui::ViewportCommand::Title(title));
+            }
+            WindowManipulation::SaveWindowTitleToStack => {
+                let title = ui.ctx().input(|r| r.raw.viewport().title.clone());
+                let title = title.unwrap_or_else(|| {
+                    error!("Failed to get viewport title. Using Freminal");
+                    "Freminal".to_string()
+                });
+
+                title_stack.push(title);
+            }
+            WindowManipulation::RestoreWindowTitleFromStack => {
+                if let Some(title) = title_stack.pop() {
+                    ui.ctx()
+                        .send_viewport_cmd(egui::ViewportCommand::Title(title));
+                } else {
+                    ui.ctx()
+                        .send_viewport_cmd(egui::ViewportCommand::Title("Freminal".to_string()));
+                }
             }
             // These are ignored. eGui doesn't give us a stacking order thing (that I can tell)
             // refresh window is already happening because we ended up here.
@@ -317,7 +350,16 @@ impl eframe::App for FreminalGui {
             }
 
             let window_width = ctx.input(|i: &egui::InputState| i.screen_rect());
-            handle_window_manipulation(ui, &mut lock, font_width, font_height, window_width);
+
+            handle_window_manipulation(
+                ui,
+                &mut lock,
+                font_width,
+                font_height,
+                window_width,
+                &mut self.window_title_stack,
+            );
+
             self.terminal_widget.show(ui, &mut lock);
         });
 

@@ -329,6 +329,7 @@ const fn is_osc_terminator(b: &[u8]) -> bool {
     b[b.len() - 2] == 0x1b && b[b.len() - 1] == 0x5c || b[b.len() - 1] == 0x07
 }
 
+// FIXME: Support ST (0x1b)\ as a terminator
 const fn is_final_character_osc_terminator(b: u8) -> bool {
     b == 0x5c || b == 0x07 || b == 0x1b
 }

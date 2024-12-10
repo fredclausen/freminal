@@ -30,7 +30,11 @@ pub enum WindowManipulation {
     ReportCharacterSizeInPixels,
     ReportTerminalSizeInCharacters,
     ReportRootWindowSizeInCharacters,
+    ReportIconLabel,
     ReportTitle,
+    SetTitleBarText(String),
+    SaveWindowTitleToStack,
+    RestoreWindowTitleFromStack,
 }
 
 impl TryFrom<(usize, usize, usize)> for WindowManipulation {
@@ -60,7 +64,11 @@ impl TryFrom<(usize, usize, usize)> for WindowManipulation {
             (16, 0, 0) => Ok(Self::ReportCharacterSizeInPixels),
             (18, 0, 0) => Ok(Self::ReportTerminalSizeInCharacters),
             (19, 0, 0) => Ok(Self::ReportRootWindowSizeInCharacters),
-            (20, 0, 0) => Ok(Self::ReportTitle),
+            (20, 0, 0) => Ok(Self::ReportIconLabel),
+            (21, 0, 0) => Ok(Self::ReportTitle),
+            (22, 0, 0) => Ok(Self::SaveWindowTitleToStack),
+            (23, 0..=2, 0) => Ok(Self::RestoreWindowTitleFromStack),
+            (24, 0..=2, 0) => Ok(Self::SetTitleBarText(String::new())),
             _ => Err(anyhow::anyhow!("Invalid WindowManipulation")),
         }
     }

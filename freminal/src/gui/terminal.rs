@@ -872,12 +872,6 @@ impl FreminalTerminalWidget {
                 self.previous_font_size = Some(self.font_size);
             }
 
-            if let Some(title) = terminal_emulator.get_window_title() {
-                ui.ctx()
-                    .send_viewport_cmd(egui::ViewportCommand::Title(title));
-                terminal_emulator.clear_window_title();
-            }
-
             let (left_mouse_button_pressed, new_mouse_pos) = ui.input(|input_state| {
                 write_input_to_terminal(
                     input_state,

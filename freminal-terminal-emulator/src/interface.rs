@@ -321,15 +321,6 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         self.internal.get_win_size()
     }
 
-    pub fn get_window_title(&self) -> Option<String> {
-        self.internal.get_window_title()
-    }
-
-    #[allow(dead_code)]
-    pub fn clear_window_title(&mut self) {
-        self.internal.clear_window_title();
-    }
-
     /// Set the window title
     ///
     /// # Errors
