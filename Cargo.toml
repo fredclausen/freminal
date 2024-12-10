@@ -3,6 +3,7 @@ members = [
     "filedescriptor",
     "freminal",
     "freminal-common",
+    "freminal-grid"
     "freminal-terminal-emulator",
     "portable-pty",
     "xtask",
@@ -11,9 +12,11 @@ default-members = [
     "filedescriptor",
     "freminal",
     "freminal-common",
+    "freminal-grid",
     "freminal-terminal-emulator",
     "portable-pty",
 ]
+
 resolver = "2"
 
 [workspace.package]
