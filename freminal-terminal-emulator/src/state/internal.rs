@@ -1096,6 +1096,7 @@ impl TerminalState {
         current_buffer
             .terminal_buffer
             .set_top_and_bottom_margins(top, bottom);
+        self.set_cursor_pos(Some(1), Some(1));
     }
 
     pub fn handle_incoming_data(&mut self, incoming: &[u8]) {
