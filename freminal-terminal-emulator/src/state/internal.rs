@@ -1233,6 +1233,19 @@ impl TerminalState {
 
     pub fn scroll(&mut self, scroll: f32) {
         if self.current_buffer == BufferType::Alternate {
+            let key = if scroll < 0.0 {
+                TerminalInput::ArrowDown
+            } else {
+                TerminalInput::ArrowUp
+            };
+
+            match self.write(&key) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to scroll: {e}");
+                }
+            }
+
             return;
         }
 

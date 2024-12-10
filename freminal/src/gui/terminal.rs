@@ -270,7 +270,6 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 if delta.y == 0.0 {
                     continue;
                 }
-                terminal_emulator.internal.scroll(delta.y);
 
                 state_changed = true;
 
@@ -289,9 +288,13 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                     if let Some(response) = response {
                         response
                     } else {
+                        terminal_emulator.internal.scroll(delta.y);
+
                         continue;
                     }
                 } else {
+                    terminal_emulator.internal.scroll(delta.y);
+
                     continue;
                 }
             }
