@@ -14,7 +14,9 @@ pub fn internal_color_to_egui(
     make_faint: bool,
 ) -> Color32 {
     let color_before_faint = match color {
-        TerminalColor::Default | TerminalColor::DefaultUnderlineColor => default_foreground_color,
+        TerminalColor::Default
+        | TerminalColor::DefaultUnderlineColor
+        | TerminalColor::DefaultCursorColor => default_foreground_color,
         TerminalColor::DefaultBackground => default_background_color,
         TerminalColor::Black => Color32::from_rgb(0, 0, 0),
         TerminalColor::Red => Color32::from_rgb(205, 0, 0),

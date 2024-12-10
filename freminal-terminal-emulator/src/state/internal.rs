@@ -47,13 +47,27 @@ pub enum CurrentBuffer {
     Alternate,
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Buffer {
     pub terminal_buffer: TerminalBufferHolder,
     pub format_tracker: FormatTracker,
     pub cursor_state: CursorState,
     pub show_cursor: Dectcem,
     pub saved_cursor_position: Option<CursorPos>,
+    pub cursor_color: TerminalColor,
+}
+
+impl Default for Buffer {
+    fn default() -> Self {
+        Self {
+            cursor_color: TerminalColor::DefaultCursorColor,
+            cursor_state: CursorState::default(),
+            format_tracker: FormatTracker::new(),
+            saved_cursor_position: None,
+            show_cursor: Dectcem::default(),
+            terminal_buffer: TerminalBufferHolder::new(TERMINAL_WIDTH, TERMINAL_HEIGHT),
+        }
+    }
 }
 
 impl Buffer {
@@ -65,6 +79,7 @@ impl Buffer {
             cursor_state: CursorState::default(),
             show_cursor: Dectcem::default(),
             saved_cursor_position: None,
+            cursor_color: TerminalColor::DefaultCursorColor,
         }
     }
 
@@ -764,7 +779,6 @@ impl TerminalState {
                 self.modes.cursor_blinking = xtcblink.clone();
             }
             Mode::XtExtscrn(XtExtscrn::Alternate) => {
-                debug!("Switching to alternate screen buffer");
                 // SPEC Steps:
                 // 1. Save the cursor position
                 // 2. Switch to the alternate screen buffer
@@ -775,6 +789,9 @@ impl TerminalState {
                 // Do we copy the cursor pos to the new buffer?
                 // Also, the "clear screen" bit implies to me that the buffer we switch to is *always* new, but is that correct?
                 // This is why we're making a "new" buffer here
+
+                let (width, height) = self.get_current_buffer().terminal_buffer.get_win_size();
+                self.alternate_buffer = Buffer::new(width, height);
                 self.current_buffer = CurrentBuffer::Alternate;
             }
             Mode::XtExtscrn(XtExtscrn::Primary) => {
@@ -904,6 +921,9 @@ impl TerminalState {
             AnsiOscType::RemoteHost(value) => {
                 debug!("Received for remote host: {value}");
             }
+            AnsiOscType::ResetCursorColor => {
+                self.get_current_buffer().cursor_color = TerminalColor::DefaultCursorColor;
+            }
         }
     }
 
@@ -1032,16 +1052,47 @@ impl TerminalState {
     }
 
     pub(crate) fn clip_buffer_lines(&mut self) {
-        let current_buffer = self.get_current_buffer();
+        match self.current_buffer {
+            CurrentBuffer::Primary => {
+                let current_buffer = self.get_current_buffer();
 
-        if let Some(range) = current_buffer.terminal_buffer.clip_lines() {
-            match current_buffer.format_tracker.delete_range(range) {
-                Ok(()) => (),
-                Err(e) => {
-                    error!("Failed to delete range: {e}");
+                if let Some(range) = current_buffer
+                    .terminal_buffer
+                    .clip_lines_for_primary_buffer()
+                {
+                    match current_buffer.format_tracker.delete_range(range) {
+                        Ok(()) => (),
+                        Err(e) => {
+                            error!("Failed to delete range: {e}");
+                        }
+                    }
+                }
+            }
+            CurrentBuffer::Alternate => {
+                let current_buffer = self.get_current_buffer();
+
+                if let Some(range) = current_buffer
+                    .terminal_buffer
+                    .clip_lines_for_alternate_buffer()
+                {
+                    match current_buffer.format_tracker.delete_range(range) {
+                        Ok(()) => (),
+                        Err(e) => {
+                            error!("Failed to delete range: {e}");
+                        }
+                    }
                 }
             }
         }
+    }
+
+    pub fn set_top_and_bottom_margins(&mut self, top: usize, bottom: usize) {
+        info!("Setting top and bottom margins: {top} - {bottom}");
+        let current_buffer = self.get_current_buffer();
+
+        current_buffer
+            .terminal_buffer
+            .set_top_and_bottom_margins(top, bottom);
     }
 
     pub fn handle_incoming_data(&mut self, incoming: &[u8]) {
@@ -1126,6 +1177,12 @@ impl TerminalState {
                     debug!("Ignoring cursor visual style: {style:?}");
                 }
                 TerminalOutput::WindowManipulation(manip) => self.window_commands.push(manip),
+                TerminalOutput::SetTopAndBottomMargins {
+                    top_margin,
+                    bottom_margin,
+                } => {
+                    self.set_top_and_bottom_margins(top_margin, bottom_margin);
+                }
                 TerminalOutput::Invalid => {
                     info!("Unhandled terminal output: {segment:?}");
                 }

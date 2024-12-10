@@ -19,8 +19,14 @@ use freminal_common::{cursor::CursorVisualStyle, window_manipulation::WindowMani
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum TerminalOutput {
-    SetCursorPos { x: Option<usize>, y: Option<usize> },
-    SetCursorPosRel { x: Option<i32>, y: Option<i32> },
+    SetCursorPos {
+        x: Option<usize>,
+        y: Option<usize>,
+    },
+    SetCursorPosRel {
+        x: Option<i32>,
+        y: Option<i32>,
+    },
     ClearDisplayfromCursortoEndofDisplay,
     ClearDiplayfromStartofDisplaytoCursor,
     ClearScrollbackandDisplay,
@@ -49,6 +55,10 @@ pub enum TerminalOutput {
     DecSpecialGraphics(DecSpecialGraphics),
     CursorVisualStyle(CursorVisualStyle),
     WindowManipulation(WindowManipulation),
+    SetTopAndBottomMargins {
+        top_margin: usize,
+        bottom_margin: usize,
+    },
 }
 
 // impl format display for TerminalOutput
@@ -96,6 +106,12 @@ impl std::fmt::Display for TerminalOutput {
             }
             Self::WindowManipulation(window_manipulation) => {
                 write!(f, "WindowManipulation({window_manipulation:?})")
+            }
+            Self::SetTopAndBottomMargins {
+                top_margin,
+                bottom_margin,
+            } => {
+                write!(f, "SetTopAndBottomMargins({top_margin}, {bottom_margin})")
             }
         }
     }

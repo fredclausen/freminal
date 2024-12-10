@@ -12,6 +12,7 @@ pub mod cuu;
 pub mod dch;
 pub mod decscusr;
 pub mod decslpp;
+pub mod decstbm;
 pub mod ech;
 pub mod ed;
 pub mod el;

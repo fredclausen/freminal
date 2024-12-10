@@ -580,7 +580,7 @@ impl TerminalBufferHolder {
     }
 
     #[must_use]
-    pub fn clip_lines(&mut self) -> Option<Range<usize>> {
+    pub fn clip_lines_for_primary_buffer(&mut self) -> Option<Range<usize>> {
         if self.buf.is_empty() {
             return None;
         }
@@ -617,6 +617,47 @@ impl TerminalBufferHolder {
         }
 
         Some(0..keep_buf_pos)
+    }
+
+    #[must_use]
+    pub fn clip_lines_for_alternate_buffer(&mut self) -> Option<Range<usize>> {
+        None
+        // if self.buf.is_empty() || self.visible_line_ranges.len() <= self.height {
+        //     return None;
+        // }
+        // // we only want to keep the visible lines
+
+        // let index = self
+        //     .buffer_line_ranges
+        //     .len()
+        //     .saturating_sub(self.height - 1);
+
+        // if index == 0 {
+        //     return None;
+        // }
+
+        // let keep_buf_pos = self.buffer_line_ranges[index].start - 1;
+
+        // self.buf.drain(0..keep_buf_pos);
+        // self.buffer_line_ranges.drain(0..index);
+
+        // // now walk both of the line range buffers and offset them by the keep_buf_pos
+
+        // for line_range in &mut self.buffer_line_ranges {
+        //     line_range.start = line_range.start.saturating_sub(keep_buf_pos);
+        //     line_range.end = line_range.end.saturating_sub(keep_buf_pos);
+        // }
+
+        // for line_range in &mut self.visible_line_ranges {
+        //     line_range.start = line_range.start.saturating_sub(keep_buf_pos);
+        //     line_range.end = line_range.end.saturating_sub(keep_buf_pos);
+        // }
+
+        // // if self.viewable_index_bottom != usize::MAX {
+        // //     self.scroll_up(&index);
+        // // }
+
+        // Some(0..keep_buf_pos)
     }
 
     #[must_use]
@@ -666,6 +707,8 @@ impl TerminalBufferHolder {
             new_cursor_pos,
         }
     }
+
+    pub fn set_top_and_bottom_margins(&mut self, _top_margin: usize, _bottom_margin: usize) {}
 
     /// Given terminal height `height`, extract the visible line ranges from all line ranges (which
     /// include scrollback) assuming "visible" is the bottom N lines

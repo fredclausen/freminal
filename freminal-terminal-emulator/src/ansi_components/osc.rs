@@ -60,8 +60,38 @@ enum OscTarget {
     Ftcs,
     RemoteHost,
     Url,
+    ResetCursorColor,
     Unknown,
 }
+
+// A list of command we may need to handle. I'm sure there is more.
+
+// OSC 0	SETTITLE	Change Window & Icon Title
+// OSC 1	SETICON	Change Icon Title
+// OSC 2	SETWINTITLE	Change Window Title
+// OSC 3	SETXPROP	Set X11 property
+// OSC 4	SETCOLPAL	Set/Query color palette
+// OSC 7	SETCWD	Set current working directory
+// OSC 8	HYPERLINK	Hyperlinked Text
+// OSC 10	COLORFG	Change or request text foreground color.
+// OSC 11	COLORBG	Change or request text background color.
+// OSC 12	COLORCURSOR	Change text cursor color to Pt.
+// OSC 13	COLORMOUSEFG	Change mouse foreground color.
+// OSC 14	COLORMOUSEBG	Change mouse background color.
+// OSC 50	SETFONT	Get or set font.
+// OSC 52	CLIPBOARD	Clipboard management.
+// OSC 60	SETFONTALL	Get or set all font faces, styles, size.
+// OSC 104	RCOLPAL	Reset color full palette or entry
+// OSC 106	COLORSPECIAL	Enable/disable Special Color Number c.
+// OSC 110	RCOLORFG	Reset VT100 text foreground color.
+// OSC 111	RCOLORBG	Reset VT100 text background color.
+// OSC 112	RCOLORCURSOR	Reset text cursor color.
+// OSC 113	RCOLORMOUSEFG	Reset mouse foreground color.
+// OSC 114	RCOLORMOUSEBG	Reset mouse background color.
+// OSC 117	RCOLORHIGHLIGHTBG	Reset highlight background color.
+// OSC 119	RCOLORHIGHLIGHTFG	Reset highlight foreground color.
+// OSC 777	NOTIFY	Send Notification.
+// OSC 888	DUMPSTATE	Dumps internal state to debug stream.
 
 impl From<AnsiOscToken> for OscTarget {
     fn from(value: AnsiOscToken) -> Self {
@@ -72,6 +102,7 @@ impl From<AnsiOscToken> for OscTarget {
             AnsiOscToken::U8(8) => Self::Url,
             AnsiOscToken::U8(11) => Self::Background,
             AnsiOscToken::U8(10) => Self::Foreground,
+            AnsiOscToken::U8(112) => Self::ResetCursorColor,
             AnsiOscToken::U8(133) => Self::Ftcs,
             _ => Self::Unknown,
         }
@@ -145,6 +176,7 @@ pub enum AnsiOscType {
     SetTitleBar(String),
     Url(UrlResponse),
     RemoteHost(String),
+    ResetCursorColor,
 }
 
 impl std::fmt::Display for AnsiOscType {
@@ -160,6 +192,7 @@ impl std::fmt::Display for AnsiOscType {
             Self::SetTitleBar(value) => write!(f, "SetTitleBar({value:?})"),
             Self::Ftcs(value) => write!(f, "Ftcs ({value:?})"),
             Self::RemoteHost(value) => write!(f, "RemoteHost ({value:?})"),
+            Self::ResetCursorColor => write!(f, "ResetCursorColor"),
         }
     }
 }
@@ -296,6 +329,9 @@ impl AnsiOscParser {
                             let url_response = UrlResponse::from(params);
                             output
                                 .push(TerminalOutput::OscResponse(AnsiOscType::Url(url_response)));
+                        }
+                        OscTarget::ResetCursorColor => {
+                            output.push(TerminalOutput::OscResponse(AnsiOscType::ResetCursorColor));
                         }
                         OscTarget::Unknown => {
                             warn!("Unknown OSC target: {:?}", type_number);

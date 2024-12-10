@@ -60,6 +60,7 @@ pub enum TerminalColor {
     Default,
     DefaultBackground,
     DefaultUnderlineColor,
+    DefaultCursorColor,
     Black,
     Red,
     Green,
@@ -112,6 +113,7 @@ impl fmt::Display for TerminalColor {
             Self::BrightWhite => "bright white",
             Self::DefaultUnderlineColor => "default underline color",
             Self::DefaultBackground => "default background",
+            Self::DefaultCursorColor => "default cursor color",
             Self::Custom(r, g, b) => {
                 return write!(f, "rgb({r}, {g}, {b})");
             }
@@ -129,6 +131,7 @@ impl std::str::FromStr for TerminalColor {
             "default" => Self::Default,
             "default_background" => Self::DefaultBackground,
             "default_underline_color" => Self::DefaultUnderlineColor,
+            "default_cursor_color" => Self::DefaultCursorColor,
             "black" => Self::Black,
             "red" => Self::Red,
             "green" => Self::Green,

@@ -42,4 +42,6 @@ pub enum ParserFailures {
     UnhandledDECSCUSRCommand(String),
     #[error("Invalid window manipulation (DECSLPP) set position sequence: {0}")]
     UnhandledDECSLPPCommand(String),
+    #[error("Invalid set margins (DECSTBM) set position sequence: {0}")]
+    UnhandledDECSTBMCommand(String),
 }

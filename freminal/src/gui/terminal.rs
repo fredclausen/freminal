@@ -343,7 +343,13 @@ fn encode_egui_mouse_pos_as_usize(pos: Pos2, character_size: (f32, f32)) -> (usi
     (x, y)
 }
 
-fn paint_cursor(label_rect: Rect, character_size: (f32, f32), cursor_pos: &CursorPos, ui: &Ui) {
+fn paint_cursor(
+    label_rect: Rect,
+    character_size: (f32, f32),
+    cursor_pos: &CursorPos,
+    ui: &Ui,
+    color: Color32,
+) {
     let painter = ui.painter();
 
     let top = label_rect.top();
@@ -356,7 +362,7 @@ fn paint_cursor(label_rect: Rect, character_size: (f32, f32), cursor_pos: &Curso
             egui::vec2(character_size.0, character_size.1),
         ),
         0.0,
-        Color32::GRAY,
+        color,
     );
 }
 
@@ -901,11 +907,20 @@ impl FreminalTerminalWidget {
                 .render(ui, self.previous_pass.canvas_area, Color32::BLUE);
 
             if terminal_emulator.show_cursor() {
+                let default_foreground_color = ui.style().visuals.text_color();
+                let default_background_color = ui.style().visuals.window_fill();
+                let color = internal_color_to_egui(
+                    default_foreground_color,
+                    default_background_color,
+                    terminal_emulator.internal.get_current_buffer().cursor_color,
+                    false,
+                );
                 paint_cursor(
                     self.previous_pass.canvas_area,
                     self.character_size,
                     &terminal_emulator.cursor_pos(),
                     ui,
+                    color,
                 );
             }
 
