@@ -247,6 +247,17 @@ fn handle_window_manipulation(
                     .internal
                     .report_root_window_size(pos_x, pos_y);
             }
+            WindowManipulation::ReportCharacterSizeInPixels => {
+                terminal_emulator
+                    .internal
+                    .report_character_size(font_width, font_height);
+            }
+            WindowManipulation::ReportTerminalSizeInCharacters => {
+                let (width, height) = terminal_emulator.internal.get_win_size();
+                terminal_emulator
+                    .internal
+                    .report_terminal_size_in_characters(width, height);
+            }
             // These are ignored. eGui doesn't give us a stacking order thing (that I can tell)
             // refresh window is already happening because we ended up here.
             WindowManipulation::RefreshWindow

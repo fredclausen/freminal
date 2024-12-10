@@ -975,6 +975,30 @@ impl TerminalState {
         }
     }
 
+    pub fn report_character_size(&mut self, width: usize, height: usize) {
+        let output = collect_text(&format!("\x1b[6;{height};{width}t"));
+        for input in output.iter() {
+            match self.write(input) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to write character size: {e}");
+                }
+            }
+        }
+    }
+
+    pub fn report_terminal_size_in_characters(&mut self, width: usize, height: usize) {
+        let output = collect_text(&format!("\x1b[8;{height};{width}t"));
+        for input in output.iter() {
+            match self.write(input) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to write terminal size in characters: {e}");
+                }
+            }
+        }
+    }
+
     pub(crate) fn clip_buffer_lines(&mut self) {
         let current_buffer = self.get_current_buffer();
 
