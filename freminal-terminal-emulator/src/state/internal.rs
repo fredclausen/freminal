@@ -916,7 +916,7 @@ impl TerminalState {
 
         let x = current_buffer.cursor_state.pos.x + 1;
         let y = current_buffer.cursor_state.pos.y + 1;
-        let output = collect_text(&format!("\x1b[{y};{x}R"));
+        let output = collect_text(&format!("\x1b[{y};{x}R\x1b\\"));
 
         for input in output.iter() {
             self.write(input).expect("Failed to write cursor position");
@@ -994,6 +994,30 @@ impl TerminalState {
                 Ok(()) => (),
                 Err(e) => {
                     error!("Failed to write terminal size in characters: {e}");
+                }
+            }
+        }
+    }
+
+    pub fn report_root_terminal_size_in_characters(&mut self, width: usize, height: usize) {
+        let output = collect_text(&format!("\x1b[9;{height};{width}t"));
+        for input in output.iter() {
+            match self.write(input) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to write terminal size in characters: {e}");
+                }
+            }
+        }
+    }
+
+    pub fn report_title(&mut self, title: &str) {
+        let output = collect_text(&format!("\x1b]L{title}\x1b\\"));
+        for input in output.iter() {
+            match self.write(input) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to write title: {e}");
                 }
             }
         }

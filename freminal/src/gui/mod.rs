@@ -66,6 +66,9 @@ fn handle_window_manipulation(
         .drain(..)
         .collect();
     // FIXME: when we end up muxxing/tabbing this, some of these events related to window size/position needs to be adjusted.
+    // Additionally, the terms "root window" and "terminal" in the spec are mildly confusing.
+    // My assumption, which needs to be researched, is that the root window is the size of the entire window (including the title bar, etc)
+    // and the terminal is the size of the text area aka the visible terminal.
     // https://teratermproject.github.io/manual/5/en/about/ctrlseq.html
     for window_event in window_commands {
         match window_event {
@@ -257,6 +260,21 @@ fn handle_window_manipulation(
                 terminal_emulator
                     .internal
                     .report_terminal_size_in_characters(width, height);
+            }
+            // FIXME: I don't know if this is right
+            WindowManipulation::ReportRootWindowSizeInCharacters => {
+                let (width, height) = terminal_emulator.internal.get_win_size();
+                terminal_emulator
+                    .internal
+                    .report_root_terminal_size_in_characters(width, height);
+            }
+            WindowManipulation::ReportTitle => {
+                let title = ui.ctx().input(|r| r.raw.viewport().title.clone());
+                let title = title.unwrap_or_else(|| {
+                    error!("Failed to get viewport title. Using Freminal");
+                    "Freminal".to_string()
+                });
+                terminal_emulator.internal.report_title(&title);
             }
             // These are ignored. eGui doesn't give us a stacking order thing (that I can tell)
             // refresh window is already happening because we ended up here.
