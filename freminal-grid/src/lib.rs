@@ -3,5 +3,19 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+#![deny(
+    clippy::pedantic,
+    //clippy::cargo,
+    clippy::nursery,
+    clippy::style,
+    clippy::correctness,
+    clippy::all
+)]
+#![allow(clippy::range_plus_one)]
+// #![warn(missing_docs)]
+
+#[macro_use]
+extern crate tracing;
+
 pub mod grid;
 pub mod line;
