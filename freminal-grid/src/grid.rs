@@ -11,6 +11,7 @@ pub struct Grid<T> {
 }
 
 impl<T: Cell> Grid<T> {
+    #[must_use]
     pub fn new(width: usize, height: usize) -> Self {
         Self {
             inner: (0..height).map(|_| Line::new(width)).collect(),
