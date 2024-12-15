@@ -81,13 +81,25 @@ pub fn ansi_parser_inner_csi_finished_set_position_t(
         return Err(ParserFailures::UnhandledDECSLPPCommand(format!("{params:?}")).into());
     };
 
-    if params.is_empty() || params.len() != 3 {
+    if params.is_empty() {
         return Err(ParserFailures::UnhandledDECSLPPCommand(format!("{params:?}")).into());
     }
 
-    let ps1 = params[0].unwrap_or_default();
-    let ps2 = params[1].unwrap_or_default();
-    let ps3 = params[2].unwrap_or_default();
+    let (ps1, ps2, ps3) = if params.len() == 1 {
+        (params[0].unwrap_or_default(), 0, 0)
+    } else if params.len() == 2 {
+        (
+            params[0].unwrap_or_default(),
+            params[1].unwrap_or_default(),
+            0,
+        )
+    } else {
+        (
+            params[0].unwrap_or_default(),
+            params[1].unwrap_or_default(),
+            params[2].unwrap_or_default(),
+        )
+    };
 
     let parsed = match WindowManipulation::try_from((ps1, ps2, ps3)) {
         Ok(parsed) => parsed,
