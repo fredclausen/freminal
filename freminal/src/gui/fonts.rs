@@ -19,26 +19,29 @@ pub fn setup_font_files(ctx: &egui::Context) {
         REGULAR_FONT_NAME.to_owned(),
         FontData::from_static(include_bytes!(
             "../../../res/MesloLGSNerdFontMono-Regular.ttf"
-        )),
+        ))
+        .into(),
     );
 
     fonts.font_data.insert(
         BOLD_FONT_NAME.to_owned(),
-        FontData::from_static(include_bytes!("../../../res/MesloLGSNerdFontMono-Bold.ttf")),
+        FontData::from_static(include_bytes!("../../../res/MesloLGSNerdFontMono-Bold.ttf")).into(),
     );
 
     fonts.font_data.insert(
         ITALIC_FONT_NAME.to_owned(),
         FontData::from_static(include_bytes!(
             "../../../res/MesloLGSNerdFontMono-Italic.ttf"
-        )),
+        ))
+        .into(),
     );
 
     fonts.font_data.insert(
         BOLD_ITALIC_FONT_NAME.to_owned(),
         FontData::from_static(include_bytes!(
             "../../../res/MesloLGSNerdFontMono-BoldItalic.ttf"
-        )),
+        ))
+        .into(),
     );
 
     if let Some(f) = fonts.families.get_mut(&FontFamily::Monospace) {
