@@ -17,5 +17,6 @@
 #[macro_use]
 extern crate tracing;
 
+pub mod cursor;
 pub mod grid;
 pub mod line;
