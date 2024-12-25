@@ -3,8 +3,6 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use std::borrow::Cow;
-
 /// The cell trait
 /// A cell is a single unit of a line.
 /// The default for a cell object is to be empty and not displayed.
