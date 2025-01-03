@@ -20,14 +20,18 @@ pub fn run_terminal(
 ) -> Result<()> {
     let pty_system = NativePtySystem::default();
 
-    let pair = pty_system
-        .openpty(PtySize {
-            rows: 24,
-            cols: 80,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
-        .unwrap();
+    let pair = match pty_system.openpty(PtySize {
+        rows: 24,
+        cols: 80,
+        pixel_width: 0,
+        pixel_height: 0,
+    }) {
+        Ok(pair) => pair,
+        Err(e) => {
+            error!("Failed to open pty: {e}");
+            std::process::exit(1);
+        }
+    };
 
     let cmd = shell.map_or_else(CommandBuilder::new_default_prog, CommandBuilder::new);
     let _child = pair.slave.spawn_command(cmd)?;
@@ -68,7 +72,11 @@ pub fn run_terminal(
 
             if let Some(file) = &mut recording {
                 for byte in &data {
-                    file.write_all(format!("{byte},").as_bytes()).unwrap();
+                    if let Err(e) = file.write_all(format!("{byte},").as_bytes()) {
+                        error!("Failed to write to recording file: {e}");
+                        // exit
+                        std::process::exit(1);
+                    }
                 }
             }
 
@@ -98,13 +106,23 @@ pub fn run_terminal(
                 std::thread::sleep(std::time::Duration::from_millis(20));
             }
 
-            let mut writer = pair.master.take_writer().unwrap();
+            let mut writer = match pair.master.take_writer() {
+                Ok(writer) => writer,
+                Err(e) => {
+                    error!("Failed to take writer: {e}");
+                    std::process::exit(1);
+                }
+            };
 
             while let Ok(stuff_to_write) = write_rx.recv() {
                 match stuff_to_write {
-                    PtyWrite::Write(data) => {
-                        writer.write_all(&data).unwrap();
-                    }
+                    PtyWrite::Write(data) => match writer.write_all(&data) {
+                        Ok(()) => {}
+                        Err(e) => {
+                            error!("Failed to write to pty: {e}");
+                            continue;
+                        }
+                    },
                     PtyWrite::Resize(size) => {
                         let size: PtySize = match PtySize::try_from(size) {
                             Ok(size) => size,
@@ -116,7 +134,13 @@ pub fn run_terminal(
 
                         debug!("resizing pty to {size:?}");
 
-                        pair.master.resize(size).unwrap();
+                        match pair.master.resize(size) {
+                            Ok(()) => {}
+                            Err(e) => {
+                                error!("Failed to resize pty: {e}");
+                                continue;
+                            }
+                        }
                     }
                 }
             }
