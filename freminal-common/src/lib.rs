@@ -9,7 +9,9 @@
     clippy::nursery,
     clippy::style,
     clippy::correctness,
-    clippy::all
+    clippy::all,
+    clippy::unwrap_used,
+    clippy::expect_used
 )]
 // #![warn(missing_docs)]
 

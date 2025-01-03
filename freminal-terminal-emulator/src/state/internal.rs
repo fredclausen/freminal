@@ -873,8 +873,9 @@ impl TerminalState {
                         ));
 
                         for byte in output.iter() {
-                            self.write(byte)
-                                .expect("Failed to write osc color response");
+                            if let Err(e) = self.write(byte) {
+                                error!("Failed to write osc color response: {e}");
+                            }
                         }
                     }
                     AnsiOscInternalType::Unknown(_) => {
@@ -899,8 +900,9 @@ impl TerminalState {
                         ));
 
                         for byte in output.iter() {
-                            self.write(byte)
-                                .expect("Failed to write osc color response");
+                            if let Err(e) = self.write(byte) {
+                                error!("Failed to write osc color response: {e}");
+                            }
                         }
                     }
                     AnsiOscInternalType::Unknown(_) => {
@@ -939,7 +941,9 @@ impl TerminalState {
         let output = collect_text(&format!("\x1b[{y};{x}R\x1b\\"));
 
         for input in output.iter() {
-            self.write(input).expect("Failed to write cursor position");
+            if let Err(e) = self.write(input) {
+                error!("Failed to write cursor position: {e}");
+            }
         }
     }
 

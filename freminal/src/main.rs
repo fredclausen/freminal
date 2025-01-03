@@ -9,7 +9,9 @@
     clippy::nursery,
     clippy::style,
     clippy::correctness,
-    clippy::all
+    clippy::all,
+    clippy::unwrap_used,
+    clippy::expect_used
 )]
 // #![warn(missing_docs)]
 
@@ -22,6 +24,7 @@ use std::{process, sync::Arc};
 use tracing::Level;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{
+    filter::Directive,
     fmt::{self, layer},
     layer::SubscriberExt,
     util::SubscriberInitExt,
@@ -46,13 +49,45 @@ fn main() {
             .with_default_directive(Level::INFO.into())
             .from_env_lossy()
     } else {
+        let winit_directive: Directive = match "winit=off".parse() {
+            Ok(d) => d,
+            Err(e) => {
+                error!("Failed to parse directive: {}", e);
+                std::process::exit(1);
+            }
+        };
+
+        let wgpu_directive: Directive = match "wgpu=off".parse() {
+            Ok(d) => d,
+            Err(e) => {
+                error!("Failed to parse directive: {}", e);
+                std::process::exit(1);
+            }
+        };
+
+        let eframe_directive: Directive = match "eframe=off".parse() {
+            Ok(d) => d,
+            Err(e) => {
+                error!("Failed to parse directive: {}", e);
+                std::process::exit(1);
+            }
+        };
+
+        let egui_directive: Directive = match "egui=off".parse() {
+            Ok(d) => d,
+            Err(e) => {
+                error!("Failed to parse directive: {}", e);
+                std::process::exit(1);
+            }
+        };
+
         EnvFilter::builder()
             .with_default_directive(Level::INFO.into())
             .from_env_lossy()
-            .add_directive("winit=off".parse().unwrap())
-            .add_directive("wgpu=off".parse().unwrap())
-            .add_directive("eframe=off".parse().unwrap())
-            .add_directive("egui=off".parse().unwrap())
+            .add_directive(winit_directive)
+            .add_directive(wgpu_directive)
+            .add_directive(eframe_directive)
+            .add_directive(egui_directive)
     };
 
     let subscriber = tracing_subscriber::registry().with(env_filter);
@@ -64,13 +99,19 @@ fn main() {
             .compact();
 
         //let file_appender = tracing_appender::rolling::daily("./", "freminal.log");
-        let file_appender = RollingFileAppender::builder()
+        let file_appender = match RollingFileAppender::builder()
             .rotation(Rotation::HOURLY) // rotate log files once every hour
             .max_log_files(2)
             .filename_prefix("freminal") // log file names will be prefixed with `myapp.`
             .filename_suffix("log") // log file names will be suffixed with `.log`
             .build("./") // try to build an appender that stores log files in `/var/log`
-            .expect("initializing rolling file appender failed");
+             {
+            Ok(appender) => appender,
+            Err(e) => {
+                error!("Failed to create file appender: {}", e);
+                return;
+             }
+            };
         subscriber
             .with(layer().with_ansi(false).with_writer(file_appender))
             .with(std_out_layer)

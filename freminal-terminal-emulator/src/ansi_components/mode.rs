@@ -140,8 +140,8 @@ impl fmt::Display for Mode {
             Self::XtExtscrn(xt_extscrn) => write!(f, "{xt_extscrn}"),
             Self::BracketedPaste(bracketed_paste) => write!(f, "{bracketed_paste}"),
             Self::Unknown(params) => {
-                let params_s = std::str::from_utf8(params)
-                    .expect("parameter parsing should not allow non-utf8 characters here");
+                let params_s = std::str::from_utf8(params).unwrap_or("Unknown");
+
                 f.write_fmt(format_args!("Unknown Mode({params_s})"))
             }
         }

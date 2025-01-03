@@ -357,8 +357,25 @@ fn paint_cursor(
 
     let top = label_rect.top();
     let left = label_rect.left();
-    let y_offset: f32 = f32::value_from(cursor_pos.y).unwrap() * character_size.1;
-    let x_offset = f32::value_from(cursor_pos.x).unwrap() * character_size.0;
+
+    let cursor_y = match f32::value_from(cursor_pos.y) {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Failed to convert cursor y ({0}) to f32: {e}", cursor_pos.y);
+            return;
+        }
+    };
+
+    let cursor_x = match f32::value_from(cursor_pos.x) {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Failed to convert cursor x ({0}) to f32: {e}", cursor_pos.x);
+            return;
+        }
+    };
+
+    let y_offset: f32 = cursor_y * character_size.1;
+    let x_offset: f32 = cursor_x * character_size.0;
     painter.rect_filled(
         Rect::from_min_size(
             egui::pos2(left + x_offset, top + y_offset),
@@ -745,6 +762,7 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                 #[cfg(feature = "validation")]
                 return TerminalOutputRenderResponse {
                     canvas_area: canvas_response.0,
+                    #[allow(clippy::unwrap_used)]
                     canvas: canvas_response.1.unwrap(),
                 };
 
