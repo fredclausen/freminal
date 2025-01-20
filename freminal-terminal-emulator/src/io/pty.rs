@@ -3,20 +3,45 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use std::io::Write;
+use std::{io::Write, path::Path};
 
 use super::{FreminalTermInputOutput, PtyRead, PtyWrite};
 use anyhow::Result;
 use crossbeam_channel::{Receiver, Sender};
 use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
+use tempfile::TempDir;
+use thiserror::Error;
 
-pub struct FreminalPtyInputOutput;
+pub struct FreminalPtyInputOutput {
+    _termcaps: TempDir,
+}
+
+const TERMINFO: &[u8] = include_bytes!(std::concat!(std::env!("OUT_DIR"), "/terminfo.tar"));
+
+fn extract_terminfo() -> Result<TempDir, ExtractTerminfoError> {
+    let mut terminfo_tarball = tar::Archive::new(TERMINFO);
+    let temp_dir = TempDir::new().map_err(ExtractTerminfoError::CreateTempDir)?;
+    terminfo_tarball
+        .unpack(temp_dir.path())
+        .map_err(ExtractTerminfoError::Extraction)?;
+
+    Ok(temp_dir)
+}
+
+#[derive(Error, Debug)]
+enum ExtractTerminfoError {
+    #[error("failed to extract")]
+    Extraction(#[source] std::io::Error),
+    #[error("failed to create temp dir")]
+    CreateTempDir(#[source] std::io::Error),
+}
 
 pub fn run_terminal(
     write_rx: Receiver<PtyWrite>,
     send_tx: Sender<PtyRead>,
     recording_path: Option<String>,
     shell: Option<String>,
+    termcaps: &Path,
 ) -> Result<()> {
     let pty_system = NativePtySystem::default();
 
@@ -33,7 +58,10 @@ pub fn run_terminal(
         }
     };
 
-    let cmd = shell.map_or_else(CommandBuilder::new_default_prog, CommandBuilder::new);
+    let mut cmd = shell.map_or_else(CommandBuilder::new_default_prog, CommandBuilder::new);
+    println!("terminfo dir path: {termcaps:?}");
+    cmd.env("TERMINFO", termcaps);
+    cmd.env("TERM", "freminal");
     let _child = pair.slave.spawn_command(cmd)?;
 
     // Release any handles owned by the slave: we don't need it now
@@ -163,7 +191,14 @@ impl FreminalPtyInputOutput {
         recording: Option<String>,
         shell: Option<String>,
     ) -> Result<Self> {
-        run_terminal(write_rx, send_tx, recording, shell)?;
-        Ok(Self)
+        let termcaps = extract_terminfo().unwrap_or_else(|e| {
+            error!("Failed to extract terminfo: {e}");
+            std::process::exit(1);
+        });
+
+        run_terminal(write_rx, send_tx, recording, shell, termcaps.path())?;
+        Ok(Self {
+            _termcaps: termcaps,
+        })
     }
 }
