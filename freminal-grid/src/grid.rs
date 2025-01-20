@@ -4,22 +4,30 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::{
-    cursor::Cursor,
+    cursor::{Decorations, FreminalCursor, Position},
     line::{Cell, Line},
 };
 
-pub struct Grid<T, U> {
+pub struct Grid<T, C, P, D> {
     inner: Vec<Line<T>>,
     max_height: usize,
-    cursor: U,
+    cursor: C,
+    _marker: std::marker::PhantomData<P>,
+    _marker2: std::marker::PhantomData<D>,
 }
 
-impl<T: Cell, U: Cursor> Grid<T> {
+impl<T: Cell, C, P: Position, D: Decorations> Grid<T, C, P, D>
+where
+    C: FreminalCursor<P, D>,
+{
     #[must_use]
     pub fn new(width: usize, height: usize) -> Self {
         Self {
             inner: (0..height).map(|_| Line::new(width)).collect(),
             max_height: height,
+            cursor: C::default(),
+            _marker: std::marker::PhantomData,
+            _marker2: std::marker::PhantomData,
         }
     }
 }

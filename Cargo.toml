@@ -3,7 +3,7 @@ members = [
     "filedescriptor",
     "freminal",
     "freminal-common",
-    "freminal-grid"
+    "freminal-grid",
     "freminal-terminal-emulator",
     "portable-pty",
     "xtask",

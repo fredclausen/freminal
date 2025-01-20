@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-pub trait Cursor<U, P>: Sized + Default + Clone + Eq + PartialEq {
+pub trait FreminalCursor<U, P>: Sized + Default + Clone + Eq + PartialEq {
     fn current_position(&self) -> P;
     fn current_decorations(&self) -> U;
 }
