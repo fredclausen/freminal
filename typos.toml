@@ -34,4 +34,5 @@ extend-ignore-identifiers-re = [ # NDK - Native  Development Kit
     "ratatui",
     "BA",
     "Ot",
+    "Sur",
 ]

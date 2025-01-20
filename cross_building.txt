@@ -1,0 +1,8 @@
+with cross installed:
+
+```
+cross run --target aarch64-unknown-linux-gnu
+cross run --target i686-pc-windows-gnu
+cross run --target aarch64-apple-darwin
+cross run --target x86_64-unknown-linux-gnu
+```
