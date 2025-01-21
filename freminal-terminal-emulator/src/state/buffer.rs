@@ -630,43 +630,18 @@ impl TerminalBufferHolder {
 
     #[must_use]
     pub fn clip_lines_for_alternate_buffer(&mut self) -> Option<Range<usize>> {
-        None
-        // if self.buf.is_empty() || self.visible_line_ranges.len() <= self.height {
-        //     return None;
-        // }
-        // // we only want to keep the visible lines
+        // get the first line range from visible line ranges
+        if self.buf.is_empty() || self.visible_line_ranges.is_empty() {
+            return None;
+        }
 
-        // let index = self
-        //     .buffer_line_ranges
-        //     .len()
-        //     .saturating_sub(self.height - 1);
+        let starting_index = self.visible_line_ranges[0].start.saturating_sub(1);
 
-        // if index == 0 {
-        //     return None;
-        // }
+        if starting_index == 0 {
+            return None;
+        }
 
-        // let keep_buf_pos = self.buffer_line_ranges[index].start - 1;
-
-        // self.buf.drain(0..keep_buf_pos);
-        // self.buffer_line_ranges.drain(0..index);
-
-        // // now walk both of the line range buffers and offset them by the keep_buf_pos
-
-        // for line_range in &mut self.buffer_line_ranges {
-        //     line_range.start = line_range.start.saturating_sub(keep_buf_pos);
-        //     line_range.end = line_range.end.saturating_sub(keep_buf_pos);
-        // }
-
-        // for line_range in &mut self.visible_line_ranges {
-        //     line_range.start = line_range.start.saturating_sub(keep_buf_pos);
-        //     line_range.end = line_range.end.saturating_sub(keep_buf_pos);
-        // }
-
-        // // if self.viewable_index_bottom != usize::MAX {
-        // //     self.scroll_up(&index);
-        // // }
-
-        // Some(0..keep_buf_pos)
+        Some(0..starting_index)
     }
 
     #[must_use]
