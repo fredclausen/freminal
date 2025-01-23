@@ -114,13 +114,6 @@ pub fn ansi_parser_inner_csi_finished_sgr_ansi(
                         continue;
                     };
 
-                    // lets make sure the iterator is empty now. Otherwise, it's an invalid sequence
-                    if param_iter.next().is_some() {
-                        warn!("Invalid SGR sequence: {}", param);
-                        output.push(TerminalOutput::Invalid);
-                        continue;
-                    }
-
                     // look up the rgb
 
                     (custom_color_r, custom_color_g, custom_color_b) =
