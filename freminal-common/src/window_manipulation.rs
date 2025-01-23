@@ -66,7 +66,7 @@ impl TryFrom<(usize, usize, usize)> for WindowManipulation {
             (19, 0, 0) => Ok(Self::ReportRootWindowSizeInCharacters),
             (20, 0, 0) => Ok(Self::ReportIconLabel),
             (21, 0, 0) => Ok(Self::ReportTitle),
-            (22, 0, 0) => Ok(Self::SaveWindowTitleToStack),
+            (22, 0..=2, 0) => Ok(Self::SaveWindowTitleToStack),
             (23, 0..=2, 0) => Ok(Self::RestoreWindowTitleFromStack),
             (24, 0..=2, 0) => Ok(Self::SetTitleBarText(String::new())),
             _ => Err(anyhow::anyhow!("Invalid WindowManipulation")),
