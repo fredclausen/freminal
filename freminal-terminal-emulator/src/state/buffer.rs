@@ -630,18 +630,39 @@ impl TerminalBufferHolder {
 
     #[must_use]
     pub fn clip_lines_for_alternate_buffer(&mut self) -> Option<Range<usize>> {
-        // get the first line range from visible line ranges
-        if self.buf.is_empty() || self.visible_line_ranges.is_empty() {
+        if self.buf.is_empty() {
+            return None;
+        }
+        // we want to keep the first height lines + length of visible lines
+
+        let index = self.buffer_line_ranges.len().saturating_sub(self.height);
+
+        if index == 0 {
             return None;
         }
 
-        let starting_index = self.visible_line_ranges[0].start.saturating_sub(1);
+        let keep_buf_pos = self.buffer_line_ranges[index].start.saturating_sub(1);
 
-        if starting_index == 0 {
-            return None;
+        self.buf.drain(0..keep_buf_pos);
+        self.buffer_line_ranges.drain(0..index);
+
+        // now walk both of the line range buffers and offset them by the keep_buf_pos
+
+        for line_range in &mut self.buffer_line_ranges {
+            line_range.start = line_range.start.saturating_sub(keep_buf_pos);
+            line_range.end = line_range.end.saturating_sub(keep_buf_pos);
         }
 
-        Some(0..starting_index)
+        for line_range in &mut self.visible_line_ranges {
+            line_range.start = line_range.start.saturating_sub(keep_buf_pos);
+            line_range.end = line_range.end.saturating_sub(keep_buf_pos);
+        }
+
+        if self.viewable_index_bottom != usize::MAX {
+            self.scroll_up(&index);
+        }
+
+        Some(0..keep_buf_pos)
     }
 
     #[must_use]
@@ -822,15 +843,16 @@ impl TerminalBufferHolder {
         }
 
         self.visible_line_ranges = ret;
+        self.calculate_line_ranges();
 
-        match self.buffer_type {
-            BufferType::Primary => {
-                self.calculate_line_ranges();
-            }
-            BufferType::Alternate => {
-                self.buffer_line_ranges = self.visible_line_ranges.clone();
-            }
-        }
+        // match self.buffer_type {
+        //     BufferType::Primary => {
+        //         self.calculate_line_ranges();
+        //     }
+        //     BufferType::Alternate => {
+        //         self.buffer_line_ranges = self.visible_line_ranges.clone();
+        //     }
+        // }
     }
 
     // FIXME: can we combine this with the above function? Or separate out the internal logic of each function to a common function?
