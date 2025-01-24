@@ -179,10 +179,7 @@ impl AnsiCsiParser {
                 ansi_parser_inner_csi_finished_set_position_t(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'p') => {
-                warn!(
-                    "Unhandled (known) csi code: {:?}",
-                    std::char::from_u32(u32::from(b))
-                );
+                format_error_output(Some('p'), &self.params);
                 output.push(TerminalOutput::Skipped);
                 Ok(Some(ParserInner::Empty))
             }
@@ -193,32 +190,24 @@ impl AnsiCsiParser {
                 ansi_parser_inner_csi_set_top_and_bottom_margins(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'c') => {
-                warn!(
-                    "Unhandled (known) csi code: {:?}",
-                    std::char::from_u32(u32::from(b))
-                );
+                format_error_output(Some('c'), &self.params);
                 output.push(TerminalOutput::Skipped);
                 Ok(Some(ParserInner::Empty))
             }
             AnsiCsiParserState::Finished(b'u') => {
-                warn!(
-                    "Unhandled (known) csi code: {:?}",
-                    std::char::from_u32(u32::from(b))
-                );
+                format_error_output(Some('u'), &self.params);
                 output.push(TerminalOutput::Skipped);
                 Ok(Some(ParserInner::Empty))
             }
             AnsiCsiParserState::Finished(esc) => {
-                warn!(
-                    "Unhandled csi code: {:?}",
-                    std::char::from_u32(u32::from(esc)),
-                );
+                let terminator = Some(char::from(esc));
+                format_error_output(terminator, &self.params);
                 output.push(TerminalOutput::Invalid);
 
                 Ok(Some(ParserInner::Empty))
             }
             AnsiCsiParserState::Invalid => {
-                warn!("Invalid CSI sequence");
+                format_error_output(None, &self.params);
                 output.push(TerminalOutput::Invalid);
 
                 Ok(Some(ParserInner::Empty))
@@ -237,4 +226,11 @@ fn is_csi_terminator(b: u8) -> bool {
 }
 fn is_csi_intermediate(b: u8) -> bool {
     (0x20..=0x2f).contains(&b)
+}
+
+fn format_error_output(terminator: Option<char>, params: &[u8]) {
+    let terminator = terminator.map_or_else(String::new, |c| c.to_string());
+    let params =
+        String::from_utf8(params.to_vec()).unwrap_or_else(|_| "Unable To Parse Params".to_string());
+    warn!("Unhandled CSI sequence: [{params}{terminator}");
 }
