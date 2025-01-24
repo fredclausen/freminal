@@ -41,6 +41,7 @@ pub struct AnsiCsiParser {
     pub state: AnsiCsiParserState,
     pub params: Vec<u8>,
     pub intermediates: Vec<u8>,
+    pub sequence: Vec<u8>,
 }
 
 impl Default for AnsiCsiParser {
@@ -56,6 +57,7 @@ impl AnsiCsiParser {
             state: AnsiCsiParserState::Params,
             params: Vec::new(),
             intermediates: Vec::new(),
+            sequence: Vec::new(),
         }
     }
 
@@ -67,6 +69,8 @@ impl AnsiCsiParser {
         if let AnsiCsiParserState::Finished(_) | AnsiCsiParserState::InvalidFinished = &self.state {
             return Err(ParserFailures::ParsedPushedToOnceFinished.into());
         }
+
+        self.sequence.push(b);
 
         match &mut self.state {
             AnsiCsiParserState::Params => {
@@ -179,7 +183,7 @@ impl AnsiCsiParser {
                 ansi_parser_inner_csi_finished_set_position_t(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'p') => {
-                format_error_output(Some('p'), &self.params);
+                format_error_output(&self.sequence);
                 output.push(TerminalOutput::Skipped);
                 Ok(Some(ParserInner::Empty))
             }
@@ -190,24 +194,23 @@ impl AnsiCsiParser {
                 ansi_parser_inner_csi_set_top_and_bottom_margins(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'c') => {
-                format_error_output(Some('c'), &self.params);
+                format_error_output(&self.sequence);
                 output.push(TerminalOutput::Skipped);
                 Ok(Some(ParserInner::Empty))
             }
             AnsiCsiParserState::Finished(b'u') => {
-                format_error_output(Some('u'), &self.params);
+                format_error_output(&self.sequence);
                 output.push(TerminalOutput::Skipped);
                 Ok(Some(ParserInner::Empty))
             }
             AnsiCsiParserState::Finished(esc) => {
-                let terminator = Some(char::from(esc));
-                format_error_output(terminator, &self.params);
+                format_error_output(&self.sequence);
                 output.push(TerminalOutput::Invalid);
 
                 Ok(Some(ParserInner::Empty))
             }
             AnsiCsiParserState::Invalid => {
-                format_error_output(None, &self.params);
+                format_error_output(&self.sequence);
                 output.push(TerminalOutput::Invalid);
 
                 Ok(Some(ParserInner::Empty))
@@ -228,9 +231,8 @@ fn is_csi_intermediate(b: u8) -> bool {
     (0x20..=0x2f).contains(&b)
 }
 
-fn format_error_output(terminator: Option<char>, params: &[u8]) {
-    let terminator = terminator.map_or_else(String::new, |c| c.to_string());
-    let params =
-        String::from_utf8(params.to_vec()).unwrap_or_else(|_| "Unable To Parse Params".to_string());
-    warn!("Unhandled CSI sequence: [{params}{terminator}");
+fn format_error_output(sequence: &[u8]) {
+    let params = String::from_utf8(sequence.to_vec())
+        .unwrap_or_else(|_| "Unable To Parse Params".to_string());
+    warn!("Unhandled CSI sequence: [{params}");
 }

@@ -641,7 +641,7 @@ impl TerminalBufferHolder {
             return None;
         }
 
-        let keep_buf_pos = self.buffer_line_ranges[index].start.saturating_sub(1);
+        let keep_buf_pos = self.buffer_line_ranges[index].start - 1;
 
         self.buf.drain(0..keep_buf_pos);
         self.buffer_line_ranges.drain(0..index);
