@@ -545,6 +545,37 @@ impl TerminalBufferHolder {
 
         let start = end.saturating_sub(self.height - 1);
 
+        // ensure the start is not greater than the end
+
+        if start > end {
+            error!("Data for GUI: start is greater than end");
+            return (
+                TerminalSections {
+                    scrollback: vec![],
+                    visible: vec![],
+                },
+                0,
+                0,
+            );
+        }
+
+        // now ensure self.buffer_line_ranges[start].start..self.buffer_line_ranges[end].end falls
+        // entirely within self.buf
+        if self.buffer_line_ranges[start].start > self.buf.len()
+            || self.buffer_line_ranges[end].end > self.buf.len()
+        {
+            error!("Data for GUI: buffer line ranges are out of bounds. start: {}, buf start: {}, buf end: {}, end: {}, buf len: {}",
+                    start, self.buffer_line_ranges[start].start, end, self.buffer_line_ranges[end].end, self.buf.len());
+            return (
+                TerminalSections {
+                    scrollback: vec![],
+                    visible: vec![],
+                },
+                0,
+                0,
+            );
+        }
+
         (
             TerminalSections {
                 scrollback: vec![],
