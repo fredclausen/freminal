@@ -9,6 +9,7 @@ pub mod decawm;
 pub mod decckm;
 pub mod dectcem;
 pub mod rl_bracket;
+pub mod sync_updates;
 pub mod xtcblink;
 pub mod xtextscrn;
 pub mod xtmsewin;

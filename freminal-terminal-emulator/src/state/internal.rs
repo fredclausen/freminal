@@ -20,8 +20,8 @@ use crate::{
         mode::{Mode, MouseTrack, SetMode, TerminalModes},
         modes::{
             decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket,
-            xtcblink::XtCBlink, xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber,
-            ReportMode,
+            sync_updates::SynchronizedUpdates, xtcblink::XtCBlink, xtextscrn::XtExtscrn,
+            xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
         },
         osc::{AnsiOscInternalType, AnsiOscType, UrlResponse},
         sgr::SelectGraphicRendition,
@@ -161,7 +161,12 @@ impl TerminalState {
     }
 
     #[must_use]
-    pub const fn is_changed(&self) -> bool {
+    pub fn is_changed(&self) -> bool {
+        if self.modes.synchronized_updates == SynchronizedUpdates::DontDraw {
+            debug!("Internal State: Synchronized updates is set to DontDraw, returning false");
+            return false;
+        }
+
         self.changed
     }
 
@@ -890,6 +895,12 @@ impl TerminalState {
                 } else {
                     warn!("Unhandled mouse mode: {mode}");
                 }
+            }
+            Mode::SynchronizedUpdates(SynchronizedUpdates::Query) => {
+                self.report_mode(&self.modes.synchronized_updates.report(None));
+            }
+            Mode::SynchronizedUpdates(sync) => {
+                self.modes.synchronized_updates = sync.clone();
             }
             Mode::UnknownQuery(m) => {
                 let query = String::from_utf8(m.clone())

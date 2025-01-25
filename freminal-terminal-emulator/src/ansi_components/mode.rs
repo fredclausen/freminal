@@ -1,8 +1,9 @@
 use std::fmt;
 
 use super::modes::{
-    decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket, xtcblink::XtCBlink,
-    xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
+    decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket,
+    sync_updates::SynchronizedUpdates, xtcblink::XtCBlink, xtextscrn::XtExtscrn,
+    xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -159,6 +160,7 @@ pub enum Mode {
     XtMseWin(XtMseWin),
     BracketedPaste(RlBracket),
     MouseMode(MouseTrack),
+    SynchronizedUpdates(SynchronizedUpdates),
     UnknownQuery(Vec<u8>),
     Unknown(UnknownMode),
 }
@@ -174,6 +176,7 @@ impl ReportMode for Mode {
             Self::XtMseWin(xt_mse_win) => xt_mse_win.report(override_mode),
             Self::BracketedPaste(rl_bracket) => rl_bracket.report(override_mode),
             Self::MouseMode(mouse_mode) => mouse_mode.report(override_mode),
+            Self::SynchronizedUpdates(sync_updates) => sync_updates.report(override_mode),
             Self::Unknown(mode) => mode.report(override_mode),
             Self::UnknownQuery(v) => {
                 // convert each digit to a char
@@ -220,6 +223,7 @@ pub struct TerminalModes {
     pub focus_reporting: XtMseWin,
     pub cursor_blinking: XtCBlink,
     pub mouse_tracking: MouseTrack,
+    pub synchronized_updates: SynchronizedUpdates,
 }
 
 impl fmt::Display for Mode {
@@ -233,6 +237,7 @@ impl fmt::Display for Mode {
             Self::XtMseWin(xt_mse_win) => write!(f, "{xt_mse_win}"),
             Self::XtExtscrn(xt_extscrn) => write!(f, "{xt_extscrn}"),
             Self::BracketedPaste(bracketed_paste) => write!(f, "{bracketed_paste}"),
+            Self::SynchronizedUpdates(sync_updates) => write!(f, "{sync_updates}"),
             Self::Unknown(params) => write!(f, "{params}"),
             Self::UnknownQuery(v) => write!(f, "Unknown Query({v:?})"),
         }
@@ -334,6 +339,7 @@ pub fn terminal_mode_from_params(params: &[u8], mode: &SetMode) -> Mode {
         }
         b"?1049" => Mode::XtExtscrn(XtExtscrn::new(mode)),
         b"?2004" => Mode::BracketedPaste(RlBracket::new(mode)),
+        b"?2026" => Mode::SynchronizedUpdates(SynchronizedUpdates::new(mode)),
         _ => {
             if mode == &SetMode::DecQuery {
                 let output_params = params
