@@ -10,7 +10,7 @@ use freminal_terminal_emulator::{
     ansi::{parse_param_as, FreminalAnsiParser, ParserInner, TerminalOutput},
     ansi_components::{
         csi::{AnsiCsiParser, AnsiCsiParserState},
-        mode::{Mode, SetMode},
+        mode::{Mode, SetMode, UnknownMode},
         modes::decckm::Decckm,
         osc::{AnsiOscInternalType, AnsiOscType},
         sgr::SelectGraphicRendition,
@@ -256,14 +256,14 @@ fn test_mode_parsing() {
     assert_eq!(output.len(), 1);
     assert_eq!(
         output[0],
-        TerminalOutput::Mode(Mode::Unknown(b"1".to_vec()))
+        TerminalOutput::Mode(Mode::Unknown(UnknownMode::new(b"1")))
     );
 
     let output = output_buffer.push(b"\x1b[1l");
     assert_eq!(output.len(), 1);
     assert_eq!(
         output[0],
-        TerminalOutput::Mode(Mode::Unknown(b"1".to_vec()))
+        TerminalOutput::Mode(Mode::Unknown(UnknownMode::new(b"1")))
     );
 
     let output = output_buffer.push(b"\x1b[?1l");

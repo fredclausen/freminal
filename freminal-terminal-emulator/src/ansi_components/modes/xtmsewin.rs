@@ -7,6 +7,8 @@ use core::fmt;
 
 use crate::ansi_components::mode::SetMode;
 
+use super::ReportMode;
+
 /// Focus reporting mode (`XT_MSE_WIN`)
 #[derive(Debug, Eq, PartialEq, Default)]
 pub enum XtMseWin {
@@ -15,6 +17,7 @@ pub enum XtMseWin {
     Disabled,
     /// Focus reporting is enabled
     Enabled,
+    Query,
 }
 
 impl XtMseWin {
@@ -23,7 +26,25 @@ impl XtMseWin {
         match mode {
             SetMode::DecSet => Self::Enabled,
             SetMode::DecRst => Self::Disabled,
+            SetMode::DecQuery => Self::Query,
         }
+    }
+}
+
+impl ReportMode for XtMseWin {
+    fn report(&self, override_mode: Option<SetMode>) -> String {
+        override_mode.map_or_else(
+            || match self {
+                Self::Disabled => "\x1b[?1004;2$y".to_string(),
+                Self::Enabled => "\x1b[?1004;1$y".to_string(),
+                Self::Query => "\x1b[?1004;0$y".to_string(),
+            },
+            |override_mode| match override_mode {
+                SetMode::DecSet => "\x1b[?1004;1$y".to_string(),
+                SetMode::DecRst => "\x1b[?1004;2$y".to_string(),
+                SetMode::DecQuery => "\x1b[?1004;0$y".to_string(),
+            },
+        )
     }
 }
 
@@ -32,6 +53,7 @@ impl fmt::Display for XtMseWin {
         match self {
             Self::Disabled => f.write_str("Focus Reporting Mode (XT_MSE_WIN) Disabled"),
             Self::Enabled => f.write_str("Focus Reporting Mode (XT_MSE_WIN) Enabled"),
+            Self::Query => f.write_str("Focus Reporting Mode (XT_MSE_WIN) Query"),
         }
     }
 }

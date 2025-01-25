@@ -12,6 +12,7 @@ use super::{
         cup::ansi_parser_inner_csi_finished_set_position_h,
         cuu::ansi_parser_inner_csi_finished_move_up,
         dch::ansi_parser_inner_csi_finished_set_position_p,
+        decrqm::ansi_parser_inner_csi_finished_decrqm,
         decscusr::ansi_parser_inner_csi_finished_set_position_q,
         decslpp::ansi_parser_inner_csi_finished_set_position_t,
         decstbm::ansi_parser_inner_csi_set_top_and_bottom_margins,
@@ -183,9 +184,7 @@ impl AnsiCsiParser {
                 ansi_parser_inner_csi_finished_set_position_t(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'p') => {
-                format_error_output(&self.sequence);
-                output.push(TerminalOutput::Skipped);
-                Ok(Some(ParserInner::Empty))
+                ansi_parser_inner_csi_finished_decrqm(&self.params, &self.intermediates, b, output)
             }
             AnsiCsiParserState::Finished(b'q') => {
                 ansi_parser_inner_csi_finished_set_position_q(&self.params, output)
@@ -193,17 +192,17 @@ impl AnsiCsiParser {
             AnsiCsiParserState::Finished(b'r') => {
                 ansi_parser_inner_csi_set_top_and_bottom_margins(&self.params, output)
             }
-            AnsiCsiParserState::Finished(b'c') => {
-                format_error_output(&self.sequence);
-                output.push(TerminalOutput::Skipped);
-                Ok(Some(ParserInner::Empty))
-            }
+            // AnsiCsiParserState::Finished(b'c') => {
+            //     format_error_output(&self.sequence);
+            //     output.push(TerminalOutput::Skipped);
+            //     Ok(Some(ParserInner::Empty))
+            // }
             AnsiCsiParserState::Finished(b'u') => {
                 format_error_output(&self.sequence);
                 output.push(TerminalOutput::Skipped);
                 Ok(Some(ParserInner::Empty))
             }
-            AnsiCsiParserState::Finished(esc) => {
+            AnsiCsiParserState::Finished(_esc) => {
                 format_error_output(&self.sequence);
                 output.push(TerminalOutput::Invalid);
 

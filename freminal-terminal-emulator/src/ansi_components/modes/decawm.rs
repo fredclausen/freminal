@@ -7,6 +7,8 @@ use core::fmt;
 
 use crate::ansi_components::mode::SetMode;
 
+use super::ReportMode;
+
 /// Autowrap Mode (DECAWM) ?7
 #[derive(Eq, PartialEq, Debug, Default, Clone)]
 pub enum Decawm {
@@ -17,6 +19,7 @@ pub enum Decawm {
     /// Alternate (Set) Mode
     /// Enables autowrap mode
     AutoWrap,
+    Query,
 }
 
 impl Decawm {
@@ -25,7 +28,25 @@ impl Decawm {
         match mode {
             SetMode::DecSet => Self::AutoWrap,
             SetMode::DecRst => Self::NoAutoWrap,
+            SetMode::DecQuery => Self::Query,
         }
+    }
+}
+
+impl ReportMode for Decawm {
+    fn report(&self, override_mode: Option<SetMode>) -> String {
+        override_mode.map_or_else(
+            || match self {
+                Self::NoAutoWrap => "\x1b[?7;2$y".to_string(),
+                Self::AutoWrap => "\x1b[?7;1$y".to_string(),
+                Self::Query => "\x1b[?7;0$y".to_string(),
+            },
+            |override_mode| match override_mode {
+                SetMode::DecSet => "\x1b[?7;1$y".to_string(),
+                SetMode::DecRst => "\x1b[?7;2$y".to_string(),
+                SetMode::DecQuery => "\x1b[?7;0$y".to_string(),
+            },
+        )
     }
 }
 
@@ -34,6 +55,7 @@ impl fmt::Display for Decawm {
         match self {
             Self::NoAutoWrap => write!(f, "Autowrap Mode (DECAWM) Disabled"),
             Self::AutoWrap => write!(f, "Autowrap Mode (DECAWM) Enabled"),
+            Self::Query => write!(f, "Autowrap Mode (DECAWM) Query"),
         }
     }
 }

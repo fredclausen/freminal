@@ -7,6 +7,8 @@ use core::fmt;
 
 use crate::ansi_components::mode::SetMode;
 
+use super::ReportMode;
+
 // FIXME: I'm not sure we actually want to blink the cursor.
 // Most terminals seem to either not do this, or give the user the option to disable it.
 // For now, we'll track it and decide later.
@@ -21,6 +23,7 @@ pub enum XtCBlink {
     /// Set mode.
     /// Cursor is blinking.
     Blinking,
+    Query,
 }
 
 impl XtCBlink {
@@ -29,7 +32,25 @@ impl XtCBlink {
         match mode {
             SetMode::DecSet => Self::Blinking,
             SetMode::DecRst => Self::Steady,
+            SetMode::DecQuery => Self::Query,
         }
+    }
+}
+
+impl ReportMode for XtCBlink {
+    fn report(&self, override_mode: Option<SetMode>) -> String {
+        override_mode.map_or_else(
+            || match self {
+                Self::Steady => "\x1b[?1049;2$y".to_string(),
+                Self::Blinking => "\x1b[?1049;1$y".to_string(),
+                Self::Query => "\x1b[?1049;0$y".to_string(),
+            },
+            |override_mode| match override_mode {
+                SetMode::DecSet => "\x1b[?1049;1$y".to_string(),
+                SetMode::DecRst => "\x1b[?1049;2$y".to_string(),
+                SetMode::DecQuery => "\x1b[?1049;0$y".to_string(),
+            },
+        )
     }
 }
 
@@ -38,6 +59,7 @@ impl fmt::Display for XtCBlink {
         match self {
             Self::Steady => f.write_str("XT_CBLINK (RESET) Cursor Steady"),
             Self::Blinking => f.write_str("XT_CBLINK (SET) Cursor Blinking"),
+            Self::Query => f.write_str("XT_CBLINK (QUERY)"),
         }
     }
 }

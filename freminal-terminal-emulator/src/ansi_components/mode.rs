@@ -2,7 +2,7 @@ use std::fmt;
 
 use super::modes::{
     decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket, xtcblink::XtCBlink,
-    xtextscrn::XtExtscrn, xtmsewin::XtMseWin,
+    xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -11,6 +11,7 @@ pub enum SetMode {
     DecSet,
     #[default]
     DecRst,
+    DecQuery,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -32,6 +33,47 @@ pub enum MouseTrack {
     XtMseSgr,       // ?1006
     XtMseUrXvt,     // ?1015
     XtMseSgrPixels, // ?1016
+    Query(usize),
+}
+
+impl MouseModeNumber for MouseTrack {
+    fn mouse_mode_number(&self) -> usize {
+        match self {
+            Self::NoTracking => 0,
+            Self::XtMsex10 => 9,
+            Self::XtMseX11 => 1000,
+            Self::XtMseBtn => 1002,
+            Self::XtMseAny => 1003,
+            Self::XtMseUtf => 1005,
+            Self::XtMseSgr => 1006,
+            Self::XtMseUrXvt => 1015,
+            Self::XtMseSgrPixels => 1016,
+            Self::Query(v) => *v,
+        }
+    }
+}
+
+impl ReportMode for MouseTrack {
+    fn report(&self, override_mode: Option<SetMode>) -> String {
+        let mode_number = match self {
+            Self::NoTracking | Self::Query(_) => 0,
+            Self::XtMsex10 => 9,
+            Self::XtMseX11 => 1000,
+            Self::XtMseBtn => 1002,
+            Self::XtMseAny => 1003,
+            Self::XtMseUtf => 1005,
+            Self::XtMseSgr => 1006,
+            Self::XtMseUrXvt => 1015,
+            Self::XtMseSgrPixels => 1016,
+        };
+
+        let set_mode = match override_mode {
+            Some(SetMode::DecSet) => 1,
+            Some(SetMode::DecRst) => 2,
+            Some(SetMode::DecQuery) | None => 0,
+        };
+        format!("\x1b[?{mode_number};{set_mode}$y")
+    }
 }
 
 impl MouseTrack {
@@ -100,6 +142,7 @@ impl fmt::Display for MouseTrack {
             Self::XtMseSgr => write!(f, "XtMseSgr"),
             Self::XtMseUrXvt => write!(f, "XtMseUrXvt"),
             Self::XtMseSgrPixels => write!(f, "XtMseSgrPixels"),
+            Self::Query(v) => write!(f, "Query Mouse Tracking({v})"),
         }
     }
 }
@@ -116,7 +159,58 @@ pub enum Mode {
     XtMseWin(XtMseWin),
     BracketedPaste(RlBracket),
     MouseMode(MouseTrack),
-    Unknown(Vec<u8>),
+    UnknownQuery(Vec<u8>),
+    Unknown(UnknownMode),
+}
+
+impl ReportMode for Mode {
+    fn report(&self, override_mode: Option<SetMode>) -> String {
+        match self {
+            Self::Decckm(decckm) => decckm.report(override_mode),
+            Self::Decawm(decawm) => decawm.report(override_mode),
+            Self::Dectem(dectem) => dectem.report(override_mode),
+            Self::XtCBlink(xt_cblink) => xt_cblink.report(override_mode),
+            Self::XtExtscrn(xt_extscrn) => xt_extscrn.report(override_mode),
+            Self::XtMseWin(xt_mse_win) => xt_mse_win.report(override_mode),
+            Self::BracketedPaste(rl_bracket) => rl_bracket.report(override_mode),
+            Self::MouseMode(mouse_mode) => mouse_mode.report(override_mode),
+            Self::Unknown(mode) => mode.report(override_mode),
+            Self::UnknownQuery(v) => {
+                // convert each digit to a char
+                let digits = v.iter().map(|&x| x as char).collect::<String>();
+                format!("\x1b[?{digits};0$y")
+            }
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct UnknownMode {
+    pub params: String,
+}
+
+impl UnknownMode {
+    #[must_use]
+    pub fn new(params: &[u8]) -> Self {
+        let params_s = std::str::from_utf8(params).unwrap_or("Unknown");
+
+        Self {
+            params: params_s.to_string(),
+        }
+    }
+}
+
+impl ReportMode for UnknownMode {
+    // FIXME: we may need to get specific about DEC vs ANSI here. For now....we'll just report DEC
+    fn report(&self, _override_mode: Option<SetMode>) -> String {
+        format!("\x1b[?{};0;$y", self.params)
+    }
+}
+
+impl fmt::Display for UnknownMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Unknown Mode({})", self.params)
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Default)]
@@ -139,11 +233,8 @@ impl fmt::Display for Mode {
             Self::XtMseWin(xt_mse_win) => write!(f, "{xt_mse_win}"),
             Self::XtExtscrn(xt_extscrn) => write!(f, "{xt_extscrn}"),
             Self::BracketedPaste(bracketed_paste) => write!(f, "{bracketed_paste}"),
-            Self::Unknown(params) => {
-                let params_s = std::str::from_utf8(params).unwrap_or("Unknown");
-
-                f.write_fmt(format_args!("Unknown Mode({params_s})"))
-            }
+            Self::Unknown(params) => write!(f, "{params}"),
+            Self::UnknownQuery(v) => write!(f, "Unknown Query({v:?})"),
         }
     }
 }
@@ -158,8 +249,10 @@ pub fn terminal_mode_from_params(params: &[u8], mode: &SetMode) -> Mode {
         b"?9" => {
             if mode == &SetMode::DecSet {
                 Mode::MouseMode(MouseTrack::XtMsex10)
-            } else {
+            } else if mode == &SetMode::DecRst {
                 Mode::MouseMode(MouseTrack::NoTracking)
+            } else {
+                Mode::MouseMode(MouseTrack::Query(9))
             }
         }
         b"?12" => Mode::XtCBlink(XtCBlink::new(mode)),
@@ -167,22 +260,28 @@ pub fn terminal_mode_from_params(params: &[u8], mode: &SetMode) -> Mode {
         b"?1000" => {
             if mode == &SetMode::DecSet {
                 Mode::MouseMode(MouseTrack::XtMseX11)
-            } else {
+            } else if mode == &SetMode::DecRst {
                 Mode::MouseMode(MouseTrack::NoTracking)
+            } else {
+                Mode::MouseMode(MouseTrack::Query(1000))
             }
         }
         b"?1002" => {
             if mode == &SetMode::DecSet {
                 Mode::MouseMode(MouseTrack::XtMseBtn)
-            } else {
+            } else if mode == &SetMode::DecRst {
                 Mode::MouseMode(MouseTrack::NoTracking)
+            } else {
+                Mode::MouseMode(MouseTrack::Query(1002))
             }
         }
         b"?1003" => {
             if mode == &SetMode::DecSet {
                 Mode::MouseMode(MouseTrack::XtMseAny)
-            } else {
+            } else if mode == &SetMode::DecRst {
                 Mode::MouseMode(MouseTrack::NoTracking)
+            } else {
+                Mode::MouseMode(MouseTrack::Query(1003))
             }
         }
         b"?1004" => Mode::XtMseWin(XtMseWin::new(mode)),
@@ -190,16 +289,20 @@ pub fn terminal_mode_from_params(params: &[u8], mode: &SetMode) -> Mode {
         b"?1005" => {
             if mode == &SetMode::DecSet {
                 Mode::MouseMode(MouseTrack::XtMseUtf)
-            } else {
+            } else if mode == &SetMode::DecRst {
                 Mode::MouseMode(MouseTrack::NoTracking)
+            } else {
+                Mode::MouseMode(MouseTrack::Query(1005))
             }
         }
         // TODO: Implement this
         b"?1006" => {
             if mode == &SetMode::DecSet {
                 Mode::MouseMode(MouseTrack::XtMseSgr)
-            } else {
+            } else if mode == &SetMode::DecRst {
                 Mode::MouseMode(MouseTrack::NoTracking)
+            } else {
+                Mode::MouseMode(MouseTrack::Query(1006))
             }
         }
         // For now, we'll ignore this. Reading documentation it seems like this is
@@ -213,20 +316,37 @@ pub fn terminal_mode_from_params(params: &[u8], mode: &SetMode) -> Mode {
         b"?1015" => {
             if mode == &SetMode::DecSet {
                 Mode::MouseMode(MouseTrack::XtMseUrXvt)
-            } else {
+            } else if mode == &SetMode::DecRst {
                 Mode::MouseMode(MouseTrack::NoTracking)
+            } else {
+                Mode::MouseMode(MouseTrack::Query(1015))
             }
         }
         // TODO: Implement this
         b"?1016" => {
             if mode == &SetMode::DecSet {
                 Mode::MouseMode(MouseTrack::XtMseSgrPixels)
-            } else {
+            } else if mode == &SetMode::DecRst {
                 Mode::MouseMode(MouseTrack::NoTracking)
+            } else {
+                Mode::MouseMode(MouseTrack::Query(1016))
             }
         }
         b"?1049" => Mode::XtExtscrn(XtExtscrn::new(mode)),
         b"?2004" => Mode::BracketedPaste(RlBracket::new(mode)),
-        _ => Mode::Unknown(params.to_vec()),
+        _ => {
+            if mode == &SetMode::DecQuery {
+                let output_params = params
+                    .to_vec()
+                    .iter()
+                    .skip(usize::from(params[0] == b'?'))
+                    .copied()
+                    .collect::<Vec<u8>>();
+
+                Mode::UnknownQuery(output_params)
+            } else {
+                Mode::Unknown(UnknownMode::new(params))
+            }
+        }
     }
 }

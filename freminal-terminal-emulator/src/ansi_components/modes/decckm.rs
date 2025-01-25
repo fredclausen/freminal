@@ -7,6 +7,8 @@ use core::fmt;
 
 use crate::ansi_components::mode::SetMode;
 
+use super::ReportMode;
+
 /// Cursor Key Mode (DECCKM) ?1
 #[derive(Eq, PartialEq, Debug, Default, Clone)]
 pub enum Decckm {
@@ -17,6 +19,7 @@ pub enum Decckm {
     /// Alternate (Set) Mode
     /// Application cursor keys.
     Application,
+    Query,
 }
 
 impl Decckm {
@@ -25,7 +28,25 @@ impl Decckm {
         match mode {
             SetMode::DecSet => Self::Application,
             SetMode::DecRst => Self::Ansi,
+            SetMode::DecQuery => Self::Query,
         }
+    }
+}
+
+impl ReportMode for Decckm {
+    fn report(&self, override_mode: Option<SetMode>) -> String {
+        override_mode.map_or_else(
+            || match self {
+                Self::Ansi => "\x1b[?1;2$y".to_string(),
+                Self::Application => "\x1b[?1;1$y".to_string(),
+                Self::Query => "\x1b[?1;0$y".to_string(),
+            },
+            |override_mode| match override_mode {
+                SetMode::DecSet => "\x1b[?1;1$y".to_string(),
+                SetMode::DecRst => "\x1b[?1;2$y".to_string(),
+                SetMode::DecQuery => "\x1b[?1;0$y".to_string(),
+            },
+        )
     }
 }
 
@@ -34,6 +55,7 @@ impl fmt::Display for Decckm {
         match self {
             Self::Ansi => write!(f, "Cursor Key Mode (DECCKM) ANSI"),
             Self::Application => write!(f, "Cursor Key Mode (DECCKM) Application"),
+            Self::Query => write!(f, "Cursor Key Mode (DECCKM) Query"),
         }
     }
 }

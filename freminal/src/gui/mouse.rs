@@ -134,7 +134,8 @@ pub fn handle_pointer_button(
         MouseTrack::NoTracking
         | MouseTrack::XtMseUtf
         | MouseTrack::XtMseUrXvt
-        | MouseTrack::XtMseSgrPixels => None,
+        | MouseTrack::XtMseSgrPixels
+        | MouseTrack::Query(_) => None,
     }
 }
 
@@ -178,7 +179,8 @@ pub fn handle_pointer_moved(
         | MouseTrack::XtMseX11
         | MouseTrack::XtMseUtf
         | MouseTrack::XtMseUrXvt
-        | MouseTrack::XtMseSgrPixels => None,
+        | MouseTrack::XtMseSgrPixels
+        | MouseTrack::Query(_) => None,
     }
 }
 
@@ -202,7 +204,8 @@ pub fn handle_pointer_scroll(
         | MouseTrack::XtMsex10
         | MouseTrack::XtMseUtf
         | MouseTrack::XtMseUrXvt
-        | MouseTrack::XtMseSgrPixels => None,
+        | MouseTrack::XtMseSgrPixels
+        | MouseTrack::Query(_) => None,
     }
 }
 

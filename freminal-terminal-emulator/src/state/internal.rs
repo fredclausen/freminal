@@ -17,8 +17,12 @@ use crate::{
     ansi::{FreminalAnsiParser, TerminalOutput},
     ansi_components::{
         line_draw::DecSpecialGraphics,
-        mode::{Mode, MouseTrack, TerminalModes},
-        modes::{decckm::Decckm, dectcem::Dectcem, xtextscrn::XtExtscrn, xtmsewin::XtMseWin},
+        mode::{Mode, MouseTrack, SetMode, TerminalModes},
+        modes::{
+            decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket,
+            xtcblink::XtCBlink, xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber,
+            ReportMode,
+        },
         osc::{AnsiOscInternalType, AnsiOscType, UrlResponse},
         sgr::SelectGraphicRendition,
     },
@@ -765,22 +769,54 @@ impl TerminalState {
             .push_range_adjustment(response.insertion_range);
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn set_mode(&mut self, mode: &Mode) {
         match mode {
+            Mode::Decckm(Decckm::Query) => {
+                self.report_mode(&self.get_cursor_key_mode().report(None));
+            }
             Mode::Decckm(decckm) => {
                 self.modes.cursor_key = decckm.clone();
+            }
+            Mode::Decawm(Decawm::Query) => {
+                let to_write = self
+                    .get_current_buffer()
+                    .cursor_state
+                    .line_wrap_mode
+                    .clone();
+
+                self.report_mode(&to_write.report(None));
             }
             Mode::Decawm(decawm) => {
                 self.get_current_buffer().cursor_state.line_wrap_mode = decawm.clone();
             }
+            Mode::Dectem(Dectcem::Query) => {
+                let to_write = self.get_current_buffer().show_cursor.report(None);
+                self.report_mode(&to_write);
+            }
             Mode::Dectem(dectem) => {
                 self.get_current_buffer().show_cursor = dectem.clone();
+            }
+            Mode::BracketedPaste(RlBracket::Query) => {
+                self.report_mode(&self.modes.bracketed_paste.report(None));
             }
             Mode::BracketedPaste(bracketed_paste) => {
                 self.modes.bracketed_paste = bracketed_paste.clone();
             }
+            Mode::XtCBlink(XtCBlink::Query) => {
+                self.report_mode(&self.modes.cursor_blinking.report(None));
+            }
             Mode::XtCBlink(xtcblink) => {
                 self.modes.cursor_blinking = xtcblink.clone();
+            }
+            Mode::XtExtscrn(XtExtscrn::Query) => {
+                let to_write = match self.current_buffer {
+                    BufferType::Primary => XtExtscrn::Primary,
+                    BufferType::Alternate => XtExtscrn::Alternate,
+                }
+                .report(None);
+
+                self.report_mode(&to_write);
             }
             Mode::XtExtscrn(XtExtscrn::Alternate) => {
                 // SPEC Steps:
@@ -810,6 +846,9 @@ impl TerminalState {
                 let (width, height) = self.get_current_buffer().terminal_buffer.get_win_size();
                 self.alternate_buffer = Buffer::new(width, height, BufferType::Alternate);
             }
+            Mode::XtMseWin(XtMseWin::Query) => {
+                self.report_mode(&self.modes.focus_reporting.report(None));
+            }
             Mode::XtMseWin(XtMseWin::Enabled) => {
                 debug!("Setting focus reporting");
                 self.modes.focus_reporting = XtMseWin::Enabled;
@@ -829,6 +868,15 @@ impl TerminalState {
             Mode::XtMseWin(XtMseWin::Disabled) => {
                 self.modes.focus_reporting = XtMseWin::Disabled;
             }
+            Mode::MouseMode(MouseTrack::Query(v)) => {
+                let is_set = if self.modes.mouse_tracking.mouse_mode_number() == *v {
+                    SetMode::DecSet
+                } else {
+                    SetMode::DecRst
+                };
+
+                self.report_mode(&self.modes.mouse_tracking.report(Some(is_set)));
+            }
             Mode::MouseMode(mode) => {
                 if let MouseTrack::XtMsex10
                 | MouseTrack::XtMseX11
@@ -842,6 +890,12 @@ impl TerminalState {
                 } else {
                     warn!("Unhandled mouse mode: {mode}");
                 }
+            }
+            Mode::UnknownQuery(m) => {
+                let query = String::from_utf8(m.clone())
+                    .unwrap_or_else(|_| "Unable to convert to string".to_string());
+                warn!("Querying unknown mode: {query}");
+                self.report_mode(&mode.report(None));
             }
             Mode::Unknown(_) => {
                 warn!("unhandled set mode: {mode}");
@@ -1054,6 +1108,18 @@ impl TerminalState {
                 Ok(()) => (),
                 Err(e) => {
                     error!("Failed to write title: {e}");
+                }
+            }
+        }
+    }
+
+    pub fn report_mode(&mut self, report: &String) {
+        let report = collect_text(report);
+        for input in report.iter() {
+            match self.write(input) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to write mode report: {e}");
                 }
             }
         }

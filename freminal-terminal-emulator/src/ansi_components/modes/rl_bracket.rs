@@ -7,6 +7,8 @@ use core::fmt;
 
 use crate::ansi_components::mode::SetMode;
 
+use super::ReportMode;
+
 /// Bracketed Paste (`RL_BRACKET`) Mode ?2004
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
 pub enum RlBracket {
@@ -17,6 +19,7 @@ pub enum RlBracket {
     /// Alternate (Set) Mode
     /// Bracketed paste mode is enabled and the terminal will send ESC [200~ and ESC [201~ around pasted text
     Enabled,
+    Query,
 }
 
 impl RlBracket {
@@ -25,7 +28,25 @@ impl RlBracket {
         match mode {
             SetMode::DecSet => Self::Enabled,
             SetMode::DecRst => Self::Disabled,
+            SetMode::DecQuery => Self::Query,
         }
+    }
+}
+
+impl ReportMode for RlBracket {
+    fn report(&self, override_mode: Option<SetMode>) -> String {
+        override_mode.map_or_else(
+            || match self {
+                Self::Disabled => "\x1b[?2004;2$y".to_string(),
+                Self::Enabled => "\x1b[?2004;1$y".to_string(),
+                Self::Query => "\x1b[?2004;0$y".to_string(),
+            },
+            |override_mode| match override_mode {
+                SetMode::DecSet => "\x1b[?2004;1$y".to_string(),
+                SetMode::DecRst => "\x1b[?2004;2$y".to_string(),
+                SetMode::DecQuery => "\x1b[?2004;0$y".to_string(),
+            },
+        )
     }
 }
 
@@ -34,6 +55,7 @@ impl fmt::Display for RlBracket {
         match self {
             Self::Disabled => write!(f, "Bracketed Paste Mode (DEC 2004) Disabled"),
             Self::Enabled => write!(f, "Bracketed Paste Mode (DEC 2004) Enabled"),
+            Self::Query => write!(f, "Bracketed Paste Mode (DEC 2004) Query"),
         }
     }
 }
