@@ -59,7 +59,7 @@ pub fn run_terminal(
     };
 
     let mut cmd = shell.map_or_else(CommandBuilder::new_default_prog, CommandBuilder::new);
-    println!("terminfo dir path: {termcaps:?}");
+
     cmd.env("TERMINFO", termcaps);
     cmd.env("TERM", "freminal");
     let _child = pair.slave.spawn_command(cmd)?;
