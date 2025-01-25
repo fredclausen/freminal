@@ -914,6 +914,29 @@ impl TerminalState {
         }
     }
 
+    pub(crate) fn report_da(&self) {
+        // FIXME: I don't know if we're covering all of the supported DA's we should be sending
+        // for now, we're sending the following (borrowed from iTerm2):
+        // 65: VT525
+        // 1: 132 columns
+        // 2: Printer port (should we send this?)
+        // 4: Sixel graphics
+        // 6: Selective erase
+        // 17: Terminal State Interrogation
+        // 18: User windows
+        // 22: ANSI color, e.g., VT525
+
+        let output = collect_text(&"\x1b[>65c;1;2;4;6;17;18;22".to_string());
+        for input in output.iter() {
+            match self.write(input) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to write da: {e}");
+                }
+            }
+        }
+    }
+
     pub(crate) fn osc_response(&mut self, osc: AnsiOscType) {
         match osc {
             AnsiOscType::Url(url) => match url {
@@ -1268,6 +1291,7 @@ impl TerminalState {
                 } => {
                     self.set_top_and_bottom_margins(top_margin, bottom_margin);
                 }
+                TerminalOutput::RequestDeviceAttributes => self.report_da(),
                 TerminalOutput::Invalid => {
                     info!("Unhandled terminal output: {segment:?}");
                 }

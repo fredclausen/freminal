@@ -20,6 +20,7 @@ use super::{
         ed::ansi_parser_inner_csi_finished_set_position_j,
         el::ansi_parser_inner_csi_finished_set_position_k, ict::ansi_parser_inner_csi_finished_ich,
         il::ansi_parser_inner_csi_finished_set_position_l,
+        send_device_attributes::ansi_parser_inner_csi_finished_send_da,
         sgr::ansi_parser_inner_csi_finished_sgr_ansi,
     },
     mode::{terminal_mode_from_params, SetMode},
@@ -192,11 +193,9 @@ impl AnsiCsiParser {
             AnsiCsiParserState::Finished(b'r') => {
                 ansi_parser_inner_csi_set_top_and_bottom_margins(&self.params, output)
             }
-            // AnsiCsiParserState::Finished(b'c') => {
-            //     format_error_output(&self.sequence);
-            //     output.push(TerminalOutput::Skipped);
-            //     Ok(Some(ParserInner::Empty))
-            // }
+            AnsiCsiParserState::Finished(b'c') => {
+                ansi_parser_inner_csi_finished_send_da(&self.params, &self.intermediates, output)
+            }
             AnsiCsiParserState::Finished(b'u') => {
                 format_error_output(&self.sequence);
                 output.push(TerminalOutput::Skipped);

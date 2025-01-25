@@ -55,6 +55,7 @@ pub enum TerminalOutput {
     DecSpecialGraphics(DecSpecialGraphics),
     CursorVisualStyle(CursorVisualStyle),
     WindowManipulation(WindowManipulation),
+    RequestDeviceAttributes,
     SetTopAndBottomMargins {
         top_margin: usize,
         bottom_margin: usize,
@@ -113,6 +114,7 @@ impl std::fmt::Display for TerminalOutput {
             } => {
                 write!(f, "SetTopAndBottomMargins({top_margin}, {bottom_margin})")
             }
+            Self::RequestDeviceAttributes => write!(f, "RequestDeviceAttributes"),
         }
     }
 }
