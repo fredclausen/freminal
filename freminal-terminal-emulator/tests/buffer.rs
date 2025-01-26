@@ -814,6 +814,8 @@ fn test_clear_line_forwards() {
     let expected = vec![
         TChar::new_from_single_char(b'a'),
         TChar::new_from_single_char(b's'),
+        TChar::Space,
+        TChar::Space,
         TChar::NewLine,
         TChar::new_from_single_char(b'1'),
         TChar::new_from_single_char(b'2'),
@@ -838,13 +840,23 @@ fn test_clear_line_forwards() {
 
     // Hit a wrap
     let response = canvas.clear_line_forwards(&CursorPos { x: 2, y: 1 });
-    assert_eq!(response, Some(5..13));
+    assert_eq!(response, Some(7..15));
     let expected = vec![
         TChar::new_from_single_char(b'a'),
         TChar::new_from_single_char(b's'),
+        TChar::Space,
+        TChar::Space,
         TChar::NewLine,
         TChar::new_from_single_char(b'1'),
         TChar::new_from_single_char(b'2'),
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
         TChar::new_from_single_char(b'1'),
         TChar::new_from_single_char(b'2'),
         TChar::new_from_single_char(b'3'),
@@ -1028,6 +1040,11 @@ fn test_clear_line() {
 
     let response = canvas.clear_line(&CursorPos { x: 0, y: 0 });
     let expected = vec![
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
         TChar::new_from_single_char(b'5'),
         TChar::new_from_single_char(b'6'),
         TChar::new_from_single_char(b'7'),
@@ -1051,15 +1068,20 @@ fn test_clear_line() {
     // Test newline wrapped
     let response = canvas.clear_line(&CursorPos { x: 0, y: 1 });
     let expected = vec![
-        TChar::new_from_single_char(b'5'),
-        TChar::new_from_single_char(b'6'),
-        TChar::new_from_single_char(b'7'),
-        TChar::new_from_single_char(b'8'),
-        TChar::new_from_single_char(b'9'),
-        // TChar::new_from_single_char(b'a'),
-        // TChar::new_from_single_char(b's'),
-        // TChar::new_from_single_char(b'd'),
-        // TChar::new_from_single_char(b'f'),
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::new_from_single_char(b'a'),
+        TChar::new_from_single_char(b's'),
+        TChar::new_from_single_char(b'd'),
+        TChar::new_from_single_char(b'f'),
         TChar::NewLine,
         TChar::new_from_single_char(b'x'),
         TChar::new_from_single_char(b'y'),
@@ -1068,7 +1090,7 @@ fn test_clear_line() {
         TChar::NewLine,
     ];
     assert_eq!(canvas.data(true).visible, expected);
-    assert_eq!(response, Some(5..9));
+    assert_eq!(response, Some(5..10));
 }
 
 #[test]
@@ -1110,6 +1132,9 @@ fn clear_line_backwards() {
     assert_eq!(canvas.data(true).visible, expected);
     let response = canvas.clear_line_backwards(&CursorPos { x: 3, y: 0 });
     let expected = vec![
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
         TChar::new_from_single_char(b'3'),
         TChar::new_from_single_char(b'4'),
         TChar::new_from_single_char(b'5'),

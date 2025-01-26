@@ -509,12 +509,14 @@ impl TerminalState {
             .terminal_buffer
             .clear_line_forwards(&current_buffer.cursor_state.pos)
         {
-            match current_buffer.format_tracker.delete_range(range) {
+            match current_buffer.format_tracker.delete_range(range.clone()) {
                 Ok(()) => (),
                 Err(e) => {
                     error!("Failed to delete range: {e}");
                 }
             }
+
+            current_buffer.format_tracker.push_range_adjustment(range);
         }
     }
 
@@ -525,12 +527,14 @@ impl TerminalState {
             .terminal_buffer
             .clear_line_backwards(&current_buffer.cursor_state.pos)
         {
-            match current_buffer.format_tracker.delete_range(range) {
+            match current_buffer.format_tracker.delete_range(range.clone()) {
                 Ok(()) => (),
                 Err(e) => {
                     error!("Failed to delete range: {e}");
                 }
             }
+
+            current_buffer.format_tracker.push_range_adjustment(range);
         }
     }
 
@@ -541,12 +545,14 @@ impl TerminalState {
             .terminal_buffer
             .clear_line(&current_buffer.cursor_state.pos)
         {
-            match current_buffer.format_tracker.delete_range(range) {
+            match current_buffer.format_tracker.delete_range(range.clone()) {
                 Ok(()) => (),
                 Err(e) => {
                     error!("Failed to delete range: {e}");
                 }
             }
+
+            current_buffer.format_tracker.push_range_adjustment(range);
         }
     }
 
@@ -606,19 +612,23 @@ impl TerminalState {
         }
     }
 
-    pub(crate) fn erase(&mut self, num_chars: usize) {
+    pub(crate) fn erase_forwards(&mut self, num_chars: usize) {
         let current_buffer = self.get_current_buffer();
 
         let deleted_buf_range = current_buffer
             .terminal_buffer
             .erase_forwards(&current_buffer.cursor_state.pos, num_chars);
         if let Some(range) = deleted_buf_range {
-            match current_buffer.format_tracker.delete_range(range) {
+            match current_buffer.format_tracker.delete_range(range.clone()) {
                 Ok(()) => (),
                 Err(e) => {
                     error!("Failed to delete range: {e}");
                 }
             }
+
+            info!("Erased forwards: {range:?}");
+
+            current_buffer.format_tracker.push_range_adjustment(range);
         }
     }
 
@@ -1267,7 +1277,7 @@ impl TerminalState {
                 TerminalOutput::Backspace => self.backspace(),
                 TerminalOutput::InsertLines(num_lines) => self.insert_lines(num_lines),
                 TerminalOutput::Delete(num_chars) => self.delete(num_chars),
-                TerminalOutput::Erase(num_chars) => self.erase(num_chars),
+                TerminalOutput::Erase(num_chars) => self.erase_forwards(num_chars),
                 TerminalOutput::Sgr(sgr) => self.sgr(sgr),
                 TerminalOutput::Mode(mode) => self.set_mode(&mode),
                 TerminalOutput::InsertSpaces(num_spaces) => self.insert_spaces(num_spaces),

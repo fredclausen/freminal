@@ -445,7 +445,8 @@ impl TerminalBufferHolder {
         let (buf_pos, line_range) = self.cursor_to_buf_pos(cursor_pos)?;
 
         let del_range = buf_pos..line_range.end;
-        self.buf.drain(del_range.clone());
+        // self.buf.drain(del_range.clone());
+        self.buf[del_range.clone()].fill(TChar::Space);
 
         self.line_ranges_to_visible_line_ranges();
 
@@ -456,8 +457,10 @@ impl TerminalBufferHolder {
         let (_buf_pos, line_range) = self.cursor_to_buf_pos(cursor_pos)?;
 
         let del_range = line_range;
-        self.buf.drain(del_range.clone());
+        self.buf[del_range.clone()].fill(TChar::Space);
+        //self.buf.drain(del_range.clone());
         self.line_ranges_to_visible_line_ranges();
+
         Some(del_range)
     }
 
@@ -465,8 +468,10 @@ impl TerminalBufferHolder {
         let (buf_pos, line_range) = self.cursor_to_buf_pos(cursor_pos)?;
 
         let del_range = line_range.start..buf_pos;
-        self.buf.drain(del_range.clone());
+        self.buf[del_range.clone()].fill(TChar::Space);
+        //self.buf.drain(del_range.clone());
         self.line_ranges_to_visible_line_ranges();
+
         Some(del_range)
     }
 
@@ -531,9 +536,12 @@ impl TerminalBufferHolder {
             erase_range.end = line_range.end;
         }
 
-        // remove the range from the buffer
-        self.buf.drain(erase_range.clone());
+        // // remove the range from the buffer
+        // self.buf.drain(erase_range.clone());
+        // replace all characters in range with spaces
+        self.buf[erase_range.clone()].fill(TChar::Space);
         self.line_ranges_to_visible_line_ranges();
+
         Some(erase_range)
     }
 
@@ -692,7 +700,7 @@ impl TerminalBufferHolder {
             return None;
         }
 
-        println!("Clipping alternate buffer to {keep_buf_pos}");
+        debug!("Clipping alternate buffer to {keep_buf_pos}");
 
         self.buf.drain(0..keep_buf_pos);
 
@@ -905,15 +913,6 @@ impl TerminalBufferHolder {
 
         self.visible_line_ranges = ret;
         self.calculate_line_ranges();
-
-        // if we're in an alternate buffer, ensure visible line ranges starts at 0. If not, log it
-        if self.buffer_type == BufferType::Alternate {
-            if let Some(first) = self.visible_line_ranges.first() {
-                if first.start != 0 {
-                    error!("Visible line ranges does not start at 0 in alternate buffer");
-                }
-            }
-        }
 
         // check and make sure the last buffer line range end is not greater than the buffer length
         if let Some(last) = self.buffer_line_ranges.last() {
