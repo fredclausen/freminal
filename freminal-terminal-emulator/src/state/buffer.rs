@@ -103,6 +103,10 @@ impl TerminalBufferHolder {
     }
 
     pub fn scroll_down(&mut self, num_lines: &usize) {
+        if self.buffer_type == BufferType::Alternate {
+            return;
+        }
+
         if self.buffer_line_ranges.len() == self.visible_line_ranges.len() {
             debug!("not enough lines for scroll");
             return;
@@ -124,6 +128,10 @@ impl TerminalBufferHolder {
     }
 
     pub fn scroll_up(&mut self, num_lines: &usize) {
+        if self.buffer_type == BufferType::Alternate {
+            return;
+        }
+
         if self.buffer_line_ranges.len() == self.visible_line_ranges.len() {
             debug!("not enough lines for scroll");
             return;
@@ -229,6 +237,7 @@ impl TerminalBufferHolder {
             );
 
             let used_spaces = num_inserted + num_overwritten;
+            self.line_ranges_to_visible_line_ranges();
             TerminalBufferInsertResponse {
                 written_range: buf_pos..buf_pos + used_spaces,
                 insertion_range: buf_pos..buf_pos + num_inserted,
@@ -293,6 +302,8 @@ impl TerminalBufferHolder {
             insertion_pos..insertion_pos,
             std::iter::repeat(TChar::NewLine).take(num_lines),
         );
+
+        self.line_ranges_to_visible_line_ranges();
 
         TerminalBufferInsertLineResponse {
             deleted_range: deletion_range,
@@ -503,6 +514,7 @@ impl TerminalBufferHolder {
         delete_range.end = line_range.end.min(delete_range.end);
 
         self.buf.drain(delete_range.clone());
+        self.line_ranges_to_visible_line_ranges();
         Some(delete_range)
     }
 
@@ -521,13 +533,14 @@ impl TerminalBufferHolder {
 
         // remove the range from the buffer
         self.buf.drain(erase_range.clone());
+        self.line_ranges_to_visible_line_ranges();
         Some(erase_range)
     }
 
     #[must_use]
     pub fn data_for_gui(&self) -> (TerminalSections<Vec<TChar>>, usize, usize) {
         let end = if self.viewable_index_bottom == usize::MAX {
-            self.buffer_line_ranges.len() - 1
+            self.buffer_line_ranges.len().saturating_sub(1)
         } else {
             self.viewable_index_bottom
         };
@@ -543,7 +556,7 @@ impl TerminalBufferHolder {
             );
         }
 
-        let start = end.saturating_sub(self.height - 1);
+        let start = end.saturating_sub(self.height);
 
         // ensure the start is not greater than the end
 
@@ -564,8 +577,9 @@ impl TerminalBufferHolder {
         if self.buffer_line_ranges[start].start > self.buf.len()
             || self.buffer_line_ranges[end].end > self.buf.len()
         {
-            error!("Data for GUI: buffer line ranges are out of bounds. start: {}, buf start: {}, buf end: {}, end: {}, buf len: {}",
-                    start, self.buffer_line_ranges[start].start, end, self.buffer_line_ranges[end].end, self.buf.len());
+            error!("Data for GUI: buffer line ranges are out of bounds. start: {}, buf start: {}, buf end: {}, end: {}, buf len: {}, height: {}, visible: {:?}, buffer ranges: {:?}",
+                    start, self.buffer_line_ranges[start].start, end, self.buffer_line_ranges[end].end, self.buf.len(), self.height, self.visible_line_ranges.len(), self.buffer_line_ranges.len());
+
             return (
                 TerminalSections {
                     scrollback: vec![],
@@ -666,32 +680,47 @@ impl TerminalBufferHolder {
         }
         // we want to keep the first height lines + length of visible lines
 
-        let index = self.buffer_line_ranges.len().saturating_sub(self.height);
+        let index = self
+            .visible_line_ranges
+            .len()
+            .saturating_sub(self.height + 1);
 
-        if index == 0 {
+        let keep_buf_pos = self.visible_line_ranges[index].start.saturating_sub(1);
+
+        if keep_buf_pos == 0 {
+            self.buffer_line_ranges = self.visible_line_ranges.clone();
             return None;
         }
 
-        let keep_buf_pos = self.buffer_line_ranges[index].start - 1;
+        println!("Clipping alternate buffer to {keep_buf_pos}");
 
         self.buf.drain(0..keep_buf_pos);
-        self.buffer_line_ranges.drain(0..index);
 
         // now walk both of the line range buffers and offset them by the keep_buf_pos
-
-        for line_range in &mut self.buffer_line_ranges {
-            line_range.start = line_range.start.saturating_sub(keep_buf_pos);
-            line_range.end = line_range.end.saturating_sub(keep_buf_pos);
-        }
 
         for line_range in &mut self.visible_line_ranges {
             line_range.start = line_range.start.saturating_sub(keep_buf_pos);
             line_range.end = line_range.end.saturating_sub(keep_buf_pos);
+
+            // ensure line range falls within the buffer
+            if line_range.start > self.buf.len() - 1 {
+                error!(
+                    "Line range start is greater than buffer length: {} > {}",
+                    line_range.start,
+                    self.buf.len()
+                );
+            }
+
+            if line_range.end > self.buf.len() {
+                error!(
+                    "Line range end is greater than buffer length: {} > {}",
+                    line_range.end,
+                    self.buf.len()
+                );
+            }
         }
 
-        if self.viewable_index_bottom != usize::MAX {
-            self.scroll_up(&index);
-        }
+        self.buffer_line_ranges = self.visible_line_ranges.clone();
 
         Some(0..keep_buf_pos)
     }
@@ -763,6 +792,7 @@ impl TerminalBufferHolder {
         let width = self.width;
         if buf.is_empty() {
             self.visible_line_ranges = vec![];
+            self.buffer_line_ranges = vec![];
             return;
         }
 
@@ -876,14 +906,21 @@ impl TerminalBufferHolder {
         self.visible_line_ranges = ret;
         self.calculate_line_ranges();
 
-        // match self.buffer_type {
-        //     BufferType::Primary => {
-        //         self.calculate_line_ranges();
-        //     }
-        //     BufferType::Alternate => {
-        //         self.buffer_line_ranges = self.visible_line_ranges.clone();
-        //     }
-        // }
+        // if we're in an alternate buffer, ensure visible line ranges starts at 0. If not, log it
+        if self.buffer_type == BufferType::Alternate {
+            if let Some(first) = self.visible_line_ranges.first() {
+                if first.start != 0 {
+                    error!("Visible line ranges does not start at 0 in alternate buffer");
+                }
+            }
+        }
+
+        // check and make sure the last buffer line range end is not greater than the buffer length
+        if let Some(last) = self.buffer_line_ranges.last() {
+            if last.end > self.buf.len() {
+                error!("Last buffer line range end is greater than buffer length");
+            }
+        }
     }
 
     // FIXME: can we combine this with the above function? Or separate out the internal logic of each function to a common function?
@@ -1063,7 +1100,10 @@ impl TerminalBufferHolder {
         // we want to push any new/changed lines to the buffer line ranges
         // as well as update any changed lines.
 
-        if self.visible_line_ranges.is_empty() || self.visible_line_ranges.len() < self.height {
+        if self.visible_line_ranges.is_empty()
+            || self.visible_line_ranges.len() < self.height
+            || self.buffer_type == BufferType::Alternate
+        {
             self.buffer_line_ranges = self.visible_line_ranges.clone();
             return;
         }

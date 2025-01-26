@@ -1298,7 +1298,7 @@ impl TerminalState {
             }
         }
 
-        // now ensure total lines in buffer are not more then 1000 lines
+        // now ensure total lines in buffer isn't too big
         self.clip_buffer_lines();
 
         #[cfg(debug_assertions)]
