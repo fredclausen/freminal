@@ -626,8 +626,6 @@ impl TerminalState {
                 }
             }
 
-            info!("Erased forwards: {range:?}");
-
             current_buffer.format_tracker.push_range_adjustment(range);
         }
     }

@@ -43,8 +43,6 @@ impl TChar {
         Err(ParserFailures::InvalidTChar(v).into())
     }
 
-    // FIXME: this is fake news, it is used but clippy is not smart enough to see it
-    #[allow(dead_code)]
     #[must_use]
     pub const fn to_u8(&self) -> u8 {
         match self {

@@ -445,8 +445,14 @@ impl TerminalBufferHolder {
         let (buf_pos, line_range) = self.cursor_to_buf_pos(cursor_pos)?;
 
         let del_range = buf_pos..line_range.end;
-        // self.buf.drain(del_range.clone());
-        self.buf[del_range.clone()].fill(TChar::Space);
+
+        for i in del_range.clone() {
+            match self.buf.get(i) {
+                Some(TChar::NewLine) => continue,
+                Some(_) => self.buf[i] = TChar::Space,
+                None => break,
+            };
+        }
 
         self.line_ranges_to_visible_line_ranges();
 
@@ -457,8 +463,15 @@ impl TerminalBufferHolder {
         let (_buf_pos, line_range) = self.cursor_to_buf_pos(cursor_pos)?;
 
         let del_range = line_range;
-        self.buf[del_range.clone()].fill(TChar::Space);
-        //self.buf.drain(del_range.clone());
+
+        for i in del_range.clone() {
+            match self.buf.get(i) {
+                Some(TChar::NewLine) => continue,
+                Some(_) => self.buf[i] = TChar::Space,
+                None => break,
+            };
+        }
+
         self.line_ranges_to_visible_line_ranges();
 
         Some(del_range)
@@ -468,8 +481,14 @@ impl TerminalBufferHolder {
         let (buf_pos, line_range) = self.cursor_to_buf_pos(cursor_pos)?;
 
         let del_range = line_range.start..buf_pos;
-        self.buf[del_range.clone()].fill(TChar::Space);
-        //self.buf.drain(del_range.clone());
+
+        for i in del_range.clone() {
+            match self.buf.get(i) {
+                Some(TChar::NewLine) => continue,
+                Some(_) => self.buf[i] = TChar::Space,
+                None => break,
+            };
+        }
         self.line_ranges_to_visible_line_ranges();
 
         Some(del_range)

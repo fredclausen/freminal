@@ -342,7 +342,7 @@ fn test_clear_lines() {
         .terminal_buffer
         .data(true);
     let expected_visible =
-        b"Hello, World!\nHello, World!\nHello, World!\nHello, World!\n        \n";
+        b"Hello, World!\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n             \n";
     let expected_visible = TChar::from_vec(expected_visible).unwrap();
     assert_eq!(
         buffer.visible,
@@ -363,7 +363,8 @@ fn test_clear_lines() {
         .get_current_buffer()
         .terminal_buffer
         .data(true);
-    let expected = b"o, World!\nHello, World!\nHello, World!\nHello, World!\n              \n";
+    let expected =
+        b"    o, World!\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n             \n";
     let expected = TChar::from_vec(expected).unwrap();
     assert_eq!(
         buffer.visible,
@@ -380,7 +381,7 @@ fn test_clear_lines() {
         .terminal_buffer
         .data(true);
 
-    let expected = b"o, W\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n\n";
+    let expected = b"             \nHello, World!\nHello, World!\nHello, World!\nHello, World!\n             \n";
     let expected = TChar::from_vec(expected).unwrap();
     assert_eq!(
         buffer.visible,

@@ -318,15 +318,15 @@ pub fn terminal_mode_from_params(params: &[u8], mode: &SetMode) -> Mode {
         //   down), and the Window manipulation controls.  For these
         //   reasons, the 1015 control is not recommended; it is not an
         //  improvement over 1006.
-        b"?1015" => {
-            if mode == &SetMode::DecSet {
-                Mode::MouseMode(MouseTrack::XtMseUrXvt)
-            } else if mode == &SetMode::DecRst {
-                Mode::MouseMode(MouseTrack::NoTracking)
-            } else {
-                Mode::MouseMode(MouseTrack::Query(1015))
-            }
-        }
+        // b"?1015" => {
+        //     if mode == &SetMode::DecSet {
+        //         Mode::MouseMode(MouseTrack::XtMseUrXvt)
+        //     } else if mode == &SetMode::DecRst {
+        //         Mode::MouseMode(MouseTrack::NoTracking)
+        //     } else {
+        //         Mode::MouseMode(MouseTrack::Query(1015))
+        //     }
+        // }
         // TODO: Implement this
         b"?1016" => {
             if mode == &SetMode::DecSet {
