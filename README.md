@@ -8,9 +8,19 @@
 
 ## Description
 
-Freminal is a terminal emulator, written in Rust, that the world didn't ask for or need. It's simply a personal passion project.
+Freminal (or "Fred's Terminal") is a terminal emulator, written in Rust, that the world didn't ask for or need. It's simply a personal passion project because I thought it would be cool to have a tool written by myself that I use every day.
 
 Freminal is meant to emulate the old VT220s; however it supports (or will support) modern xterm control codes, unicode, and other modern features.
+
+As of now, I would consider this mostly stable, but hardly performant. Please see the [TODO](TODO.md) for a list of features that are planned. Please see [Supported Control Codes](SUPPORTED_CONTROL_CODES.md) for a list of control codes that are currently supported.
+
+## SSH or why does the terminal act weird?
+
+For remote sessions, like SSH, you may see odd things like duplicated input characters and such. This is because there are no termcaps installed on the remote host for freminal. Maybe, eventually, the termcaps can be included in distributions, but in the mean time the following command (run inside of freminal) will install the termcaps on the remote host:
+
+```shell
+infocmp -x | ssh YOUR-SERVER -- tic -x -
+```
 
 ## Contributing
 
@@ -19,7 +29,7 @@ PRs are welcome. To make sure that your PR is accepted, there are a few things I
 If you don't have the following tools installed, you can install them with the following commands:
 
 ```bash
-cargo install cargo-docs-rs typos-cli cargo-deny
+cargo install cargo-docs-rs typos-cli cargo-deny cargo-xtask
 ```
 
 Before you submit a PR, please run the following commands:
