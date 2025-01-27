@@ -583,7 +583,7 @@ impl TerminalBufferHolder {
             );
         }
 
-        let start = end.saturating_sub(self.height);
+        let start = end.saturating_sub(self.height.saturating_sub(1));
 
         // ensure the start is not greater than the end
 
