@@ -8,7 +8,7 @@ use crate::error::ParserFailures;
 use anyhow::Result;
 use freminal_common::window_manipulation::WindowManipulation;
 
-/// DECLSPP - Window Manipulation
+/// DECSLLP - Window Manipulation
 ///
 /// Ps1 1    De-iconify window.
 ///     2    Minimize window.
