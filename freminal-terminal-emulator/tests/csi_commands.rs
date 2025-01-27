@@ -598,3 +598,18 @@ fn test_sgr_invalid() {
         ))]
     );
 }
+
+#[test]
+fn test_from_usize_color() {
+    let val = 69;
+    let r = 255;
+    let g = 255;
+    let b = 255;
+    let result = SelectGraphicRendition::from_usize_color(val, r, g, b).unwrap();
+
+    assert_eq!(
+        result,
+        SelectGraphicRendition::Unknown(69),
+        "Failed for {result:?}"
+    );
+}
