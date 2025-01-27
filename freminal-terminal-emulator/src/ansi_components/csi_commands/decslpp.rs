@@ -1,3 +1,8 @@
+// Copyright (C) 2024-2025 Fred Clausen
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file or at
+// https://opensource.org/licenses/MIT.
+
 use crate::ansi::{split_params_into_semicolon_delimited_usize, ParserInner, TerminalOutput};
 use crate::error::ParserFailures;
 use anyhow::Result;
