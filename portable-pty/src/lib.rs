@@ -42,8 +42,6 @@ use downcast_rs::{impl_downcast, Downcast};
 #[allow(clippy::single_component_path_imports)]
 #[cfg(unix)]
 use libc;
-#[cfg(feature = "serde_support")]
-use serde_derive::*;
 use std::io::Result as IoResult;
 #[cfg(windows)]
 use std::os::windows::prelude::{AsRawHandle, RawHandle};
@@ -60,7 +58,6 @@ pub mod serial;
 
 /// Represents the size of the visible display area in the pty
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct PtySize {
     /// The number of lines of text
     pub rows: u16,

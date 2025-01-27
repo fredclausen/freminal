@@ -422,6 +422,9 @@ fn test_fmt_display() {
     let color = TerminalColor::BrightWhite;
     assert_eq!(format!("{color}"), "bright white");
 
+    let color = TerminalColor::DefaultCursorColor;
+    assert_eq!(format!("{color}"), "default cursor color");
+
     let color = TerminalColor::Custom(255, 255, 255);
     assert_eq!(format!("{color}"), "rgb(255, 255, 255)");
 }
