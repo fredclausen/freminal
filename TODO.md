@@ -12,7 +12,7 @@
 
 ## Version 0.2.0
 
-Will be focused on performance improvements. Very likely, this will mean a rewrite/improvement to the way that the terminal emulator is handling the internal buffer
+Will be focused on performance improvements as well as a replay system to help step through control codes that caused a problem. Very likely, this will mean a rewrite/improvement to the way that the terminal emulator is handling the internal buffer
 
 ## Version 0.3.0
 

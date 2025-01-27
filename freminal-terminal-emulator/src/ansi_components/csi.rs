@@ -5,8 +5,8 @@
 
 use super::{
     csi_commands::{
-        cha::ansi_parser_inner_csi_finished_set_position_g,
-        cub::ansi_parser_inner_csi_finished_move_left,
+        cha::ansi_parser_inner_csi_finished_set_cursor_position_g,
+        cub::ansi_parser_inner_csi_finished_move_cursor_left,
         cud::ansi_parser_inner_csi_finished_move_down,
         cuf::ansi_parser_inner_csi_finished_move_right,
         cup::ansi_parser_inner_csi_finished_set_position_h,
@@ -134,13 +134,13 @@ impl AnsiCsiParser {
                 ansi_parser_inner_csi_finished_move_right(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'D') => {
-                ansi_parser_inner_csi_finished_move_left(&self.params, output)
+                ansi_parser_inner_csi_finished_move_cursor_left(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'H') => {
                 ansi_parser_inner_csi_finished_set_position_h(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'G') => {
-                ansi_parser_inner_csi_finished_set_position_g(&self.params, output)
+                ansi_parser_inner_csi_finished_set_cursor_position_g(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'J') => {
                 ansi_parser_inner_csi_finished_set_position_j(&self.params, output)

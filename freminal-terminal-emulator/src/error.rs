@@ -12,11 +12,11 @@ pub enum ParserFailures {
     ParsedPushedToOnceFinished,
     #[error("Unhandled Inner Escape: {0}")]
     UnhandledInnerEscape(String),
-    #[error("Invalid cursor (CHA) set position sequence: {0}")]
+    #[error("Invalid cursor (CHA) set cursor position sequence: {0}")]
     UnhandledCHACommand(String),
     #[error("Invalid cursor (CUU) set position sequence: {0}")]
     UnhandledCUUCommand(String),
-    #[error("Invalid cursor (CUB) set position sequence: {0}")]
+    #[error("Invalid cursor (CUB) move left: {0}")]
     UnhandledCUBCommand(String),
     #[error("Invalid cursor (CUD) set position sequence: {0}")]
     UnhandledCUDCommand(String),

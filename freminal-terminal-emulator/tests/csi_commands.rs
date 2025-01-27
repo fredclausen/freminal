@@ -10,8 +10,8 @@ use freminal_terminal_emulator::{
     ansi::{ParserInner, TerminalOutput},
     ansi_components::{
         csi_commands::{
-            cha::ansi_parser_inner_csi_finished_set_position_g,
-            cub::ansi_parser_inner_csi_finished_move_left,
+            cha::ansi_parser_inner_csi_finished_set_cursor_position_g,
+            cub::ansi_parser_inner_csi_finished_move_cursor_left,
             cud::ansi_parser_inner_csi_finished_move_down,
             cuf::ansi_parser_inner_csi_finished_move_right,
             cup::ansi_parser_inner_csi_finished_set_position_h,
@@ -30,7 +30,7 @@ use freminal_terminal_emulator::{
 #[test]
 fn test_cha() {
     let mut output = Vec::new();
-    ansi_parser_inner_csi_finished_set_position_g(b"1", &mut output).unwrap();
+    ansi_parser_inner_csi_finished_set_cursor_position_g(b"1", &mut output).unwrap();
     assert_eq!(
         output,
         vec![TerminalOutput::SetCursorPos {
@@ -40,7 +40,7 @@ fn test_cha() {
     );
 
     let mut output = Vec::new();
-    ansi_parser_inner_csi_finished_set_position_g(b"2", &mut output).unwrap();
+    ansi_parser_inner_csi_finished_set_cursor_position_g(b"2", &mut output).unwrap();
     assert_eq!(
         output,
         vec![TerminalOutput::SetCursorPos {
@@ -50,7 +50,7 @@ fn test_cha() {
     );
 
     let mut output = Vec::new();
-    ansi_parser_inner_csi_finished_set_position_g(b"3", &mut output).unwrap();
+    ansi_parser_inner_csi_finished_set_cursor_position_g(b"3", &mut output).unwrap();
     assert_eq!(
         output,
         vec![TerminalOutput::SetCursorPos {
@@ -61,7 +61,7 @@ fn test_cha() {
 
     // test invalid
     let mut output = Vec::new();
-    let result = ansi_parser_inner_csi_finished_set_position_g(b"test", &mut output);
+    let result = ansi_parser_inner_csi_finished_set_cursor_position_g(b"test", &mut output);
     assert!(result.is_err());
     assert_eq!(output, vec![TerminalOutput::Invalid]);
 }
@@ -69,7 +69,7 @@ fn test_cha() {
 #[test]
 fn test_cub() {
     let mut output = Vec::new();
-    ansi_parser_inner_csi_finished_move_left(&[], &mut output).unwrap();
+    ansi_parser_inner_csi_finished_move_cursor_left(&[], &mut output).unwrap();
     assert_eq!(
         output,
         vec![TerminalOutput::SetCursorPosRel {
@@ -79,7 +79,7 @@ fn test_cub() {
     );
 
     let mut output = Vec::new();
-    ansi_parser_inner_csi_finished_move_left(b"1", &mut output).unwrap();
+    ansi_parser_inner_csi_finished_move_cursor_left(b"1", &mut output).unwrap();
     assert_eq!(
         output,
         vec![TerminalOutput::SetCursorPosRel {
@@ -89,7 +89,7 @@ fn test_cub() {
     );
 
     let mut output = Vec::new();
-    ansi_parser_inner_csi_finished_move_left(b"2", &mut output).unwrap();
+    ansi_parser_inner_csi_finished_move_cursor_left(b"2", &mut output).unwrap();
     assert_eq!(
         output,
         vec![TerminalOutput::SetCursorPosRel {
@@ -99,7 +99,7 @@ fn test_cub() {
     );
 
     let mut output = Vec::new();
-    let result = ansi_parser_inner_csi_finished_move_left(b"test", &mut output);
+    let result = ansi_parser_inner_csi_finished_move_cursor_left(b"test", &mut output);
     assert_eq!(output, vec![TerminalOutput::Invalid]);
     assert!(result.is_err());
 }
