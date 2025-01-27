@@ -358,6 +358,9 @@ fn test_color_from_string() {
 
     let color = "sucks".parse::<TerminalColor>();
     assert!(color.is_err());
+
+    let color = "default_cursor_color".parse::<TerminalColor>().unwrap();
+    assert_eq!(color, TerminalColor::DefaultCursorColor);
 }
 
 #[test]
@@ -421,4 +424,27 @@ fn test_fmt_display() {
 
     let color = TerminalColor::Custom(255, 255, 255);
     assert_eq!(format!("{color}"), "rgb(255, 255, 255)");
+}
+
+#[test]
+fn default_to_regular() {
+    let color = TerminalColor::Default;
+    let result = color.default_to_regular();
+    assert_eq!(result, TerminalColor::White);
+
+    let color = TerminalColor::DefaultBackground;
+    let result = color.default_to_regular();
+    assert_eq!(result, TerminalColor::Black);
+
+    let color = TerminalColor::DefaultUnderlineColor;
+    let result = color.default_to_regular();
+    assert_eq!(result, TerminalColor::White);
+
+    let color = TerminalColor::DefaultCursorColor;
+    let result = color.default_to_regular();
+    assert_eq!(result, TerminalColor::White);
+
+    let color = TerminalColor::Black;
+    let result = color.default_to_regular();
+    assert_eq!(result, TerminalColor::Black);
 }
