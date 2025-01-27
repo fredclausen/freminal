@@ -502,17 +502,99 @@ fn test_sgr_invalid() {
     let params = b"38;2";
     let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
     assert!(result.is_ok());
-    assert_eq!(output, vec![TerminalOutput::Invalid]);
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
+            TerminalColor::Custom(0, 0, 0)
+        ))]
+    );
 
     let mut output = Vec::new();
     let params = b"48;5";
     let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
     assert!(result.is_ok());
-    assert_eq!(output, vec![TerminalOutput::Invalid]);
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Sgr(SelectGraphicRendition::Background(
+            TerminalColor::Custom(0, 0, 0)
+        ))]
+    );
 
     let mut output = Vec::new();
     let params = b"58;2;255";
     let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
     assert!(result.is_ok());
-    assert_eq!(output, vec![TerminalOutput::Invalid]);
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Sgr(SelectGraphicRendition::UnderlineColor(
+            TerminalColor::Custom(255, 0, 0)
+        ))]
+    );
+
+    // now test 38, 48 and 58 with color space
+    let mut output = Vec::new();
+    let params = b"38:2:1:255:255:0";
+    let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
+            TerminalColor::Custom(255, 255, 0)
+        ))]
+    );
+
+    let mut output = Vec::new();
+    let params = b"48:2:1:255:255:0";
+    let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Sgr(SelectGraphicRendition::Background(
+            TerminalColor::Custom(255, 255, 0)
+        ))]
+    );
+
+    let mut output = Vec::new();
+    let params = b"58:2::255:255:0";
+    let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Sgr(SelectGraphicRendition::UnderlineColor(
+            TerminalColor::Custom(255, 255, 0)
+        ))]
+    );
+
+    let mut output = Vec::new();
+    let params = b"38:2::255:255:0";
+    let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
+            TerminalColor::Custom(255, 255, 0)
+        ))]
+    );
+
+    let mut output = Vec::new();
+    let params = b"48:2::255:255:0";
+    let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Sgr(SelectGraphicRendition::Background(
+            TerminalColor::Custom(255, 255, 0)
+        ))]
+    );
+
+    let mut output = Vec::new();
+    let params = b"58:2::255:255:0";
+    let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Sgr(SelectGraphicRendition::UnderlineColor(
+            TerminalColor::Custom(255, 255, 0)
+        ))]
+    );
 }

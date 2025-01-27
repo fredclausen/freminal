@@ -5,6 +5,7 @@
 
 use std::vec::IntoIter;
 
+use crate::ansi::split_params_into_colon_delimited_usize;
 use crate::error::ParserFailures;
 use crate::{
     ansi::{split_params_into_semicolon_delimited_usize, ParserInner, TerminalOutput},
@@ -26,7 +27,11 @@ pub fn ansi_parser_inner_csi_finished_sgr_ansi(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,
 ) -> Result<Option<ParserInner>> {
-    let params = split_params_into_semicolon_delimited_usize(params);
+    let (params, split_by_colon) = if params.contains(&b':') {
+        (split_params_into_colon_delimited_usize(params), true)
+    } else {
+        (split_params_into_semicolon_delimited_usize(params), false)
+    };
 
     let Ok(mut params) = params else {
         warn!("Invalid SGR sequence");
@@ -51,7 +56,7 @@ pub fn ansi_parser_inner_csi_finished_sgr_ansi(
         };
 
         if param == 38 || param == 48 || param == 58 {
-            handle_custom_color(output, &mut param_iter, param);
+            handle_custom_color(output, &mut param_iter, param, split_by_colon);
             continue;
         }
 
@@ -87,6 +92,7 @@ fn handle_custom_color(
     output: &mut Vec<TerminalOutput>,
     param_iter: &mut IntoIter<Option<usize>>,
     param: usize,
+    split_by_colon: bool,
 ) {
     // if control code is 38, 48 or 58 we need to read the next param
     // otherwise, store the param as is
@@ -106,33 +112,34 @@ fn handle_custom_color(
 
     match param {
         2 => {
+            if param_iter.len() > 3 && split_by_colon {
+                debug!(
+                    "Found custom color with color space. Ignoring Color Space: {:?}",
+                    param_iter
+                );
+                param_iter.next();
+            }
+
             custom_color_r = if let Some(Some(param)) = param_iter.next() {
                 param
             } else {
-                warn!("Invalid SGR sequence: {}", param);
-                output.push(TerminalOutput::Invalid);
-                return;
+                0
             };
             custom_color_g = if let Some(Some(param)) = param_iter.next() {
                 param
             } else {
-                warn!("Invalid SGR sequence: {}", param);
-                output.push(TerminalOutput::Invalid);
-                return;
+                0
             };
             custom_color_b = if let Some(Some(param)) = param_iter.next() {
                 param
             } else {
-                warn!("Invalid SGR sequence: {}", param);
-                output.push(TerminalOutput::Invalid);
-                return;
+                0
             };
         }
         5 => {
-            let Some(Some(lookup)) = param_iter.next() else {
-                warn!("Invalid SGR sequence: {}", param);
-                output.push(TerminalOutput::Invalid);
-                return;
+            let lookup = match param_iter.next() {
+                Some(Some(lookup)) => lookup,
+                _ => 0,
             };
 
             // look up the rgb
