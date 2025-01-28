@@ -661,6 +661,12 @@ fn test_deqrqm() {
         vec![TerminalOutput::Mode(Mode::Decckm(Decckm::Ansi))],
         "Failed for {output:?}"
     );
+
+    let terminator = b'p';
+    let mut output = Vec::new();
+    let result =
+        ansi_parser_inner_csi_finished_decrqm(params, &intermediates, terminator, &mut output);
+    assert!(result.is_err());
 }
 
 #[test]
