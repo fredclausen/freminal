@@ -17,12 +17,15 @@ use freminal_terminal_emulator::{
             cup::ansi_parser_inner_csi_finished_set_position_h,
             cuu::ansi_parser_inner_csi_finished_move_up,
             dch::ansi_parser_inner_csi_finished_set_position_p,
+            decrqm::ansi_parser_inner_csi_finished_decrqm,
             ed::ansi_parser_inner_csi_finished_set_position_j,
             el::ansi_parser_inner_csi_finished_set_position_k,
             ict::ansi_parser_inner_csi_finished_ich,
             il::ansi_parser_inner_csi_finished_set_position_l,
             sgr::ansi_parser_inner_csi_finished_sgr_ansi,
         },
+        mode::Mode,
+        modes::decckm::Decckm,
         sgr::SelectGraphicRendition,
     },
 };
@@ -611,5 +614,48 @@ fn test_from_usize_color() {
         result,
         SelectGraphicRendition::Unknown(69),
         "Failed for {result:?}"
+    );
+}
+
+#[test]
+fn test_deqrqm() {
+    let intermediates = vec![b'$'];
+    let terminator = b'h';
+    let params = b"?1";
+
+    let mut output = Vec::new();
+
+    let result =
+        ansi_parser_inner_csi_finished_decrqm(params, &intermediates, terminator, &mut output);
+
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Mode(Mode::Decckm(Decckm::Query))],
+        "Failed for {output:?}"
+    );
+
+    let intermediates = vec![];
+    let mut output = Vec::new();
+
+    let result =
+        ansi_parser_inner_csi_finished_decrqm(params, &intermediates, terminator, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Mode(Mode::Decckm(Decckm::Application))],
+        "Failed for {output:?}"
+    );
+
+    let terminator = b'l';
+    let mut output = Vec::new();
+
+    let result =
+        ansi_parser_inner_csi_finished_decrqm(params, &intermediates, terminator, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Mode(Mode::Decckm(Decckm::Ansi))],
+        "Failed for {output:?}"
     );
 }
