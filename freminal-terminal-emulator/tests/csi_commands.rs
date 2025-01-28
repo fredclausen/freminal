@@ -831,6 +831,11 @@ fn test_decslpp() {
     let result = ansi_parser_inner_csi_finished_set_position_t(params, &mut output);
     assert!(result.is_err());
 
+    let params = b"";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_set_position_t(params, &mut output);
+    assert!(result.is_err());
+
     let params = b"1;";
     let mut output = Vec::new();
     let result = ansi_parser_inner_csi_finished_set_position_t(params, &mut output);
