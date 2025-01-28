@@ -5,7 +5,7 @@
 
 use test_log::test;
 
-use freminal_common::colors::TerminalColor;
+use freminal_common::{colors::TerminalColor, cursor::CursorVisualStyle};
 use freminal_terminal_emulator::{
     ansi::{ParserInner, TerminalOutput},
     ansi_components::{
@@ -18,6 +18,7 @@ use freminal_terminal_emulator::{
             cuu::ansi_parser_inner_csi_finished_move_up,
             dch::ansi_parser_inner_csi_finished_set_position_p,
             decrqm::ansi_parser_inner_csi_finished_decrqm,
+            decscusr::ansi_parser_inner_csi_finished_set_position_q,
             ed::ansi_parser_inner_csi_finished_set_position_j,
             el::ansi_parser_inner_csi_finished_set_position_k,
             ict::ansi_parser_inner_csi_finished_ich,
@@ -658,6 +659,113 @@ fn test_deqrqm() {
     assert_eq!(
         output,
         vec![TerminalOutput::Mode(Mode::Decckm(Decckm::Ansi))],
+        "Failed for {output:?}"
+    );
+}
+
+#[test]
+fn test_decscusr() {
+    let params = b"?1";
+    let mut output = vec![];
+
+    let result = ansi_parser_inner_csi_finished_set_position_q(params, &mut output);
+    assert!(result.is_err());
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+
+    let params = b"0";
+    let mut output = vec![];
+    let result = ansi_parser_inner_csi_finished_set_position_q(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::CursorVisualStyle(
+            CursorVisualStyle::BlockCursorBlink
+        )],
+        "Failed for {output:?}"
+    );
+
+    let params = b"1";
+    let mut output = vec![];
+    let result = ansi_parser_inner_csi_finished_set_position_q(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::CursorVisualStyle(
+            CursorVisualStyle::BlockCursorBlink
+        )],
+        "Failed for {output:?}"
+    );
+
+    let params = b"2";
+    let mut output = vec![];
+    let result = ansi_parser_inner_csi_finished_set_position_q(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::CursorVisualStyle(
+            CursorVisualStyle::BlockCursorSteady
+        )],
+        "Failed for {output:?}"
+    );
+
+    let params = b"3";
+    let mut output = vec![];
+    let result = ansi_parser_inner_csi_finished_set_position_q(params, &mut output);
+    assert!(result.is_ok());
+
+    assert_eq!(
+        output,
+        vec![TerminalOutput::CursorVisualStyle(
+            CursorVisualStyle::UnderlineCursorBlink
+        )],
+        "Failed for {output:?}"
+    );
+
+    let params = b"4";
+    let mut output = vec![];
+    let result = ansi_parser_inner_csi_finished_set_position_q(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::CursorVisualStyle(
+            CursorVisualStyle::UnderlineCursorSteady
+        )],
+        "Failed for {output:?}"
+    );
+
+    let params = b"5";
+    let mut output = vec![];
+    let result = ansi_parser_inner_csi_finished_set_position_q(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::CursorVisualStyle(
+            CursorVisualStyle::VerticalLineCursorBlink
+        )],
+        "Failed for {output:?}"
+    );
+
+    let params = b"6";
+    let mut output = vec![];
+    let result = ansi_parser_inner_csi_finished_set_position_q(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::CursorVisualStyle(
+            CursorVisualStyle::VerticalLineCursorSteady
+        )],
+        "Failed for {output:?}"
+    );
+
+    let params = b"7";
+    let mut output = vec![];
+    let result = ansi_parser_inner_csi_finished_set_position_q(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::CursorVisualStyle(
+            CursorVisualStyle::BlockCursorBlink
+        )],
         "Failed for {output:?}"
     );
 }
