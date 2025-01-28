@@ -23,4 +23,4 @@ jobs:
         with:
           name: Linux
           path: |
-            freminal/target/release/bundle/deb/*.deb
+            target/release/bundle/deb/*.deb
