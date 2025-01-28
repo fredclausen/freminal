@@ -86,10 +86,6 @@ pub fn ansi_parser_inner_csi_finished_set_position_t(
         return Err(ParserFailures::UnhandledDECSLPPCommand(format!("{params:?}")).into());
     };
 
-    if params.is_empty() {
-        return Err(ParserFailures::UnhandledDECSLPPCommand(format!("{params:?}")).into());
-    }
-
     let (ps1, ps2, ps3) = if params.len() == 1 {
         (params[0].unwrap_or_default(), 0, 0)
     } else if params.len() == 2 {
