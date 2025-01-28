@@ -641,6 +641,8 @@ fn test_deqrqm() {
     let result =
         ansi_parser_inner_csi_finished_decrqm(params, &intermediates, terminator, &mut output);
     assert!(result.is_ok());
+    let result = result.unwrap();
+    assert_eq!(result, Some(ParserInner::Empty));
     assert_eq!(
         output,
         vec![TerminalOutput::Mode(Mode::Decckm(Decckm::Application))],
