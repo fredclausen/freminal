@@ -1,18 +1,18 @@
 [workspace]
 members = [
-    "filedescriptor",
-    "freminal",
-    "freminal-common",
-    "freminal-terminal-emulator",
-    "portable-pty",
-    "xtask",
+  "filedescriptor",
+  "freminal",
+  "freminal-common",
+  "freminal-terminal-emulator",
+  "portable-pty",
+  "xtask",
 ]
 default-members = [
-    "filedescriptor",
-    "freminal",
-    "freminal-common",
-    "freminal-terminal-emulator",
-    "portable-pty",
+  "filedescriptor",
+  "freminal",
+  "freminal-common",
+  "freminal-terminal-emulator",
+  "portable-pty",
 ]
 resolver = "2"
 
@@ -40,16 +40,16 @@ criterion = "0.5.1"
 crossbeam-channel = "0.5.14"
 duct = "0.13.7"
 eframe = { version = "0.30.0", default-features = false, features = [
-    "default_fonts",
-    "glow",
-    "persistence",
-    "wayland",
-    "x11",
+  "default_fonts",
+  "glow",
+  "persistence",
+  "wayland",
+  "x11",
 ] }
 egui = { version = "0.30.0", default-features = false, features = [
-    "default_fonts",
-    "persistence",
-    "log",
+  "default_fonts",
+  "persistence",
+  "log",
 ] }
 parking_lot = "0.12.3"
 # portable-pty = "0.8.1"
@@ -59,8 +59,8 @@ tracing = "0.1.41"
 tracing-appender = "0.2.3"
 tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.19", features = [
-    "env-filter",
-    "parking_lot",
+  "env-filter",
+  "parking_lot",
 ] }
 unicode-segmentation = "1.12.0"
 test-log = { version = "0.2.17", features = ["trace"] }
@@ -79,16 +79,16 @@ serial2 = "0.2.28"
 bitflags = "2.8.0"
 lazy_static = "1.5.0"
 shared_library = "0.1.9"
-winapi = { version = "0.3", features = [
-    "winuser",
-    "consoleapi",
-    "handleapi",
-    "fileapi",
-    "namedpipeapi",
-    "synchapi",
-    "processthreadsapi",
-    "winsock2",
-    "processenv",
+winapi = { version = "0.3.9", features = [
+  "winuser",
+  "consoleapi",
+  "handleapi",
+  "fileapi",
+  "namedpipeapi",
+  "synchapi",
+  "processthreadsapi",
+  "winsock2",
+  "processenv",
 ] }
 winreg = "0.55.0"
 # added for portable pty dev

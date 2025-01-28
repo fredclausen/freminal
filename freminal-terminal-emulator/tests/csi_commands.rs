@@ -19,6 +19,7 @@ use freminal_terminal_emulator::{
             dch::ansi_parser_inner_csi_finished_set_position_p,
             decrqm::ansi_parser_inner_csi_finished_decrqm,
             decscusr::ansi_parser_inner_csi_finished_set_position_q,
+            ech::ansi_parser_inner_csi_finished_set_position_x,
             ed::ansi_parser_inner_csi_finished_set_position_j,
             el::ansi_parser_inner_csi_finished_set_position_k,
             ict::ansi_parser_inner_csi_finished_ich,
@@ -774,4 +775,28 @@ fn test_decscusr() {
         )],
         "Failed for {output:?}"
     );
+}
+
+#[test]
+fn test_ech() {
+    let mut output = Vec::new();
+    let params = Vec::new();
+
+    let result = ansi_parser_inner_csi_finished_set_position_x(&params, &mut output);
+    assert!(result.is_ok());
+    let result = result.unwrap();
+    assert_eq!(result, Some(ParserInner::Empty));
+    assert_eq!(output, vec![TerminalOutput::Erase(1)]);
+
+    let params = b"67";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_set_position_x(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(output, vec![TerminalOutput::Erase(67)]);
+
+    let params = b"test";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_set_position_x(params, &mut output);
+    assert!(result.is_err());
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
 }
