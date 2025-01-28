@@ -6,3 +6,4 @@ cross run --target i686-pc-windows-gnu
 cross run --target aarch64-apple-darwin
 cross run --target x86_64-unknown-linux-gnu
 ```
+Code signing mac: codesign --force --verify --verbose --sign "Developer ID Application: Fred Clausen (8J9KGJ49RD)" target/release/bundle/osx/Freminal.app

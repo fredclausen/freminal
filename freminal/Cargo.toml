@@ -11,6 +11,12 @@ readme.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[package.metadata.bundle]
+name = "Freminal"
+identifier = "com.fredclausen.freminal"
+copyright = "Copyright (c) 2024-2025 Fred Clausen"
+category = "Developer Tools"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
