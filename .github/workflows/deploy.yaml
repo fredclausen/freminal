@@ -12,5 +12,5 @@ jobs:
       - uses: actions/checkout@v4.2.2
       - uses: dtolnay/rust-toolchain@stable
       - run: |
-          cargo install bundle
+          cargo install cargo-bundle
           cargo bundle
