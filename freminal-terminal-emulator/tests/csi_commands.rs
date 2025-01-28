@@ -818,6 +818,7 @@ fn test_decslpp() {
     assert!(result.is_ok());
     let result = result.unwrap();
     assert_eq!(result, Some(ParserInner::Empty));
+
     assert_eq!(
         output,
         vec![TerminalOutput::WindowManipulation(
@@ -873,4 +874,10 @@ fn test_decslpp() {
             WindowManipulation::DeIconifyWindow
         )]
     );
+
+    let params = b"67;0;0;";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_set_position_t(params, &mut output);
+    assert!(result.is_err());
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
 }
