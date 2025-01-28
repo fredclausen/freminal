@@ -5,7 +5,9 @@
 
 use test_log::test;
 
-use freminal_common::{colors::TerminalColor, cursor::CursorVisualStyle};
+use freminal_common::{
+    colors::TerminalColor, cursor::CursorVisualStyle, window_manipulation::WindowManipulation,
+};
 use freminal_terminal_emulator::{
     ansi::{ParserInner, TerminalOutput},
     ansi_components::{
@@ -19,6 +21,7 @@ use freminal_terminal_emulator::{
             dch::ansi_parser_inner_csi_finished_set_position_p,
             decrqm::ansi_parser_inner_csi_finished_decrqm,
             decscusr::ansi_parser_inner_csi_finished_set_position_q,
+            decslpp::ansi_parser_inner_csi_finished_set_position_t,
             ech::ansi_parser_inner_csi_finished_set_position_x,
             ed::ansi_parser_inner_csi_finished_set_position_j,
             el::ansi_parser_inner_csi_finished_set_position_k,
@@ -799,4 +802,75 @@ fn test_ech() {
     let result = ansi_parser_inner_csi_finished_set_position_x(params, &mut output);
     assert!(result.is_err());
     assert_eq!(output, vec![TerminalOutput::Invalid]);
+}
+
+#[test]
+fn test_decslpp() {
+    let mut output = Vec::new();
+    let params = Vec::new();
+
+    let result = ansi_parser_inner_csi_finished_set_position_t(&params, &mut output);
+    assert!(result.is_err());
+
+    let params = b"1";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_set_position_t(params, &mut output);
+    assert!(result.is_ok());
+    let result = result.unwrap();
+    assert_eq!(result, Some(ParserInner::Empty));
+    assert_eq!(
+        output,
+        vec![TerminalOutput::WindowManipulation(
+            WindowManipulation::DeIconifyWindow
+        )]
+    );
+
+    let params = b";";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_set_position_t(params, &mut output);
+    assert!(result.is_err());
+
+    let params = b"1;";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_set_position_t(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::WindowManipulation(
+            WindowManipulation::DeIconifyWindow
+        )]
+    );
+
+    let params = b"1;0";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_set_position_t(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::WindowManipulation(
+            WindowManipulation::DeIconifyWindow
+        )]
+    );
+
+    let params = b"1;0;";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_set_position_t(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::WindowManipulation(
+            WindowManipulation::DeIconifyWindow
+        )]
+    );
+
+    let params = b"1;0;0";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_finished_set_position_t(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::WindowManipulation(
+            WindowManipulation::DeIconifyWindow
+        )]
+    );
 }
