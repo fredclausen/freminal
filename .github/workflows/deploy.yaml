@@ -21,9 +21,29 @@ jobs:
       - name: Archive production artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Linux
+          name: LinuxAMD64
           path: |
             target/release/bundle/deb/*.deb
+  deploy_linux_arm:
+    name: Bundle Linux ARM64
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      - name: Bundle
+        uses: dtolnay/rust-toolchain@stable
+      - run: |
+          cargo install cargo-bundle
+          cargo bundle --release
+
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: LinuxARM64
+          path: |
+            target/release/bundle/deb/*.deb
+
   deploy_windows:
     name: Bundle Windows
     runs-on: windows-latest
@@ -40,7 +60,7 @@ jobs:
       - name: Archive production artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Linux
+          name: Windows
           path: |
             target/release/bundle/msi/*
 
@@ -60,6 +80,6 @@ jobs:
       - name: Archive production artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Linux
+          name: Mac
           path: |
             target/release/bundle/osx/*
