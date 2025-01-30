@@ -5,7 +5,10 @@
 
 use freminal_terminal_emulator::ansi_components::{
     mode::SetMode,
-    modes::{decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket, ReportMode},
+    modes::{
+        decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket,
+        sync_updates::SynchronizedUpdates, ReportMode,
+    },
 };
 use test_log::test;
 
@@ -141,4 +144,58 @@ fn test_rlbracket() {
     assert!(mode
         .report(Some(SetMode::DecQuery))
         .contains("\x1b[?2004;0$y"));
+}
+
+#[test]
+fn test_synchronized_updates() {
+    let mode = SynchronizedUpdates::new(&SetMode::DecRst);
+    assert_eq!(mode, SynchronizedUpdates::Draw);
+    assert_eq!(
+        mode.to_string(),
+        "Synchronized Updates Mode (DEC 2026) Draw"
+    );
+    assert!(mode.report(None).contains("\x1b[?2026;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecSet))
+        .contains("\x1b[?2026;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecRst))
+        .contains("\x1b[?2026;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?2026;0$y"));
+
+    let mode = SynchronizedUpdates::new(&SetMode::DecSet);
+    assert_eq!(mode, SynchronizedUpdates::DontDraw);
+    assert_eq!(
+        mode.to_string(),
+        "Synchronized Updates Mode (DEC 2026) Don't Draw"
+    );
+    assert!(mode.report(None).contains("\x1b[?2026;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecSet))
+        .contains("\x1b[?2026;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecRst))
+        .contains("\x1b[?2026;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?2026;0$y"));
+
+    let mode = SynchronizedUpdates::new(&SetMode::DecQuery);
+    assert_eq!(mode, SynchronizedUpdates::Query);
+    assert_eq!(
+        mode.to_string(),
+        "Synchronized Updates Mode (DEC 2026) Query"
+    );
+    assert!(mode.report(None).contains("\x1b[?2026;0$y"));
+    assert!(mode
+        .report(Some(SetMode::DecSet))
+        .contains("\x1b[?2026;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecRst))
+        .contains("\x1b[?2026;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?2026;0$y"));
 }
