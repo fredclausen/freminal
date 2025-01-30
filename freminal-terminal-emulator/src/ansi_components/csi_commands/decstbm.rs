@@ -36,15 +36,17 @@ pub fn ansi_parser_inner_csi_set_top_and_bottom_margins(
     if params.is_empty() {
         debug!("DECSTBM command with no params. Using defaults");
         output.push(TerminalOutput::SetTopAndBottomMargins {
-            top_margin: 0,
+            top_margin: 1,
             bottom_margin: usize::MAX,
         });
 
         return Ok(Some(ParserInner::Empty));
     }
 
-    let Ok(param) = split_params_into_semicolon_delimited_usize(params) else {
-        warn!("Invalid DECSTBM command");
+    let params = split_params_into_semicolon_delimited_usize(params);
+
+    let Ok(params) = params else {
+        warn!("Invalid DECSTBM commandz");
         output.push(TerminalOutput::Invalid);
 
         return Err(ParserFailures::UnhandledDECSTBMCommand(format!(
@@ -53,15 +55,19 @@ pub fn ansi_parser_inner_csi_set_top_and_bottom_margins(
         .into());
     };
 
-    if param.len() != 2 {
-        return Err(ParserFailures::UnhandledDECSTBMCommand(format!("{param:?}")).into());
+    if params.len() != 2 {
+        warn!("DECSTBM command with invalid number of params. Expected 2, got {params:?}");
+        output.push(TerminalOutput::Invalid);
+        return Err(ParserFailures::UnhandledDECSTBMCommand(format!("{params:?}")).into());
     }
 
-    let pt = param[0].unwrap_or(1);
-    let pb = param[1].unwrap_or(usize::MAX);
+    let pt = params[0].unwrap_or(1);
+    let pb = params[1].unwrap_or(usize::MAX);
 
     if pt >= pb || pt == 0 || pb == 0 {
-        return Err(ParserFailures::UnhandledDECSTBMCommand(format!("{param:?}")).into());
+        warn!("Invalid DECSTBM command with out of bounds params. pt: {pt}, pb: {pb}");
+        output.push(TerminalOutput::Invalid);
+        return Err(ParserFailures::UnhandledDECSTBMCommand(format!("{params:?}")).into());
     }
 
     output.push(TerminalOutput::SetTopAndBottomMargins {

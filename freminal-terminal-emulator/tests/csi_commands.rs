@@ -22,6 +22,7 @@ use freminal_terminal_emulator::{
             decrqm::ansi_parser_inner_csi_finished_decrqm,
             decscusr::ansi_parser_inner_csi_finished_set_position_q,
             decslpp::ansi_parser_inner_csi_finished_set_position_t,
+            decstbm::ansi_parser_inner_csi_set_top_and_bottom_margins,
             ech::ansi_parser_inner_csi_finished_set_position_x,
             ed::ansi_parser_inner_csi_finished_set_position_j,
             el::ansi_parser_inner_csi_finished_set_position_k,
@@ -888,5 +889,74 @@ fn test_decslpp() {
     let mut output = Vec::new();
     let result = ansi_parser_inner_csi_finished_set_position_t(params, &mut output);
     assert!(result.is_err());
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+}
+
+#[test]
+fn test_decstbm() {
+    let params = b"";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_set_top_and_bottom_margins(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::SetTopAndBottomMargins {
+            top_margin: 1,
+            bottom_margin: usize::MAX
+        }]
+    );
+
+    let params = b"2;test";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_set_top_and_bottom_margins(params, &mut output);
+    assert!(result.is_err());
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+
+    let params = b"2;";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_set_top_and_bottom_margins(params, &mut output);
+    assert!(result.is_ok(), "Failed for {result:?}");
+    assert_eq!(
+        output,
+        vec![TerminalOutput::SetTopAndBottomMargins {
+            top_margin: 2,
+            bottom_margin: usize::MAX
+        }]
+    );
+
+    let params = b"2;2";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_set_top_and_bottom_margins(params, &mut output);
+    assert!(result.is_err(), "Failed for {result:?}");
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+
+    let params = b"2;3;4";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_set_top_and_bottom_margins(params, &mut output);
+    assert!(result.is_err(), "Failed for {result:?}");
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+
+    let params = b"2;3";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_set_top_and_bottom_margins(params, &mut output);
+    assert!(result.is_ok(), "Failed for {result:?}");
+    assert_eq!(
+        output,
+        vec![TerminalOutput::SetTopAndBottomMargins {
+            top_margin: 2,
+            bottom_margin: 3
+        }]
+    );
+
+    let params = b"0;1";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_set_top_and_bottom_margins(params, &mut output);
+    assert!(result.is_err(), "Failed for {result:?}");
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+
+    let params = b"1;0";
+    let mut output = Vec::new();
+    let result = ansi_parser_inner_csi_set_top_and_bottom_margins(params, &mut output);
+    assert!(result.is_err(), "Failed for {result:?}");
     assert_eq!(output, vec![TerminalOutput::Invalid]);
 }
