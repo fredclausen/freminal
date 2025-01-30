@@ -7,7 +7,7 @@ use freminal_terminal_emulator::ansi_components::{
     mode::SetMode,
     modes::{
         decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket,
-        sync_updates::SynchronizedUpdates, ReportMode,
+        sync_updates::SynchronizedUpdates, xtcblink::XtCBlink, xtextscrn::XtExtscrn, ReportMode,
     },
 };
 use test_log::test;
@@ -198,4 +198,82 @@ fn test_synchronized_updates() {
     assert!(mode
         .report(Some(SetMode::DecQuery))
         .contains("\x1b[?2026;0$y"));
+}
+
+#[test]
+fn test_xtcblink() {
+    let mode = XtCBlink::new(&SetMode::DecRst);
+    assert_eq!(mode, XtCBlink::Steady);
+    assert_eq!(mode.to_string(), "XT_CBLINK (RESET) Cursor Steady");
+    assert!(mode.report(None).contains("\x1b[?12;2$y"));
+    assert!(mode.report(Some(SetMode::DecSet)).contains("\x1b[?12;1$y"));
+    assert!(mode.report(Some(SetMode::DecRst)).contains("\x1b[?12;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?12;0$y"));
+
+    let mode = XtCBlink::new(&SetMode::DecSet);
+    assert_eq!(mode, XtCBlink::Blinking);
+    assert_eq!(mode.to_string(), "XT_CBLINK (SET) Cursor Blinking");
+    assert!(mode.report(None).contains("\x1b[?12;1$y"));
+    assert!(mode.report(Some(SetMode::DecSet)).contains("\x1b[?12;1$y"));
+    assert!(mode.report(Some(SetMode::DecRst)).contains("\x1b[?12;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?12;0$y"));
+
+    let mode = XtCBlink::new(&SetMode::DecQuery);
+    assert_eq!(mode, XtCBlink::Query);
+    assert_eq!(mode.to_string(), "XT_CBLINK (QUERY)");
+    assert!(mode.report(None).contains("\x1b[?12;0$y"));
+    assert!(mode.report(Some(SetMode::DecSet)).contains("\x1b[?12;1$y"));
+    assert!(mode.report(Some(SetMode::DecRst)).contains("\x1b[?12;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?12;0$y"));
+}
+
+#[test]
+fn test_xtextscrn() {
+    let mode = XtExtscrn::new(&SetMode::DecRst);
+    assert_eq!(mode, XtExtscrn::Primary);
+    assert_eq!(mode.to_string(), "XT_EXTSCRN (RESET) Primary Screen");
+    assert!(mode.report(None).contains("\x1b[?1049;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecSet))
+        .contains("\x1b[?1049;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecRst))
+        .contains("\x1b[?1049;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?1049;0$y"));
+
+    let mode = XtExtscrn::new(&SetMode::DecSet);
+    assert_eq!(mode, XtExtscrn::Alternate);
+    assert_eq!(mode.to_string(), "XT_EXTSCRN (SET) Alternate Screen");
+    assert!(mode.report(None).contains("\x1b[?1049;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecSet))
+        .contains("\x1b[?1049;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecRst))
+        .contains("\x1b[?1049;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?1049;0$y"));
+
+    let mode = XtExtscrn::new(&SetMode::DecQuery);
+    assert_eq!(mode, XtExtscrn::Query);
+    assert_eq!(mode.to_string(), "XT_EXTSCRN (QUERY)");
+    assert!(mode.report(None).contains("\x1b[?1049;0$y"));
+    assert!(mode
+        .report(Some(SetMode::DecSet))
+        .contains("\x1b[?1049;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecRst))
+        .contains("\x1b[?1049;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?1049;0$y"));
 }
