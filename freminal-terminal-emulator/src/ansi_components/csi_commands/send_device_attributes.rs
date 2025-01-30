@@ -10,7 +10,7 @@ use anyhow::Result;
 /// Request Device Attributes
 ///
 /// Supported formats:
-/// - Set ESC [ Ps C
+/// - Set ESC [ Ps c
 ///
 /// # Errors
 /// Will return an error if the parameter is not a valid number
@@ -49,5 +49,7 @@ pub fn ansi_parser_inner_csi_finished_send_da(
         ))
         .into());
     }
+
+    output.push(TerminalOutput::RequestDeviceAttributes);
     Ok(Some(ParserInner::Empty))
 }

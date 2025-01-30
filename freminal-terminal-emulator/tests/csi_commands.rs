@@ -28,6 +28,7 @@ use freminal_terminal_emulator::{
             el::ansi_parser_inner_csi_finished_set_position_k,
             ict::ansi_parser_inner_csi_finished_ich,
             il::ansi_parser_inner_csi_finished_set_position_l,
+            send_device_attributes::ansi_parser_inner_csi_finished_send_da,
             sgr::ansi_parser_inner_csi_finished_sgr_ansi,
         },
         mode::Mode,
@@ -959,4 +960,42 @@ fn test_decstbm() {
     let result = ansi_parser_inner_csi_set_top_and_bottom_margins(params, &mut output);
     assert!(result.is_err(), "Failed for {result:?}");
     assert_eq!(output, vec![TerminalOutput::Invalid]);
+}
+
+#[test]
+fn test_request_device_attributes() {
+    let params = b"";
+    let intermediates = b"$";
+    let mut output = Vec::new();
+    let results = ansi_parser_inner_csi_finished_send_da(params, intermediates, &mut output);
+    assert!(results.is_err());
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+
+    let params = b"t";
+    let intermediates = b"";
+    let mut output = Vec::new();
+    let results = ansi_parser_inner_csi_finished_send_da(params, intermediates, &mut output);
+    assert!(results.is_err());
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+
+    let params = b"1";
+    let intermediates = b"";
+    let mut output = Vec::new();
+    let results = ansi_parser_inner_csi_finished_send_da(params, intermediates, &mut output);
+    assert!(results.is_err());
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+
+    let params = b"";
+    let intermediates = b"";
+    let mut output = Vec::new();
+    let results = ansi_parser_inner_csi_finished_send_da(params, intermediates, &mut output);
+    assert!(results.is_ok());
+    assert_eq!(output, vec![TerminalOutput::RequestDeviceAttributes]);
+
+    let params = b"0";
+    let intermediates = b"";
+    let mut output = Vec::new();
+    let results = ansi_parser_inner_csi_finished_send_da(params, intermediates, &mut output);
+    assert!(results.is_ok());
+    assert_eq!(output, vec![TerminalOutput::RequestDeviceAttributes]);
 }

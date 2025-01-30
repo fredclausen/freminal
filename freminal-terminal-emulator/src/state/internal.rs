@@ -934,7 +934,7 @@ impl TerminalState {
         // 18: User windows
         // 22: ANSI color, e.g., VT525
 
-        let output = collect_text(&"\x1b[>65c;1;2;4;6;17;18;22".to_string());
+        let output = collect_text(&"\x1b[>65;1;2;4;6;17;18;22c".to_string());
         for input in output.iter() {
             match self.write(input) {
                 Ok(()) => (),
