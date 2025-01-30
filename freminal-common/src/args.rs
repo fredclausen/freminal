@@ -56,7 +56,7 @@ impl Args {
                 }
                 arg if arg.as_str() == "--help" => Self::help(program_name.as_deref()),
                 arg if arg.as_str() == "--show-all-debug" => show_all_debug = true,
-                arg if arg.as_str().contains("--write-logs-to-file=") => {
+                arg if arg.as_str().contains("--write-logs-to-file") => {
                     let mut internal_error = false;
                     write_logs_to_file = arg.split('=').nth(1).map_or_else(
                         || {
