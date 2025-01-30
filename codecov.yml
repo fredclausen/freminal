@@ -1,4 +1,4 @@
 ignore:
   - "portable-pty"
   - "filedescriptor"
-  - "freminal/freminal-terminal-emulator/src/io"
+  - "freminal/freminal-terminal-emulator/src/io/"
