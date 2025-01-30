@@ -5,7 +5,7 @@
 
 use freminal_terminal_emulator::ansi_components::{
     mode::SetMode,
-    modes::{decckm::Decckm, ReportMode},
+    modes::{decawm::Decawm, decckm::Decckm, ReportMode},
 };
 use test_log::test;
 
@@ -35,4 +35,32 @@ fn test_decckm() {
     assert!(mode.report(Some(SetMode::DecSet)).contains("\x1b[?1;1$y"));
     assert!(mode.report(Some(SetMode::DecRst)).contains("\x1b[?1;2$y"));
     assert!(mode.report(Some(SetMode::DecQuery)).contains("\x1b[?1;0$y"));
+}
+
+#[test]
+fn test_decawm() {
+    // Test the DECAWM mode
+    let mode = Decawm::new(&SetMode::DecRst);
+    assert_eq!(mode, Decawm::NoAutoWrap);
+    assert_eq!(mode.to_string(), "Autowrap Mode (DECAWM) Disabled");
+    assert!(mode.report(None).contains("\x1b[?7;2$y"));
+    assert!(mode.report(Some(SetMode::DecSet)).contains("\x1b[?7;1$y"));
+    assert!(mode.report(Some(SetMode::DecRst)).contains("\x1b[?7;2$y"));
+    assert!(mode.report(Some(SetMode::DecQuery)).contains("\x1b[?7;0$y"));
+
+    let mode = Decawm::new(&SetMode::DecSet);
+    assert_eq!(mode, Decawm::AutoWrap);
+    assert_eq!(mode.to_string(), "Autowrap Mode (DECAWM) Enabled");
+    assert!(mode.report(None).contains("\x1b[?7;1$y"));
+    assert!(mode.report(Some(SetMode::DecSet)).contains("\x1b[?7;1$y"));
+    assert!(mode.report(Some(SetMode::DecRst)).contains("\x1b[?7;2$y"));
+    assert!(mode.report(Some(SetMode::DecQuery)).contains("\x1b[?7;0$y"));
+
+    let mode = Decawm::new(&SetMode::DecQuery);
+    assert_eq!(mode, Decawm::Query);
+    assert_eq!(mode.to_string(), "Autowrap Mode (DECAWM) Query");
+    assert!(mode.report(None).contains("\x1b[?7;0$y"));
+    assert!(mode.report(Some(SetMode::DecSet)).contains("\x1b[?7;1$y"));
+    assert!(mode.report(Some(SetMode::DecRst)).contains("\x1b[?7;2$y"));
+    assert!(mode.report(Some(SetMode::DecQuery)).contains("\x1b[?7;0$y"));
 }
