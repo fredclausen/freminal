@@ -104,4 +104,17 @@ fn test_log_file_arg() {
     let args =
         Args::parse(vec!["freminal".to_string(), "--write-logs-to-file".to_string()].into_iter());
     assert!(args.is_err());
+
+    let args =
+        Args::parse(vec!["freminal".to_string(), "--write-logs-to-file=".to_string()].into_iter());
+    assert!(args.is_err());
+
+    let args = Args::parse(
+        vec![
+            "freminal".to_string(),
+            "--write-logs-to-file=nope".to_string(),
+        ]
+        .into_iter(),
+    );
+    assert!(args.is_err());
 }
