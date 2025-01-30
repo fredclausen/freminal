@@ -5,7 +5,7 @@
 
 use freminal_terminal_emulator::ansi_components::{
     mode::SetMode,
-    modes::{decawm::Decawm, decckm::Decckm, dectcem::Dectcem, ReportMode},
+    modes::{decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket, ReportMode},
 };
 use test_log::test;
 
@@ -96,4 +96,49 @@ fn test_dectcem() {
     assert!(mode
         .report(Some(SetMode::DecQuery))
         .contains("\x1b[?25;0$y"));
+}
+
+#[test]
+fn test_rlbracket() {
+    let mode = RlBracket::new(&SetMode::DecRst);
+    assert_eq!(mode, RlBracket::Disabled);
+    assert_eq!(mode.to_string(), "Bracketed Paste Mode (DEC 2004) Disabled");
+    assert!(mode.report(None).contains("\x1b[?2004;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecSet))
+        .contains("\x1b[?2004;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecRst))
+        .contains("\x1b[?2004;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?2004;0$y"));
+
+    let mode = RlBracket::new(&SetMode::DecSet);
+    assert_eq!(mode, RlBracket::Enabled);
+    assert_eq!(mode.to_string(), "Bracketed Paste Mode (DEC 2004) Enabled");
+    assert!(mode.report(None).contains("\x1b[?2004;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecSet))
+        .contains("\x1b[?2004;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecRst))
+        .contains("\x1b[?2004;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?2004;0$y"));
+
+    let mode = RlBracket::new(&SetMode::DecQuery);
+    assert_eq!(mode, RlBracket::Query);
+    assert_eq!(mode.to_string(), "Bracketed Paste Mode (DEC 2004) Query");
+    assert!(mode.report(None).contains("\x1b[?2004;0$y"));
+    assert!(mode
+        .report(Some(SetMode::DecSet))
+        .contains("\x1b[?2004;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecRst))
+        .contains("\x1b[?2004;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?2004;0$y"));
 }
