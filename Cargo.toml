@@ -65,7 +65,7 @@ tracing-subscriber = { version = "0.3.19", features = [
 ] }
 unicode-segmentation = "1.12.0"
 test-log = { version = "0.2.17", features = ["trace"] }
-tempfile = "3.15.0"
+tempfile = "3.16.0"
 
 # added for portable pty
 downcast-rs = "2.0.1"
