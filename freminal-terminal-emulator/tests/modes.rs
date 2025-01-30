@@ -7,7 +7,8 @@ use freminal_terminal_emulator::ansi_components::{
     mode::SetMode,
     modes::{
         decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket,
-        sync_updates::SynchronizedUpdates, xtcblink::XtCBlink, xtextscrn::XtExtscrn, ReportMode,
+        sync_updates::SynchronizedUpdates, xtcblink::XtCBlink, xtextscrn::XtExtscrn,
+        xtmsewin::XtMseWin, ReportMode,
     },
 };
 use test_log::test;
@@ -276,4 +277,55 @@ fn test_xtextscrn() {
     assert!(mode
         .report(Some(SetMode::DecQuery))
         .contains("\x1b[?1049;0$y"));
+}
+
+#[test]
+fn test_xtmsewin() {
+    let mode = XtMseWin::new(&SetMode::DecRst);
+    assert_eq!(mode, XtMseWin::Disabled);
+    assert_eq!(
+        mode.to_string(),
+        "Focus Reporting Mode (XT_MSE_WIN) Disabled"
+    );
+    assert!(mode.report(None).contains("\x1b[?1004;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecSet))
+        .contains("\x1b[?1004;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecRst))
+        .contains("\x1b[?1004;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?1004;0$y"));
+
+    let mode = XtMseWin::new(&SetMode::DecSet);
+    assert_eq!(mode, XtMseWin::Enabled);
+    assert_eq!(
+        mode.to_string(),
+        "Focus Reporting Mode (XT_MSE_WIN) Enabled"
+    );
+    assert!(mode.report(None).contains("\x1b[?1004;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecSet))
+        .contains("\x1b[?1004;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecRst))
+        .contains("\x1b[?1004;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?1004;0$y"));
+
+    let mode = XtMseWin::new(&SetMode::DecQuery);
+    assert_eq!(mode, XtMseWin::Query);
+    assert_eq!(mode.to_string(), "Focus Reporting Mode (XT_MSE_WIN) Query");
+    assert!(mode.report(None).contains("\x1b[?1004;0$y"));
+    assert!(mode
+        .report(Some(SetMode::DecSet))
+        .contains("\x1b[?1004;1$y"));
+    assert!(mode
+        .report(Some(SetMode::DecRst))
+        .contains("\x1b[?1004;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?1004;0$y"));
 }
