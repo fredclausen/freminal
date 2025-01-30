@@ -5,7 +5,7 @@
 
 use freminal_terminal_emulator::ansi_components::{
     mode::SetMode,
-    modes::{decawm::Decawm, decckm::Decckm, ReportMode},
+    modes::{decawm::Decawm, decckm::Decckm, dectcem::Dectcem, ReportMode},
 };
 use test_log::test;
 
@@ -63,4 +63,37 @@ fn test_decawm() {
     assert!(mode.report(Some(SetMode::DecSet)).contains("\x1b[?7;1$y"));
     assert!(mode.report(Some(SetMode::DecRst)).contains("\x1b[?7;2$y"));
     assert!(mode.report(Some(SetMode::DecQuery)).contains("\x1b[?7;0$y"));
+}
+
+#[test]
+fn test_dectcem() {
+    let mode = Dectcem::new(&SetMode::DecRst);
+    assert_eq!(mode, Dectcem::Hide);
+    assert_eq!(mode.to_string(), "Hide Cursor (DECTCEM)");
+    assert!(mode.report(None).contains("\x1b[?25;2$y"));
+    assert!(mode.report(Some(SetMode::DecSet)).contains("\x1b[?25;1$y"));
+    assert!(mode.report(Some(SetMode::DecRst)).contains("\x1b[?25;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?25;0$y"));
+
+    let mode = Dectcem::new(&SetMode::DecSet);
+    assert_eq!(mode, Dectcem::Show);
+    assert_eq!(mode.to_string(), "Show Cursor (DECTCEM)");
+    assert!(mode.report(None).contains("\x1b[?25;1$y"));
+    assert!(mode.report(Some(SetMode::DecSet)).contains("\x1b[?25;1$y"));
+    assert!(mode.report(Some(SetMode::DecRst)).contains("\x1b[?25;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?25;0$y"));
+
+    let mode = Dectcem::new(&SetMode::DecQuery);
+    assert_eq!(mode, Dectcem::Query);
+    assert_eq!(mode.to_string(), "Query Cursor (DECTCEM)");
+    assert!(mode.report(None).contains("\x1b[?25;0$y"));
+    assert!(mode.report(Some(SetMode::DecSet)).contains("\x1b[?25;1$y"));
+    assert!(mode.report(Some(SetMode::DecRst)).contains("\x1b[?25;2$y"));
+    assert!(mode
+        .report(Some(SetMode::DecQuery))
+        .contains("\x1b[?25;0$y"));
 }
