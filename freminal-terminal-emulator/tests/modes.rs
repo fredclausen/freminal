@@ -7,8 +7,8 @@ use freminal_terminal_emulator::ansi_components::{
     mode::SetMode,
     modes::{
         decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket,
-        sync_updates::SynchronizedUpdates, xtcblink::XtCBlink, xtextscrn::XtExtscrn,
-        xtmsewin::XtMseWin, ReportMode,
+        sync_updates::SynchronizedUpdates, unknown::UnknownMode, xtcblink::XtCBlink,
+        xtextscrn::XtExtscrn, xtmsewin::XtMseWin, ReportMode,
     },
 };
 use test_log::test;
@@ -328,4 +328,15 @@ fn test_xtmsewin() {
     assert!(mode
         .report(Some(SetMode::DecQuery))
         .contains("\x1b[?1004;0$y"));
+}
+
+#[test]
+fn test_unknown_mode() {
+    let mode = UnknownMode::new(&[0x69]);
+    let expected = UnknownMode {
+        params: "i".to_string(),
+    };
+    assert_eq!(mode, expected);
+    assert_eq!(mode.to_string(), "Unknown Mode(i)");
+    assert!(mode.report(None).contains("\x1b[?i;0;$y"));
 }

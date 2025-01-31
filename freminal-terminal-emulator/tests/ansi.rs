@@ -10,8 +10,8 @@ use freminal_terminal_emulator::{
     ansi::{parse_param_as, FreminalAnsiParser, ParserInner, TerminalOutput},
     ansi_components::{
         csi::{AnsiCsiParser, AnsiCsiParserState},
-        mode::{Mode, SetMode, UnknownMode},
-        modes::decckm::Decckm,
+        mode::{Mode, SetMode},
+        modes::{decckm::Decckm, unknown::UnknownMode},
         osc::{AnsiOscInternalType, AnsiOscType},
         sgr::SelectGraphicRendition,
     },

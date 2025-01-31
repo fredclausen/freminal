@@ -7,8 +7,8 @@ use std::fmt;
 
 use super::modes::{
     decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket,
-    sync_updates::SynchronizedUpdates, xtcblink::XtCBlink, xtextscrn::XtExtscrn,
-    xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
+    sync_updates::SynchronizedUpdates, unknown::UnknownMode, xtcblink::XtCBlink,
+    xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -189,35 +189,6 @@ impl ReportMode for Mode {
                 format!("\x1b[?{digits};0$y")
             }
         }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct UnknownMode {
-    pub params: String,
-}
-
-impl UnknownMode {
-    #[must_use]
-    pub fn new(params: &[u8]) -> Self {
-        let params_s = std::str::from_utf8(params).unwrap_or("Unknown");
-
-        Self {
-            params: params_s.to_string(),
-        }
-    }
-}
-
-impl ReportMode for UnknownMode {
-    // FIXME: we may need to get specific about DEC vs ANSI here. For now....we'll just report DEC
-    fn report(&self, _override_mode: Option<SetMode>) -> String {
-        format!("\x1b[?{};0;$y", self.params)
-    }
-}
-
-impl fmt::Display for UnknownMode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Unknown Mode({})", self.params)
     }
 }
 
