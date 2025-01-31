@@ -9,7 +9,7 @@ use freminal_common::{
     colors::TerminalColor, cursor::CursorVisualStyle, window_manipulation::WindowManipulation,
 };
 use freminal_terminal_emulator::{
-    ansi::{ParserInner, TerminalOutput},
+    ansi::{split_params_into_semicolon_delimited_usize, ParserInner, TerminalOutput},
     ansi_components::{
         csi_commands::{
             cha::ansi_parser_inner_csi_finished_set_cursor_position_g,
@@ -29,7 +29,7 @@ use freminal_terminal_emulator::{
             ict::ansi_parser_inner_csi_finished_ich,
             il::ansi_parser_inner_csi_finished_set_position_l,
             send_device_attributes::ansi_parser_inner_csi_finished_send_da,
-            sgr::ansi_parser_inner_csi_finished_sgr_ansi,
+            sgr::{ansi_parser_inner_csi_finished_sgr_ansi, handle_custom_color},
         },
         mode::Mode,
         modes::decckm::Decckm,
@@ -998,4 +998,33 @@ fn test_request_device_attributes() {
     let results = ansi_parser_inner_csi_finished_send_da(params, intermediates, &mut output);
     assert!(results.is_ok());
     assert_eq!(output, vec![TerminalOutput::RequestDeviceAttributes]);
+}
+
+#[test]
+fn test_handle_custom_color() {
+    let mut output = Vec::new();
+    let params = b"9;255;255;255";
+    let params = split_params_into_semicolon_delimited_usize(params).unwrap();
+    let mut param_iter: std::vec::IntoIter<Option<usize>> = params.into_iter();
+    handle_custom_color(&mut output, &mut param_iter, 58, false);
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+
+    let mut output = Vec::new();
+    let params = b"2;255;255;2556";
+    let params = split_params_into_semicolon_delimited_usize(params).unwrap();
+    let mut param_iter: std::vec::IntoIter<Option<usize>> = params.into_iter();
+    handle_custom_color(&mut output, &mut param_iter, 58, false);
+    assert_eq!(output, vec![TerminalOutput::Invalid]);
+}
+
+#[test]
+fn ansi_parser_inner_sgr_empty() {
+    let mut output = Vec::new();
+    let params = b"";
+    let result = ansi_parser_inner_csi_finished_sgr_ansi(params, &mut output);
+    assert!(result.is_ok());
+    assert_eq!(
+        output,
+        vec![TerminalOutput::Sgr(SelectGraphicRendition::Reset)]
+    );
 }

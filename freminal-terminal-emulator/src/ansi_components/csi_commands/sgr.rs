@@ -85,7 +85,7 @@ fn default_color(output: &mut Vec<TerminalOutput>, custom_color_control_code: us
     });
 }
 
-fn handle_custom_color(
+pub fn handle_custom_color(
     output: &mut Vec<TerminalOutput>,
     param_iter: &mut IntoIter<Option<usize>>,
     param: usize,
@@ -154,7 +154,7 @@ fn handle_custom_color(
     ) {
         Ok(sgr) => output.push(TerminalOutput::Sgr(sgr)),
         Err(e) => {
-            warn!("Invalid SGR sequence: {}", e);
+            warn!("Invalid RGB SGR sequence: {}", e);
             output.push(TerminalOutput::Invalid);
         }
     }
