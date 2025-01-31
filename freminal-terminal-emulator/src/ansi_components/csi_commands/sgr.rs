@@ -68,13 +68,10 @@ pub fn ansi_parser_inner_csi_finished_sgr_ansi(
     Ok(Some(ParserInner::Empty))
 }
 
-fn default_color(output: &mut Vec<TerminalOutput>, param: usize, custom_color_control_code: usize) {
+fn default_color(output: &mut Vec<TerminalOutput>, custom_color_control_code: usize) {
     // FIXME: we'll treat '\e[38m' or '\e[48m' as a color reset.
     // I can't find documentation for this, but it seems that other terminals handle it this way
-    debug!(
-        "SGR {} received with no color input. Resetting pallate",
-        param
-    );
+
     output.push(match custom_color_control_code {
         38 => TerminalOutput::Sgr(SelectGraphicRendition::Foreground(TerminalColor::Default)),
         48 => TerminalOutput::Sgr(SelectGraphicRendition::Background(
@@ -106,17 +103,13 @@ fn handle_custom_color(
     param = if let Some(Some(param)) = param_iter.next() {
         param
     } else {
-        default_color(output, param, custom_color_control_code);
+        default_color(output, custom_color_control_code);
         return;
     };
 
     match param {
         2 => {
             if param_iter.len() > 3 && split_by_colon {
-                debug!(
-                    "Found custom color with color space. Ignoring Color Space: {:?}",
-                    param_iter
-                );
                 param_iter.next();
             }
 
