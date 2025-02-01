@@ -6,9 +6,17 @@
 use freminal_terminal_emulator::ansi_components::{
     mode::SetMode,
     modes::{
-        decawm::Decawm, decckm::Decckm, dectcem::Dectcem, mouse::MouseTrack, rl_bracket::RlBracket,
-        sync_updates::SynchronizedUpdates, unknown::UnknownMode, xtcblink::XtCBlink,
-        xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
+        decawm::Decawm,
+        decckm::Decckm,
+        dectcem::Dectcem,
+        mouse::{MouseEncoding, MouseTrack},
+        rl_bracket::RlBracket,
+        sync_updates::SynchronizedUpdates,
+        unknown::UnknownMode,
+        xtcblink::XtCBlink,
+        xtextscrn::XtExtscrn,
+        xtmsewin::XtMseWin,
+        MouseModeNumber, ReportMode,
     },
 };
 use test_log::test;
@@ -350,6 +358,7 @@ fn test_mouse_modes() {
     assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?0;0$y");
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?0;0$y");
     assert_eq!(mode.to_string(), "NoTracking");
+    assert_eq!(mode.get_encoding(), MouseEncoding::X11);
 
     let mode = MouseTrack::XtMsex10;
     assert_eq!(mode.mouse_mode_number(), 9);
@@ -358,6 +367,7 @@ fn test_mouse_modes() {
     assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?9;2$y");
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?9;0$y");
     assert_eq!(mode.to_string(), "XtMsex10");
+    assert_eq!(mode.get_encoding(), MouseEncoding::X11);
 
     let mode = MouseTrack::XtMseX11;
     assert_eq!(mode.mouse_mode_number(), 1000);
@@ -366,6 +376,7 @@ fn test_mouse_modes() {
     assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1000;2$y");
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1000;0$y");
     assert_eq!(mode.to_string(), "XtMseX11");
+    assert_eq!(mode.get_encoding(), MouseEncoding::X11);
 
     let mode = MouseTrack::XtMseBtn;
     assert_eq!(mode.mouse_mode_number(), 1002);
@@ -374,6 +385,7 @@ fn test_mouse_modes() {
     assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1002;2$y");
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1002;0$y");
     assert_eq!(mode.to_string(), "XtMseBtn");
+    assert_eq!(mode.get_encoding(), MouseEncoding::X11);
 
     let mode = MouseTrack::XtMseAny;
     assert_eq!(mode.mouse_mode_number(), 1003);
@@ -382,6 +394,7 @@ fn test_mouse_modes() {
     assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1003;2$y");
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1003;0$y");
     assert_eq!(mode.to_string(), "XtMseAny");
+    assert_eq!(mode.get_encoding(), MouseEncoding::X11);
 
     let mode = MouseTrack::XtMseUtf;
     assert_eq!(mode.mouse_mode_number(), 1005);
@@ -390,6 +403,7 @@ fn test_mouse_modes() {
     assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1005;2$y");
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1005;0$y");
     assert_eq!(mode.to_string(), "XtMseUtf");
+    assert_eq!(mode.get_encoding(), MouseEncoding::X11);
 
     let mode = MouseTrack::XtMseSgr;
     assert_eq!(mode.mouse_mode_number(), 1006);
@@ -398,6 +412,7 @@ fn test_mouse_modes() {
     assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1006;2$y");
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1006;0$y");
     assert_eq!(mode.to_string(), "XtMseSgr");
+    assert_eq!(mode.get_encoding(), MouseEncoding::Sgr);
 
     let mode = MouseTrack::XtMseUrXvt;
     assert_eq!(mode.mouse_mode_number(), 1015);
@@ -406,6 +421,7 @@ fn test_mouse_modes() {
     assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1015;0$y");
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1015;0$y");
     assert_eq!(mode.to_string(), "XtMseUrXvt");
+    assert_eq!(mode.get_encoding(), MouseEncoding::X11);
 
     let mode = MouseTrack::XtMseSgrPixels;
     assert_eq!(mode.mouse_mode_number(), 1016);
@@ -414,6 +430,7 @@ fn test_mouse_modes() {
     assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1016;2$y");
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1016;0$y");
     assert_eq!(mode.to_string(), "XtMseSgrPixels");
+    assert_eq!(mode.get_encoding(), MouseEncoding::Sgr);
 
     let mode = MouseTrack::Query(9);
     assert_eq!(mode.mouse_mode_number(), 9);
@@ -422,4 +439,5 @@ fn test_mouse_modes() {
     assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?9;0$y");
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?9;0$y");
     assert_eq!(mode.to_string(), "Query Mouse Tracking(9)");
+    assert_eq!(mode.get_encoding(), MouseEncoding::X11);
 }

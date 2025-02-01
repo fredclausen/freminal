@@ -88,7 +88,7 @@ impl ReportMode for MouseTrack {
 impl MouseTrack {
     #[must_use]
     pub fn get_encoding(&self) -> MouseEncoding {
-        if self == &Self::XtMseSgr {
+        if self == &Self::XtMseSgr || self == &Self::XtMseSgrPixels {
             MouseEncoding::Sgr
         } else {
             MouseEncoding::X11
