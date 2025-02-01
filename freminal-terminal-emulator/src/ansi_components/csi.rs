@@ -23,7 +23,7 @@ use super::{
         send_device_attributes::ansi_parser_inner_csi_finished_send_da,
         sgr::ansi_parser_inner_csi_finished_sgr_ansi,
     },
-    mode::{terminal_mode_from_params, SetMode},
+    mode::{Mode, SetMode},
 };
 use crate::ansi::{ParserInner, TerminalOutput};
 use crate::error::ParserFailures;
@@ -161,14 +161,14 @@ impl AnsiCsiParser {
                 ansi_parser_inner_csi_finished_sgr_ansi(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'h') => {
-                output.push(TerminalOutput::Mode(terminal_mode_from_params(
+                output.push(TerminalOutput::Mode(Mode::terminal_mode_from_params(
                     &self.params,
                     &SetMode::DecSet,
                 )));
                 Ok(Some(ParserInner::Empty))
             }
             AnsiCsiParserState::Finished(b'l') => {
-                output.push(TerminalOutput::Mode(terminal_mode_from_params(
+                output.push(TerminalOutput::Mode(Mode::terminal_mode_from_params(
                     &self.params,
                     &SetMode::DecRst,
                 )));

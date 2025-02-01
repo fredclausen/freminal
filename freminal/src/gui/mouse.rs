@@ -8,7 +8,7 @@ use std::borrow::Cow;
 use conv::ConvUtil;
 use eframe::egui::{Modifiers, PointerButton, Vec2};
 use freminal_terminal_emulator::{
-    ansi_components::mode::{MouseEncoding, MouseTrack},
+    ansi_components::modes::mouse::{MouseEncoding, MouseTrack},
     interface::{collect_text, raw_ascii_bytes_to_terminal_input, TerminalInput},
 };
 

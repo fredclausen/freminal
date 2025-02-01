@@ -17,11 +17,11 @@ use crate::{
     ansi::{FreminalAnsiParser, TerminalOutput},
     ansi_components::{
         line_draw::DecSpecialGraphics,
-        mode::{Mode, MouseTrack, SetMode, TerminalModes},
+        mode::{Mode, SetMode, TerminalModes},
         modes::{
-            decawm::Decawm, decckm::Decckm, dectcem::Dectcem, rl_bracket::RlBracket,
-            sync_updates::SynchronizedUpdates, xtcblink::XtCBlink, xtextscrn::XtExtscrn,
-            xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
+            decawm::Decawm, decckm::Decckm, dectcem::Dectcem, mouse::MouseTrack,
+            rl_bracket::RlBracket, sync_updates::SynchronizedUpdates, xtcblink::XtCBlink,
+            xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
         },
         osc::{AnsiOscInternalType, AnsiOscType, UrlResponse},
         sgr::SelectGraphicRendition,

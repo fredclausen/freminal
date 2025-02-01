@@ -4,7 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::ansi::{ParserInner, TerminalOutput};
-use crate::ansi_components::mode::{terminal_mode_from_params, SetMode};
+use crate::ansi_components::mode::{Mode, SetMode};
 use crate::error::ParserFailures;
 use anyhow::Result;
 
@@ -24,17 +24,17 @@ pub fn ansi_parser_inner_csi_finished_decrqm(
 ) -> Result<Option<ParserInner>> {
     // if intermediates contains '$' then we are querying
     if intermediates.contains(&b'$') {
-        output.push(TerminalOutput::Mode(terminal_mode_from_params(
+        output.push(TerminalOutput::Mode(Mode::terminal_mode_from_params(
             params,
             &SetMode::DecQuery,
         )));
     } else if terminator == b'h' {
-        output.push(TerminalOutput::Mode(terminal_mode_from_params(
+        output.push(TerminalOutput::Mode(Mode::terminal_mode_from_params(
             params,
             &SetMode::DecSet,
         )));
     } else if terminator == b'l' {
-        output.push(TerminalOutput::Mode(terminal_mode_from_params(
+        output.push(TerminalOutput::Mode(Mode::terminal_mode_from_params(
             params,
             &SetMode::DecRst,
         )));
