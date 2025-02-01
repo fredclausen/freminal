@@ -51,7 +51,8 @@ impl MouseModeNumber for MouseTrack {
 impl ReportMode for MouseTrack {
     fn report(&self, override_mode: Option<SetMode>) -> String {
         let mode_number = match self {
-            Self::NoTracking | Self::Query(_) => 0,
+            Self::NoTracking => 0,
+            Self::Query(a) => *a,
             Self::XtMsex10 => 9,
             Self::XtMseX11 => 1000,
             Self::XtMseBtn => 1002,
@@ -63,9 +64,22 @@ impl ReportMode for MouseTrack {
         };
 
         let set_mode = match override_mode {
-            Some(SetMode::DecSet) => 1,
-            Some(SetMode::DecRst) => 2,
-            Some(SetMode::DecQuery) | None => 0,
+            Some(SetMode::DecSet) => i32::from(
+                *self != Self::NoTracking
+                    && *self != Self::Query(mode_number)
+                    && *self != Self::XtMseUrXvt,
+            ),
+            Some(SetMode::DecRst) | None => {
+                if *self == Self::NoTracking
+                    || *self == Self::Query(mode_number)
+                    || *self == Self::XtMseUrXvt
+                {
+                    0
+                } else {
+                    2
+                }
+            }
+            Some(SetMode::DecQuery) => 0,
         };
         format!("\x1b[?{mode_number};{set_mode}$y")
     }
