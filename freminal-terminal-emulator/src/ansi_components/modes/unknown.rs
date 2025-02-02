@@ -28,7 +28,7 @@ impl UnknownMode {
 impl ReportMode for UnknownMode {
     // FIXME: we may need to get specific about DEC vs ANSI here. For now....we'll just report DEC
     fn report(&self, _override_mode: Option<SetMode>) -> String {
-        format!("\x1b[?{};0;$y", self.params)
+        format!("\x1b[?{};0$y", self.params)
     }
 }
 

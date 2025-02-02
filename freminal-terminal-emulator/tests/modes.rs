@@ -4,7 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use freminal_terminal_emulator::ansi_components::{
-    mode::SetMode,
+    mode::{Mode, SetMode},
     modes::{
         decawm::Decawm,
         decckm::Decckm,
@@ -346,7 +346,7 @@ fn test_unknown_mode() {
     };
     assert_eq!(mode, expected);
     assert_eq!(mode.to_string(), "Unknown Mode(i)");
-    assert!(mode.report(None).contains("\x1b[?i;0;$y"));
+    assert!(mode.report(None).contains("\x1b[?i;0$y"));
 }
 
 #[test]
@@ -440,4 +440,34 @@ fn test_mouse_modes() {
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?9;0$y");
     assert_eq!(mode.to_string(), "Query Mouse Tracking(9)");
     assert_eq!(mode.get_encoding(), MouseEncoding::X11);
+}
+
+#[test]
+fn test_mode_none() {
+    let params = b"?0";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::Unknown(UnknownMode::new(b"0")));
+    assert_eq!(mode.report(None), "\x1b[?0;0$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?0;0$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?0;0$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?0;0$y");
+    assert_eq!(mode.to_string(), "Unknown Mode(0)");
+
+    let params = b"?1";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::Decckm(Decckm::Application));
+    assert_eq!(mode.report(None), "\x1b[?1;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?1;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1;0$y");
+    assert_eq!(mode.to_string(), "Cursor Key Mode (DECCKM) Application");
+
+    let params = b"?7";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::Decawm(Decawm::AutoWrap));
+    assert_eq!(mode.report(None), "\x1b[?7;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?7;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?7;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?7;0$y");
+    assert_eq!(mode.to_string(), "Autowrap Mode (DECAWM) Enabled");
 }

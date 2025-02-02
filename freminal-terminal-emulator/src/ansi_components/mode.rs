@@ -155,17 +155,17 @@ impl Mode {
             b"?2004" => Self::BracketedPaste(RlBracket::new(mode)),
             b"?2026" => Self::SynchronizedUpdates(SynchronizedUpdates::new(mode)),
             _ => {
-                if mode == &SetMode::DecQuery {
-                    let output_params = params
-                        .to_vec()
-                        .iter()
-                        .skip(usize::from(params[0] == b'?'))
-                        .copied()
-                        .collect::<Vec<u8>>();
+                let output_params = params
+                    .to_vec()
+                    .iter()
+                    .skip(usize::from(params[0] == b'?'))
+                    .copied()
+                    .collect::<Vec<u8>>();
 
+                if mode == &SetMode::DecQuery {
                     Self::UnknownQuery(output_params)
                 } else {
-                    Self::Unknown(UnknownMode::new(params))
+                    Self::Unknown(UnknownMode::new(&output_params))
                 }
             }
         }
