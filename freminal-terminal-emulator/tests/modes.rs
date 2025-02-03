@@ -483,6 +483,8 @@ fn test_mode_none() {
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?9;0$y");
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
     assert_eq!(mode, Mode::MouseMode(MouseTrack::NoTracking));
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::Query(9)));
 }
 
 #[test]
