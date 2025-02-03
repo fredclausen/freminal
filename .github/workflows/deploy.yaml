@@ -18,12 +18,19 @@ jobs:
           cargo install cargo-bundle
           cargo bundle --release
 
-      - name: Archive production artifacts
+      - name: Archive production artifacts debian
         uses: actions/upload-artifact@v4
         with:
-          name: LinuxAMD64
+          name: LinuxAMD64 Debian
           path: |
             target/release/bundle/deb/*.deb
+
+      - name: Archive production artifacts executable only
+        uses: actions/upload-artifact@v4
+        with:
+          name: LinuxAMD64 Executable
+          path: |
+            target/release/freminal
 
   deploy_linux_arm:
     name: Bundle Linux ARM64
@@ -45,6 +52,13 @@ jobs:
           path: |
             target/release/bundle/deb/*.deb
 
+      - name: Archive production artifacts executable only
+        uses: actions/upload-artifact@v4
+        with:
+          name: LinuxARM64 Executable
+          path: |
+            target/release/freminal
+
   deploy_windows:
     name: Bundle Windows
     runs-on: windows-latest
@@ -55,15 +69,16 @@ jobs:
       - name: Bundle
         uses: dtolnay/rust-toolchain@stable
       - run: |
-          cargo install cargo-bundle
-          cargo bundle --release
+          # cargo install cargo-bundle
+          # cargo bundle --release
+          cargo build --release
 
-      - name: Archive production artifacts
+      - name: Archive production artifacts executable only
         uses: actions/upload-artifact@v4
         with:
-          name: Windows
+          name: Windows Executable
           path: |
-            target/release/bundle/windows/*
+            target/release/freminal.exe
 
   # deploy_mac:
   #   name: Bundle Mac
