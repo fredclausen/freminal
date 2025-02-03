@@ -498,6 +498,129 @@ fn test_mode_none() {
     assert_eq!(mode, Mode::Dectem(Dectcem::Hide));
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
     assert_eq!(mode, Mode::Dectem(Dectcem::Query));
+
+    let params = b"?1000";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::XtMseX11));
+    assert_eq!(mode.report(None), "\x1b[?1000;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?1000;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1000;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1000;0$y");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::NoTracking));
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::Query(1000)));
+
+    let params = b"?1002";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::XtMseBtn));
+    assert_eq!(mode.report(None), "\x1b[?1002;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?1002;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1002;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1002;0$y");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::NoTracking));
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::Query(1002)));
+
+    let params = b"?1003";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::XtMseAny));
+    assert_eq!(mode.report(None), "\x1b[?1003;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?1003;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1003;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1003;0$y");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::NoTracking));
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::Query(1003)));
+
+    let params = b"?1004";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::XtMseWin(XtMseWin::Enabled));
+    assert_eq!(mode.report(None), "\x1b[?1004;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?1004;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1004;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1004;0$y");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::XtMseWin(XtMseWin::Disabled));
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::XtMseWin(XtMseWin::Query));
+
+    let params = b"?1005";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::XtMseUtf));
+    assert_eq!(mode.report(None), "\x1b[?1005;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?1005;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1005;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1005;0$y");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::NoTracking));
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::Query(1005)));
+
+    let params = b"?1006";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::XtMseSgr));
+    assert_eq!(mode.report(None), "\x1b[?1006;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?1006;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1006;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1006;0$y");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::NoTracking));
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::Query(1006)));
+
+    let params = b"?1016";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::XtMseSgrPixels));
+    assert_eq!(mode.report(None), "\x1b[?1016;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?1016;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1016;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1016;0$y");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::NoTracking));
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::Query(1016)));
+
+    let params = b"?1049";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::XtExtscrn(XtExtscrn::Alternate));
+    assert_eq!(mode.report(None), "\x1b[?1049;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?1049;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1049;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1049;0$y");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::XtExtscrn(XtExtscrn::Primary));
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::XtExtscrn(XtExtscrn::Query));
+
+    let params = b"?2004";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::BracketedPaste(RlBracket::Enabled));
+    assert_eq!(mode.report(None), "\x1b[?2004;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?2004;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?2004;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?2004;0$y");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::BracketedPaste(RlBracket::Disabled));
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::BracketedPaste(RlBracket::Query));
+
+    let params = b"?2026";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(
+        mode,
+        Mode::SynchronizedUpdates(SynchronizedUpdates::DontDraw)
+    );
+    assert_eq!(mode.report(None), "\x1b[?2026;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?2026;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?2026;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?2026;0$y");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::SynchronizedUpdates(SynchronizedUpdates::Draw));
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::SynchronizedUpdates(SynchronizedUpdates::Query));
 }
 
 #[test]
