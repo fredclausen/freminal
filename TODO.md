@@ -14,10 +14,13 @@
 
 Initial release version. It will be functional, but certainly not feature complete. And perhaps more importantly, it will not be as performant as I'd like.
 
+The below list is not a complete list of all completed tasks. It's a reflection of all the tasks that I can think of that are not completed when I created this document.
+
 - [ ] Test suite 100% coverage on `freminal-terminal-emulator/src/ansi_components`
 - [ ] Pass validation of [vttest](http://invisible-island.net/vttest/)
 - [ ] Pass validation of [wraptest](https://github.com/mattiase/wraptest)
 - [ ] Complete [Supported Control Codes](SUPPORTED_CONTROL_CODES.md)
+- [ ] Adjust mouse mode to include all active mouse modes
 - [ ] GitHub CI action to build/publish executables
   - [ ] MacOS
     - [ ] Code Sign MacOS
