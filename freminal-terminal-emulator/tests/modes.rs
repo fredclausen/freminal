@@ -471,3 +471,15 @@ fn test_mode_none() {
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?7;0$y");
     assert_eq!(mode.to_string(), "Autowrap Mode (DECAWM) Enabled");
 }
+
+#[test]
+fn test_display_mode_for_setmode() {
+    let mode = SetMode::DecSet;
+    assert_eq!(mode.to_string(), "Mode Set");
+
+    let mode = SetMode::DecRst;
+    assert_eq!(mode.to_string(), "Mode Reset");
+
+    let mode = SetMode::DecQuery;
+    assert_eq!(mode.to_string(), "Mode Query");
+}
