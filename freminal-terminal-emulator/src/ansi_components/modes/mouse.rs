@@ -69,6 +69,9 @@ impl ReportMode for MouseTrack {
                     && *self != Self::Query(mode_number)
                     && *self != Self::XtMseUrXvt,
             ),
+            // The way the callers for this should call with None, and we should never hit the None Case.
+            // Just in case, because maybe I am stupid and have this broken somewhere
+            // we'll treat the None case as a Reset.
             Some(SetMode::DecRst) | None => {
                 if *self == Self::NoTracking
                     || *self == Self::Query(mode_number)

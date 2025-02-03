@@ -470,6 +470,16 @@ fn test_mode_none() {
     assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?7;2$y");
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?7;0$y");
     assert_eq!(mode.to_string(), "Autowrap Mode (DECAWM) Enabled");
+
+    let params = b"?9";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::XtMsex10));
+    assert_eq!(mode.report(None), "\x1b[?9;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?9;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?9;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?9;0$y");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::MouseMode(MouseTrack::NoTracking));
 }
 
 #[test]
