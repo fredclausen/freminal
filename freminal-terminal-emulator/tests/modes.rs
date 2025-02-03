@@ -486,6 +486,18 @@ fn test_mode_none() {
     assert_eq!(mode, Mode::MouseMode(MouseTrack::NoTracking));
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
     assert_eq!(mode, Mode::MouseMode(MouseTrack::Query(9)));
+
+    let params = b"?25";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::Dectem(Dectcem::Show));
+    assert_eq!(mode.report(None), "\x1b[?25;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?25;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?25;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?25;0$y");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::Dectem(Dectcem::Hide));
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::Dectem(Dectcem::Query));
 }
 
 #[test]
