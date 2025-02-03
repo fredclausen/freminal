@@ -104,7 +104,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # TODO: We want to eventually support linux ARM64, but for now that is not supported by
+        # rust-toolchain.
+        os: [ubuntu-latest, windows-latest, macos-latest, ubuntu-24.04-arm]
+        # We target 1.82.0 because it is the minimum supported version of Rust. If that build fails, or we rely on language features
+        # added in later versions, we'll have to bump the minimum version of rust.
         toolchain: ["1.82.0", "stable", "nightly"]
     runs-on: ${{ matrix.os }}
     steps:
