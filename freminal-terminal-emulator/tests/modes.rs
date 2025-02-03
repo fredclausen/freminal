@@ -453,6 +453,9 @@ fn test_mode_none() {
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?0;0$y");
     assert_eq!(mode.to_string(), "Unknown Mode(0)");
 
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::UnknownQuery(vec![48]));
+
     let params = b"?1";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
     assert_eq!(mode, Mode::Decckm(Decckm::Application));
