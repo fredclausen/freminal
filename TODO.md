@@ -22,6 +22,8 @@ Initial release version. It will be functional, but certainly not feature comple
   - [ ] MacOS
     - [ ] Code Sign MacOS
   - [ ] Linux
+    - [x] AMD64
+    - [x] ARM64
   - [ ] Windows
   - [ ] Tag on manual build
   - [ ] Auto publish pre-release builds
