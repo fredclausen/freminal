@@ -73,6 +73,9 @@ jobs:
           # cargo bundle --release
           cargo build --release
 
+      # FIXME: https://github.com/burtonageo/cargo-bundle/issues/77
+      # we can't bundle windows yet
+
       - name: Archive production artifacts executable only
         uses: actions/upload-artifact@v4
         with:
