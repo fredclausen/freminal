@@ -21,8 +21,8 @@ use freminal_terminal_emulator::{
 
 use eframe::egui::{
     self, scroll_area::ScrollBarVisibility, text::LayoutJob, Color32, Context, CursorIcon,
-    DragValue, Event, InputState, Key, Modifiers, OpenUrl, PointerButton, Pos2, Rect, Stroke,
-    TextFormat, TextStyle, Ui,
+    DragValue, Event, InputState, Key, Modifiers, OpenUrl, OutputCommand, PointerButton, Pos2,
+    Rect, Stroke, TextFormat, TextStyle, Ui,
 };
 
 use super::{
@@ -867,7 +867,7 @@ impl FreminalTerminalWidget {
         ui: &mut Ui,
         terminal_emulator: &mut TerminalEmulator<Io>,
     ) {
-        let frame_response = egui::Frame::none().show(ui, |ui| {
+        let frame_response = egui::Frame::new().show(ui, |ui| {
             // if the previous font size is None, or the font size has changed, we need to update the font size
             if self.previous_font_size.is_none()
                 || (self.previous_font_size.unwrap_or_default() - self.font_size).abs()
@@ -965,10 +965,10 @@ impl FreminalTerminalWidget {
                     if left_mouse_button_pressed {
                         ui.ctx().output_mut(|output| {
                             output.cursor_icon = CursorIcon::Wait;
-                            output.open_url = Some(OpenUrl {
+                            output.commands.push(OutputCommand::OpenUrl(OpenUrl {
                                 url: url.to_string(),
                                 new_tab: true,
-                            });
+                            }));
                         });
                     } else {
                         ui.ctx().output_mut(|output| {
