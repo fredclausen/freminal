@@ -603,6 +603,7 @@ fn test_osc_response() {
         output[0],
         TerminalOutput::OscResponse(AnsiOscType::Url(UrlResponse::End))
     );
+    assert_eq!(output[0].to_string(), "OscResponse(Url(End))");
 
     let mut output_buffer = FreminalAnsiParser::new();
     let output = output_buffer.push(b"\x1b]8;;url\x07");
