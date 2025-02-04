@@ -12,7 +12,7 @@ use freminal_terminal_emulator::{
         csi::{AnsiCsiParser, AnsiCsiParserState},
         mode::{Mode, SetMode},
         modes::{decckm::Decckm, unknown::UnknownMode},
-        osc::{AnsiOscInternalType, AnsiOscType, Url, UrlResponse},
+        osc::{AnsiOscInternalType, AnsiOscParser, AnsiOscType, Url, UrlResponse},
         sgr::SelectGraphicRendition,
     },
 };
@@ -671,6 +671,12 @@ fn test_osc_response() {
         TerminalOutput::OscResponse(AnsiOscType::Ftcs("test".to_string()))
     );
     assert_eq!(output[0].to_string(), "OscResponse(Ftcs (\"test\"))");
+}
+
+#[test]
+fn test_ansioscparserdefault() {
+    let osc = AnsiOscParser::default();
+    assert_eq!(osc, AnsiOscParser::new());
 }
 
 #[test]
