@@ -620,6 +620,21 @@ fn test_osc_response() {
         "OscResponse(Url(Url(Url { id: None, url: url })))"
     );
 
+    let mut output_buffer = FreminalAnsiParser::new();
+    let output = output_buffer.push(b"\x1b]8;id;url\x07");
+    assert_eq!(output.len(), 1);
+    assert_eq!(
+        output[0],
+        TerminalOutput::OscResponse(AnsiOscType::Url(UrlResponse::Url(Url {
+            url: "url".to_string(),
+            id: Some("id".to_string())
+        })))
+    );
+    assert_eq!(
+        output[0].to_string(),
+        "OscResponse(Url(Url(Url { id: id, url: url })))"
+    );
+
     // test the foreground color query
     let output = output_buffer.push(b"\x1b]10;?\x07");
     assert_eq!(output.len(), 1);
