@@ -564,13 +564,60 @@ fn test_osc_response() {
         output[0],
         TerminalOutput::OscResponse(AnsiOscType::SetTitleBar("test".to_string()))
     );
+    assert_eq!(output[0].to_string(), "OscResponse(SetTitleBar(\"test\"))");
 
-    // test the FTCS
-    let output = output_buffer.push(b"\x1b]133;test\x07");
+    let mut output_buffer = FreminalAnsiParser::new();
+    let output = output_buffer.push(b"\x1b]2;test\x07");
     assert_eq!(output.len(), 1);
     assert_eq!(
         output[0],
-        TerminalOutput::OscResponse(AnsiOscType::Ftcs("test".to_string()))
+        TerminalOutput::OscResponse(AnsiOscType::SetTitleBar("test".to_string()))
+    );
+
+    let mut output_buffer = FreminalAnsiParser::new();
+    let output = output_buffer.push(b"\x1b]1;test\x07");
+    assert_eq!(output.len(), 1);
+    assert_eq!(
+        output[0],
+        TerminalOutput::OscResponse(AnsiOscType::SetTitleBar("test".to_string()))
+    );
+
+    let mut output_buffer = FreminalAnsiParser::new();
+    let output = output_buffer.push(b"\x1b]3;test;test\x07");
+    assert_eq!(output.len(), 1);
+    assert_eq!(output[0], TerminalOutput::Invalid);
+
+    let mut output_buffer = FreminalAnsiParser::new();
+    let output = output_buffer.push(b"\x1b]7;test\x07");
+    assert_eq!(output.len(), 1);
+    assert_eq!(
+        output[0],
+        TerminalOutput::OscResponse(AnsiOscType::RemoteHost("test".to_string()))
+    );
+    assert_eq!(output[0].to_string(), "OscResponse(RemoteHost (\"test\"))");
+
+    // let mut output_buffer = FreminalAnsiParser::new();
+    // let output = output_buffer.push(b"\x1b]8;;test\x07");
+    // assert_eq!(output.len(), 1);
+    // assert_eq!(
+    //     output[0],
+    //     TerminalOutput::OscResponse(AnsiOscType::Url(
+    //         UrlResponse::from
+    //     ))
+    // );
+
+    // test the foreground color query
+    let output = output_buffer.push(b"\x1b]10;?\x07");
+    assert_eq!(output.len(), 1);
+    assert_eq!(
+        output[0],
+        TerminalOutput::OscResponse(AnsiOscType::RequestColorQueryForeground(
+            AnsiOscInternalType::Query
+        ))
+    );
+    assert_eq!(
+        output[0].to_string(),
+        "OscResponse(RequestColorQueryForeground(Query))"
     );
 
     // test the background color query
@@ -582,16 +629,19 @@ fn test_osc_response() {
             AnsiOscInternalType::Query
         ))
     );
+    assert_eq!(
+        output[0].to_string(),
+        "OscResponse(RequestColorQueryBackground(Query))"
+    );
 
-    // test the foreground color query
-    let output = output_buffer.push(b"\x1b]10;?\x07");
+    // test the FTCS
+    let output = output_buffer.push(b"\x1b]133;test\x07");
     assert_eq!(output.len(), 1);
     assert_eq!(
         output[0],
-        TerminalOutput::OscResponse(AnsiOscType::RequestColorQueryForeground(
-            AnsiOscInternalType::Query
-        ))
+        TerminalOutput::OscResponse(AnsiOscType::Ftcs("test".to_string()))
     );
+    assert_eq!(output[0].to_string(), "OscResponse(Ftcs (\"test\"))");
 }
 
 #[test]
