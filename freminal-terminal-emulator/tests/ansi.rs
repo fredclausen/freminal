@@ -12,7 +12,7 @@ use freminal_terminal_emulator::{
         csi::{AnsiCsiParser, AnsiCsiParserState},
         mode::{Mode, SetMode},
         modes::{decckm::Decckm, unknown::UnknownMode},
-        osc::{AnsiOscInternalType, AnsiOscType},
+        osc::{AnsiOscInternalType, AnsiOscType, Url, UrlResponse},
         sgr::SelectGraphicRendition,
     },
 };
@@ -596,15 +596,28 @@ fn test_osc_response() {
     );
     assert_eq!(output[0].to_string(), "OscResponse(RemoteHost (\"test\"))");
 
-    // let mut output_buffer = FreminalAnsiParser::new();
-    // let output = output_buffer.push(b"\x1b]8;;test\x07");
-    // assert_eq!(output.len(), 1);
-    // assert_eq!(
-    //     output[0],
-    //     TerminalOutput::OscResponse(AnsiOscType::Url(
-    //         UrlResponse::from
-    //     ))
-    // );
+    let mut output_buffer = FreminalAnsiParser::new();
+    let output = output_buffer.push(b"\x1b]8;;\x07");
+    assert_eq!(output.len(), 1);
+    assert_eq!(
+        output[0],
+        TerminalOutput::OscResponse(AnsiOscType::Url(UrlResponse::End))
+    );
+
+    let mut output_buffer = FreminalAnsiParser::new();
+    let output = output_buffer.push(b"\x1b]8;;url\x07");
+    assert_eq!(output.len(), 1);
+    assert_eq!(
+        output[0],
+        TerminalOutput::OscResponse(AnsiOscType::Url(UrlResponse::Url(Url {
+            url: "url".to_string(),
+            id: None
+        })))
+    );
+    assert_eq!(
+        output[0].to_string(),
+        "OscResponse(Url(Url(Url { id: None, url: url })))"
+    );
 
     // test the foreground color query
     let output = output_buffer.push(b"\x1b]10;?\x07");
@@ -642,6 +655,18 @@ fn test_osc_response() {
         TerminalOutput::OscResponse(AnsiOscType::Ftcs("test".to_string()))
     );
     assert_eq!(output[0].to_string(), "OscResponse(Ftcs (\"test\"))");
+}
+
+#[test]
+fn test_osc_internal_type() {
+    let osc = AnsiOscInternalType::Query;
+    assert_eq!(format!("{osc}"), "Query");
+
+    let osc = AnsiOscInternalType::String("test".to_string());
+    assert_eq!(format!("{osc}"), "test");
+
+    let osc = AnsiOscInternalType::Unknown(None);
+    assert_eq!(format!("{osc}"), "Unknown(None)");
 }
 
 #[test]
