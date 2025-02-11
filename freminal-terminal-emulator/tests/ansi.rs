@@ -256,14 +256,14 @@ fn test_mode_parsing() {
     assert_eq!(output.len(), 1);
     assert_eq!(
         output[0],
-        TerminalOutput::Mode(Mode::Unknown(UnknownMode::new(b"1")))
+        TerminalOutput::Mode(Mode::Unknown(UnknownMode::new(b"1", SetMode::DecSet)))
     );
 
     let output = output_buffer.push(b"\x1b[1l");
     assert_eq!(output.len(), 1);
     assert_eq!(
         output[0],
-        TerminalOutput::Mode(Mode::Unknown(UnknownMode::new(b"1")))
+        TerminalOutput::Mode(Mode::Unknown(UnknownMode::new(b"1", SetMode::DecRst)))
     );
 
     let output = output_buffer.push(b"\x1b[?1l");

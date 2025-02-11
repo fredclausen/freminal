@@ -917,7 +917,7 @@ impl TerminalState {
                 self.report_mode(&mode.report(None));
             }
             Mode::Unknown(_) => {
-                warn!("unhandled set mode: {mode}");
+                warn!("unhandled mode: {mode}");
             }
         }
     }

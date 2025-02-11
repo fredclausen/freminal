@@ -340,12 +340,13 @@ fn test_xtmsewin() {
 
 #[test]
 fn test_unknown_mode() {
-    let mode = UnknownMode::new(&[0x69]);
+    let mode = UnknownMode::new(&[0x69], SetMode::DecSet);
     let expected = UnknownMode {
         params: "i".to_string(),
+        mode: SetMode::DecSet,
     };
     assert_eq!(mode, expected);
-    assert_eq!(mode.to_string(), "Unknown Mode(i)");
+    assert_eq!(mode.to_string(), "Mode Set Unknown Mode(i)");
     assert!(mode.report(None).contains("\x1b[?i;0$y"));
 }
 
@@ -446,12 +447,12 @@ fn test_mouse_modes() {
 fn test_mode_none() {
     let params = b"?0";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
-    assert_eq!(mode, Mode::Unknown(UnknownMode::new(b"0")));
+    assert_eq!(mode, Mode::Unknown(UnknownMode::new(b"0", SetMode::DecSet)));
     assert_eq!(mode.report(None), "\x1b[?0;0$y");
     assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?0;0$y");
     assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?0;0$y");
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?0;0$y");
-    assert_eq!(mode.to_string(), "Unknown Mode(0)");
+    assert_eq!(mode.to_string(), "Mode Set Unknown Mode(0)");
 
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
     assert_eq!(mode, Mode::UnknownQuery(vec![48]));

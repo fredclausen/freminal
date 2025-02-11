@@ -12,15 +12,17 @@ use super::ReportMode;
 #[derive(Debug, Eq, PartialEq)]
 pub struct UnknownMode {
     pub params: String,
+    pub mode: SetMode,
 }
 
 impl UnknownMode {
     #[must_use]
-    pub fn new(params: &[u8]) -> Self {
+    pub fn new(params: &[u8], set_mode: SetMode) -> Self {
         let params_s = std::str::from_utf8(params).unwrap_or("Unknown");
 
         Self {
             params: params_s.to_string(),
+            mode: set_mode,
         }
     }
 }
@@ -34,6 +36,6 @@ impl ReportMode for UnknownMode {
 
 impl fmt::Display for UnknownMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Unknown Mode({})", self.params)
+        write!(f, "{} Unknown Mode({})", self.mode, self.params)
     }
 }

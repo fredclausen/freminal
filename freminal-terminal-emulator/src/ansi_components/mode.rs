@@ -12,7 +12,7 @@ use super::modes::{
 };
 
 #[allow(clippy::module_name_repetitions)]
-#[derive(Debug, Eq, PartialEq, Default)]
+#[derive(Debug, Eq, PartialEq, Default, Clone)]
 pub enum SetMode {
     DecSet,
     #[default]
@@ -165,7 +165,7 @@ impl Mode {
                 if mode == &SetMode::DecQuery {
                     Self::UnknownQuery(output_params)
                 } else {
-                    Self::Unknown(UnknownMode::new(&output_params))
+                    Self::Unknown(UnknownMode::new(&output_params, mode.clone()))
                 }
             }
         }
