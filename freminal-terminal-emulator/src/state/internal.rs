@@ -922,6 +922,9 @@ impl TerminalState {
             Mode::DecColm(deccolm) => {
                 warn!("Received DECCOLM({deccolm}), but it's not supported");
             }
+            Mode::Decsclm(decsclm) => {
+                warn!("Received DECSCLM({decsclm}), but it's not supported");
+            }
         }
     }
 

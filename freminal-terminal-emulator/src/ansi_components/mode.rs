@@ -6,9 +6,9 @@
 use std::fmt;
 
 use super::modes::{
-    decawm::Decawm, decckm::Decckm, deccolm::Deccolm, dectcem::Dectcem, mouse::MouseTrack,
-    rl_bracket::RlBracket, sync_updates::SynchronizedUpdates, unknown::UnknownMode,
-    xtcblink::XtCBlink, xtextscrn::XtExtscrn, xtmsewin::XtMseWin, ReportMode,
+    decawm::Decawm, decckm::Decckm, deccolm::Deccolm, decsclm::Decsclm, dectcem::Dectcem,
+    mouse::MouseTrack, rl_bracket::RlBracket, sync_updates::SynchronizedUpdates,
+    unknown::UnknownMode, xtcblink::XtCBlink, xtextscrn::XtExtscrn, xtmsewin::XtMseWin, ReportMode,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -48,6 +48,7 @@ pub enum Mode {
     Decawm(Decawm),
     Dectem(Dectcem),
     DecColm(Deccolm),
+    Decsclm(Decsclm),
     XtCBlink(XtCBlink),
     XtExtscrn(XtExtscrn),
     XtMseWin(XtMseWin),
@@ -65,6 +66,7 @@ impl Mode {
             // https://vt100.net/docs/vt510-rm/DECCKM.html
             b"?1" => Self::Decckm(Decckm::new(mode)),
             b"?3" => Self::DecColm(Deccolm::new(mode)),
+            b"?4" => Self::Decsclm(Decsclm::new(mode)),
             b"?7" => Self::Decawm(Decawm::new(mode)),
             // TODO: Implement this
             b"?9" => {
@@ -179,6 +181,7 @@ impl ReportMode for Mode {
         match self {
             Self::Decckm(decckm) => decckm.report(override_mode),
             Self::DecColm(deccolm) => deccolm.report(override_mode),
+            Self::Decsclm(decsclm) => decsclm.report(override_mode),
             Self::Decawm(decawm) => decawm.report(override_mode),
             Self::Dectem(dectem) => dectem.report(override_mode),
             Self::XtCBlink(xt_cblink) => xt_cblink.report(override_mode),
@@ -203,6 +206,7 @@ impl fmt::Display for Mode {
             Self::Decckm(decckm) => write!(f, "{decckm}"),
             Self::Decawm(decawm) => write!(f, "{decawm}"),
             Self::Dectem(dectem) => write!(f, "{dectem}"),
+            Self::Decsclm(decsclm) => write!(f, "{decsclm}"),
             Self::DecColm(deccolm) => write!(f, "{deccolm}"),
             Self::XtCBlink(xt_cblink) => write!(f, "{xt_cblink}"),
             Self::MouseMode(mouse_mode) => write!(f, "{mouse_mode}"),

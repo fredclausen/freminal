@@ -8,6 +8,7 @@ use super::mode::SetMode;
 pub mod decawm;
 pub mod decckm;
 pub mod deccolm;
+pub mod decsclm;
 pub mod dectcem;
 pub mod mouse;
 pub mod rl_bracket;
