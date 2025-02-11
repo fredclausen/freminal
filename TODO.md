@@ -4,7 +4,7 @@
 
 - [ ] freminal-common to 100% testing Code Coverage\*
 - [ ] freminal-terminal-emulator to 100% testing Code Coverage\*
-- [ ] Remove custom portable-pty/filedescriptor from the freminal repo and go back to using the one from crates.io\*\*
+- [x] Remove custom portable-pty/filedescriptor from the freminal repo and go back to using the one from crates.io\*\*
 
 \* Please see the [Code Coverage](https://codecov.io/gh/fredclausen/freminal) for the current status.
 
@@ -23,7 +23,7 @@ The below list is not a complete list of all completed tasks. It's a reflection 
 - [ ] Adjust mouse mode to include all active mouse modes
 - [ ] GitHub CI action to build/publish executables
   - [ ] MacOS
-    - [ ] Code Sign MacOS
+    - [ ] Code Sign macOS
   - [ ] Linux
     - [x] AMD64
     - [x] ARM64

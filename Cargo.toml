@@ -1,19 +1,6 @@
 [workspace]
-members = [
-  "filedescriptor",
-  "freminal",
-  "freminal-common",
-  "freminal-terminal-emulator",
-  "portable-pty",
-  "xtask",
-]
-default-members = [
-  "filedescriptor",
-  "freminal",
-  "freminal-common",
-  "freminal-terminal-emulator",
-  "portable-pty",
-]
+members = ["freminal", "freminal-common", "freminal-terminal-emulator", "xtask"]
+default-members = ["freminal", "freminal-common", "freminal-terminal-emulator"]
 resolver = "2"
 
 [workspace.package]
@@ -53,7 +40,7 @@ egui = { version = "0.31.0", default-features = false, features = [
   "log",
 ] }
 parking_lot = "0.12.3"
-# portable-pty = "0.8.1"
+portable-pty = "0.9.0"
 tar = "0.4.43"
 thiserror = "2.0.11"
 tracing = "0.1.41"
@@ -66,32 +53,3 @@ tracing-subscriber = { version = "0.3.19", features = [
 unicode-segmentation = "1.12.0"
 test-log = { version = "0.2.17", features = ["trace"] }
 tempfile = "3.16.0"
-
-# added for portable pty
-downcast-rs = "2.0.1"
-log = "0.4.25"
-libc = "0.2.169"
-nix = { version = "0.29.0", features = ["term", "fs"] }
-shell-words = "1.1.0"
-# serde_derive = "1.0.217"
-# serde = "1.0.217"
-serial2 = "0.2.28"
-# added for portable pty windows
-bitflags = "2.8.0"
-lazy_static = "1.5.0"
-shared_library = "0.1.9"
-winapi = { version = "0.3.9", features = [
-  "winuser",
-  "consoleapi",
-  "handleapi",
-  "fileapi",
-  "namedpipeapi",
-  "synchapi",
-  "processthreadsapi",
-  "winsock2",
-  "processenv",
-] }
-winreg = "0.55.0"
-# added for portable pty dev
-smol = "2.0.2"
-futures = "0.3.31"

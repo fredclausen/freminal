@@ -19,7 +19,7 @@ freminal-common = { path = "../freminal-common" }
 thiserror.workspace = true
 tracing.workspace = true
 unicode-segmentation.workspace = true
-portable-pty = { path = "../portable-pty" }
+portable-pty.workspace = true
 conv.workspace = true
 tempfile.workspace = true
 tar.workspace = true
