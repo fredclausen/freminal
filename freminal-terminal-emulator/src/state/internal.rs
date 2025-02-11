@@ -919,6 +919,9 @@ impl TerminalState {
             Mode::Unknown(_) => {
                 warn!("unhandled mode: {mode}");
             }
+            Mode::DecColm(deccolm) => {
+                warn!("Received DECCOLM({deccolm}), but it's not supported");
+            }
         }
     }
 

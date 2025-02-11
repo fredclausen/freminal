@@ -6,9 +6,9 @@
 use std::fmt;
 
 use super::modes::{
-    decawm::Decawm, decckm::Decckm, dectcem::Dectcem, mouse::MouseTrack, rl_bracket::RlBracket,
-    sync_updates::SynchronizedUpdates, unknown::UnknownMode, xtcblink::XtCBlink,
-    xtextscrn::XtExtscrn, xtmsewin::XtMseWin, ReportMode,
+    decawm::Decawm, decckm::Decckm, deccolm::Deccolm, dectcem::Dectcem, mouse::MouseTrack,
+    rl_bracket::RlBracket, sync_updates::SynchronizedUpdates, unknown::UnknownMode,
+    xtcblink::XtCBlink, xtextscrn::XtExtscrn, xtmsewin::XtMseWin, ReportMode,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -47,6 +47,7 @@ pub enum Mode {
     Decckm(Decckm),
     Decawm(Decawm),
     Dectem(Dectcem),
+    DecColm(Deccolm),
     XtCBlink(XtCBlink),
     XtExtscrn(XtExtscrn),
     XtMseWin(XtMseWin),
@@ -63,6 +64,7 @@ impl Mode {
         match params {
             // https://vt100.net/docs/vt510-rm/DECCKM.html
             b"?1" => Self::Decckm(Decckm::new(mode)),
+            b"?3" => Self::DecColm(Deccolm::new(mode)),
             b"?7" => Self::Decawm(Decawm::new(mode)),
             // TODO: Implement this
             b"?9" => {
@@ -176,6 +178,7 @@ impl ReportMode for Mode {
     fn report(&self, override_mode: Option<SetMode>) -> String {
         match self {
             Self::Decckm(decckm) => decckm.report(override_mode),
+            Self::DecColm(deccolm) => deccolm.report(override_mode),
             Self::Decawm(decawm) => decawm.report(override_mode),
             Self::Dectem(dectem) => dectem.report(override_mode),
             Self::XtCBlink(xt_cblink) => xt_cblink.report(override_mode),
@@ -200,6 +203,7 @@ impl fmt::Display for Mode {
             Self::Decckm(decckm) => write!(f, "{decckm}"),
             Self::Decawm(decawm) => write!(f, "{decawm}"),
             Self::Dectem(dectem) => write!(f, "{dectem}"),
+            Self::DecColm(deccolm) => write!(f, "{deccolm}"),
             Self::XtCBlink(xt_cblink) => write!(f, "{xt_cblink}"),
             Self::MouseMode(mouse_mode) => write!(f, "{mouse_mode}"),
             Self::XtMseWin(xt_mse_win) => write!(f, "{xt_mse_win}"),
