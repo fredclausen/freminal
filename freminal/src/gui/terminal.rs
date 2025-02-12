@@ -67,11 +67,10 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     let mut left_mouse_button_pressed = false;
 
     for event in &input.raw.events {
-        debug!("event: {:?}", event);
+        info!("event: {:?}", event);
         let inputs: Cow<'static, [TerminalInput]> = match event {
             // FIXME: We don't support separating out numpad vs regular keys
             // This is an egui issue. See: https://github.com/emilk/egui/issues/3653
-            Event::Text(text) => collect_text(text),
             Event::Key {
                 key: Key::Enter,
                 pressed: true,
@@ -164,6 +163,24 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 pressed: true,
                 ..
             } => [TerminalInput::Escape].as_ref().into(),
+            Event::Key {
+                key,
+                modifiers,
+                pressed: true,
+                repeat: _repeat,
+                ..
+            } => {
+                // ensure alt/ctl/mac_cmd/command are not pressed
+                if modifiers.ctrl || modifiers.alt || modifiers.mac_cmd || modifiers.command {
+                    continue;
+                }
+
+                if let Some(text) = key_event_to_text(*key, *modifiers) {
+                    collect_text(&text)
+                } else {
+                    continue;
+                }
+            }
             Event::Paste(text) => {
                 let bracked_paste_mode = terminal_emulator.internal.modes.bracketed_paste.clone();
                 if bracked_paste_mode == RlBracket::Enabled {
@@ -317,6 +334,167 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     }
 
     (left_mouse_button_pressed, last_reported_mouse_pos)
+}
+
+#[allow(clippy::too_many_lines)]
+fn key_event_to_text(key: Key, modifiers: Modifiers) -> Option<String> {
+    // make sure the event is a key event
+
+    match key {
+        Key::A
+        | Key::B
+        | Key::C
+        | Key::D
+        | Key::E
+        | Key::F
+        | Key::G
+        | Key::H
+        | Key::I
+        | Key::J
+        | Key::K
+        | Key::L
+        | Key::M
+        | Key::N
+        | Key::O
+        | Key::P
+        | Key::Q
+        | Key::R
+        | Key::S
+        | Key::T
+        | Key::U
+        | Key::V
+        | Key::W
+        | Key::X
+        | Key::Y
+        | Key::Z => {
+            if modifiers.shift {
+                Some(key.symbol_or_name().to_uppercase())
+            } else {
+                Some(key.symbol_or_name().to_lowercase())
+            }
+        }
+        Key::Space
+        | Key::Colon
+        | Key::Backslash
+        | Key::Slash
+        | Key::Pipe
+        | Key::Questionmark
+        | Key::Exclamationmark
+        | Key::OpenBracket
+        | Key::CloseBracket
+        | Key::OpenCurlyBracket
+        | Key::CloseCurlyBracket
+        | Key::Plus
+        | Key::Equals
+        | Key::Semicolon => Some(key.symbol_or_name().to_string()),
+        Key::Period => {
+            if modifiers.shift {
+                Some(">".to_string())
+            } else {
+                Some(".".to_string())
+            }
+        }
+        Key::Comma => {
+            if modifiers.shift {
+                Some("<".to_string())
+            } else {
+                Some(",".to_string())
+            }
+        }
+        Key::Quote => {
+            if modifiers.shift {
+                Some("\"".to_string())
+            } else {
+                Some("'".to_string())
+            }
+        }
+        Key::Minus => {
+            if modifiers.shift {
+                Some("_".to_string())
+            } else {
+                Some("-".to_string())
+            }
+        }
+        Key::Backtick => {
+            if modifiers.shift {
+                Some("~".to_string())
+            } else {
+                Some("`".to_string())
+            }
+        }
+        Key::Num0 => {
+            if modifiers.shift {
+                Some(")".to_string())
+            } else {
+                Some("0".to_string())
+            }
+        }
+        Key::Num1 => {
+            if modifiers.shift {
+                Some("!".to_string())
+            } else {
+                Some("1".to_string())
+            }
+        }
+        Key::Num2 => {
+            if modifiers.shift {
+                Some("@".to_string())
+            } else {
+                Some("2".to_string())
+            }
+        }
+        Key::Num3 => {
+            if modifiers.shift {
+                Some("#".to_string())
+            } else {
+                Some("3".to_string())
+            }
+        }
+        Key::Num4 => {
+            if modifiers.shift {
+                Some("$".to_string())
+            } else {
+                Some("4".to_string())
+            }
+        }
+        Key::Num5 => {
+            if modifiers.shift {
+                Some("%".to_string())
+            } else {
+                Some("5".to_string())
+            }
+        }
+        Key::Num6 => {
+            if modifiers.shift {
+                Some("^".to_string())
+            } else {
+                Some("6".to_string())
+            }
+        }
+        Key::Num7 => {
+            if modifiers.shift {
+                Some("&".to_string())
+            } else {
+                Some("7".to_string())
+            }
+        }
+        Key::Num8 => {
+            if modifiers.shift {
+                Some("*".to_string())
+            } else {
+                Some("8".to_string())
+            }
+        }
+        Key::Num9 => {
+            if modifiers.shift {
+                Some("(".to_string())
+            } else {
+                Some("9".to_string())
+            }
+        }
+
+        _ => None,
+    }
 }
 
 fn encode_egui_mouse_pos_as_usize(pos: Pos2, character_size: (f32, f32)) -> (usize, usize) {
