@@ -9,6 +9,7 @@ pub mod decawm;
 pub mod decckm;
 pub mod deccolm;
 pub mod decsclm;
+pub mod decscnm;
 pub mod dectcem;
 pub mod mouse;
 pub mod rl_bracket;

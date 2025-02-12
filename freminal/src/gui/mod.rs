@@ -360,6 +360,21 @@ impl eframe::App for FreminalGui {
                 &mut self.window_title_stack,
             );
 
+            // we want to set the default text and background color based on
+            // lock.internal.is_normal_display
+
+            if lock.internal.is_normal_display() {
+                ui.ctx().style_mut(|style| {
+                    style.visuals.window_fill = egui::Color32::BLACK;
+                    style.visuals.panel_fill = egui::Color32::BLACK;
+                });
+            } else {
+                ui.ctx().style_mut(|style| {
+                    style.visuals.window_fill = egui::Color32::WHITE;
+                    style.visuals.panel_fill = egui::Color32::WHITE;
+                });
+            }
+
             self.terminal_widget.show(ui, &mut lock);
         });
 

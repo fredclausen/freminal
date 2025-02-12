@@ -6,8 +6,8 @@
 use std::fmt;
 
 use super::modes::{
-    decawm::Decawm, decckm::Decckm, deccolm::Deccolm, decsclm::Decsclm, dectcem::Dectcem,
-    mouse::MouseTrack, rl_bracket::RlBracket, sync_updates::SynchronizedUpdates,
+    decawm::Decawm, decckm::Decckm, deccolm::Deccolm, decsclm::Decsclm, decscnm::Decscnm,
+    dectcem::Dectcem, mouse::MouseTrack, rl_bracket::RlBracket, sync_updates::SynchronizedUpdates,
     unknown::UnknownMode, xtcblink::XtCBlink, xtextscrn::XtExtscrn, xtmsewin::XtMseWin, ReportMode,
 };
 
@@ -38,6 +38,7 @@ pub struct TerminalModes {
     pub cursor_blinking: XtCBlink,
     pub mouse_tracking: MouseTrack,
     pub synchronized_updates: SynchronizedUpdates,
+    pub invert_screen: Decscnm,
 }
 
 #[derive(Eq, PartialEq, Debug)]
@@ -49,6 +50,7 @@ pub enum Mode {
     Dectem(Dectcem),
     DecColm(Deccolm),
     Decsclm(Decsclm),
+    Decscnm(Decscnm),
     XtCBlink(XtCBlink),
     XtExtscrn(XtExtscrn),
     XtMseWin(XtMseWin),
@@ -67,6 +69,7 @@ impl Mode {
             b"?1" => Self::Decckm(Decckm::new(mode)),
             b"?3" => Self::DecColm(Deccolm::new(mode)),
             b"?4" => Self::Decsclm(Decsclm::new(mode)),
+            b"?5" => Self::Decscnm(Decscnm::new(mode)),
             b"?7" => Self::Decawm(Decawm::new(mode)),
             // TODO: Implement this
             b"?9" => {
@@ -184,6 +187,7 @@ impl ReportMode for Mode {
             Self::Decsclm(decsclm) => decsclm.report(override_mode),
             Self::Decawm(decawm) => decawm.report(override_mode),
             Self::Dectem(dectem) => dectem.report(override_mode),
+            Self::Decscnm(decscnm) => decscnm.report(override_mode),
             Self::XtCBlink(xt_cblink) => xt_cblink.report(override_mode),
             Self::XtExtscrn(xt_extscrn) => xt_extscrn.report(override_mode),
             Self::XtMseWin(xt_mse_win) => xt_mse_win.report(override_mode),
@@ -206,6 +210,7 @@ impl fmt::Display for Mode {
             Self::Decckm(decckm) => write!(f, "{decckm}"),
             Self::Decawm(decawm) => write!(f, "{decawm}"),
             Self::Dectem(dectem) => write!(f, "{dectem}"),
+            Self::Decscnm(decscnm) => write!(f, "{decscnm}"),
             Self::Decsclm(decsclm) => write!(f, "{decsclm}"),
             Self::DecColm(deccolm) => write!(f, "{deccolm}"),
             Self::XtCBlink(xt_cblink) => write!(f, "{xt_cblink}"),

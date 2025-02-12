@@ -19,7 +19,7 @@ use crate::{
         line_draw::DecSpecialGraphics,
         mode::{Mode, SetMode, TerminalModes},
         modes::{
-            decawm::Decawm, decckm::Decckm, dectcem::Dectcem, mouse::MouseTrack,
+            decawm::Decawm, decckm::Decckm, decscnm::Decscnm, dectcem::Dectcem, mouse::MouseTrack,
             rl_bracket::RlBracket, sync_updates::SynchronizedUpdates, xtcblink::XtCBlink,
             xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
         },
@@ -153,6 +153,11 @@ impl TerminalState {
             window_focused: true,
             window_commands: Vec::new(),
         }
+    }
+
+    #[must_use]
+    pub const fn is_normal_display(&self) -> bool {
+        self.modes.invert_screen.is_normal_display()
     }
 
     #[must_use]
@@ -924,6 +929,12 @@ impl TerminalState {
             }
             Mode::Decsclm(decsclm) => {
                 warn!("Received DECSCLM({decsclm}), but it's not supported");
+            }
+            Mode::Decscnm(Decscnm::Query) => {
+                self.report_mode(&self.modes.invert_screen.report(None));
+            }
+            Mode::Decscnm(decscnm) => {
+                self.modes.invert_screen = decscnm.clone();
             }
         }
     }
