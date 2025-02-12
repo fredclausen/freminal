@@ -8,6 +8,7 @@ use super::mode::SetMode;
 pub mod decawm;
 pub mod decckm;
 pub mod deccolm;
+pub mod decom;
 pub mod decsclm;
 pub mod decscnm;
 pub mod dectcem;

@@ -6,9 +6,10 @@
 use std::fmt;
 
 use super::modes::{
-    decawm::Decawm, decckm::Decckm, deccolm::Deccolm, decsclm::Decsclm, decscnm::Decscnm,
-    dectcem::Dectcem, mouse::MouseTrack, rl_bracket::RlBracket, sync_updates::SynchronizedUpdates,
-    unknown::UnknownMode, xtcblink::XtCBlink, xtextscrn::XtExtscrn, xtmsewin::XtMseWin, ReportMode,
+    decawm::Decawm, decckm::Decckm, deccolm::Deccolm, decom::Decom, decsclm::Decsclm,
+    decscnm::Decscnm, dectcem::Dectcem, mouse::MouseTrack, rl_bracket::RlBracket,
+    sync_updates::SynchronizedUpdates, unknown::UnknownMode, xtcblink::XtCBlink,
+    xtextscrn::XtExtscrn, xtmsewin::XtMseWin, ReportMode,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -51,6 +52,7 @@ pub enum Mode {
     DecColm(Deccolm),
     Decsclm(Decsclm),
     Decscnm(Decscnm),
+    Decom(Decom),
     XtCBlink(XtCBlink),
     XtExtscrn(XtExtscrn),
     XtMseWin(XtMseWin),
@@ -70,6 +72,7 @@ impl Mode {
             b"?3" => Self::DecColm(Deccolm::new(mode)),
             b"?4" => Self::Decsclm(Decsclm::new(mode)),
             b"?5" => Self::Decscnm(Decscnm::new(mode)),
+            b"?6" => Self::Decom(Decom::new(mode)),
             b"?7" => Self::Decawm(Decawm::new(mode)),
             // TODO: Implement this
             b"?9" => {
@@ -183,6 +186,7 @@ impl ReportMode for Mode {
     fn report(&self, override_mode: Option<SetMode>) -> String {
         match self {
             Self::Decckm(decckm) => decckm.report(override_mode),
+            Self::Decom(decom) => decom.report(override_mode),
             Self::DecColm(deccolm) => deccolm.report(override_mode),
             Self::Decsclm(decsclm) => decsclm.report(override_mode),
             Self::Decawm(decawm) => decawm.report(override_mode),
@@ -209,6 +213,7 @@ impl fmt::Display for Mode {
         match self {
             Self::Decckm(decckm) => write!(f, "{decckm}"),
             Self::Decawm(decawm) => write!(f, "{decawm}"),
+            Self::Decom(decom) => write!(f, "{decom}"),
             Self::Dectem(dectem) => write!(f, "{dectem}"),
             Self::Decscnm(decscnm) => write!(f, "{decscnm}"),
             Self::Decsclm(decsclm) => write!(f, "{decsclm}"),

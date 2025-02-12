@@ -19,9 +19,10 @@ use crate::{
         line_draw::DecSpecialGraphics,
         mode::{Mode, SetMode, TerminalModes},
         modes::{
-            decawm::Decawm, decckm::Decckm, decscnm::Decscnm, dectcem::Dectcem, mouse::MouseTrack,
-            rl_bracket::RlBracket, sync_updates::SynchronizedUpdates, xtcblink::XtCBlink,
-            xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
+            decawm::Decawm, decckm::Decckm, deccolm::Deccolm, decom::Decom, decsclm::Decsclm,
+            decscnm::Decscnm, dectcem::Dectcem, mouse::MouseTrack, rl_bracket::RlBracket,
+            sync_updates::SynchronizedUpdates, xtcblink::XtCBlink, xtextscrn::XtExtscrn,
+            xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
         },
         osc::{AnsiOscInternalType, AnsiOscType, UrlResponse},
         sgr::SelectGraphicRendition,
@@ -924,11 +925,23 @@ impl TerminalState {
             Mode::Unknown(_) => {
                 warn!("unhandled mode: {mode}");
             }
+            Mode::DecColm(Deccolm::Query) => {
+                self.report_mode(&Deccolm::Query.report(None));
+            }
             Mode::DecColm(deccolm) => {
                 warn!("Received DECCOLM({deccolm}), but it's not supported");
             }
+            Mode::Decsclm(Decsclm::Query) => {
+                self.report_mode(&Decsclm::Query.report(None));
+            }
             Mode::Decsclm(decsclm) => {
                 warn!("Received DECSCLM({decsclm}), but it's not supported");
+            }
+            Mode::Decom(Decom::Query) => {
+                self.report_mode(&Decom::Query.report(None));
+            }
+            Mode::Decom(decom) => {
+                warn!("Received DECOM({decom}), but it's not supported");
             }
             Mode::Decscnm(Decscnm::Query) => {
                 self.report_mode(&self.modes.invert_screen.report(None));
