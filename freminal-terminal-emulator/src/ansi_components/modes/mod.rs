@@ -5,6 +5,7 @@
 
 use super::mode::SetMode;
 
+pub mod allow_column_mode_switch;
 pub mod decarm;
 pub mod decawm;
 pub mod decckm;

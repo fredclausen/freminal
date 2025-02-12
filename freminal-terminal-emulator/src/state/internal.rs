@@ -19,10 +19,11 @@ use crate::{
         line_draw::DecSpecialGraphics,
         mode::{Mode, SetMode, TerminalModes},
         modes::{
-            decarm::Decarm, decawm::Decawm, decckm::Decckm, deccolm::Deccolm, decom::Decom,
-            decsclm::Decsclm, decscnm::Decscnm, dectcem::Dectcem, mouse::MouseTrack,
-            rl_bracket::RlBracket, sync_updates::SynchronizedUpdates, xtcblink::XtCBlink,
-            xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
+            allow_column_mode_switch::AllowColumnModeSwitch, decarm::Decarm, decawm::Decawm,
+            decckm::Decckm, deccolm::Deccolm, decom::Decom, decsclm::Decsclm, decscnm::Decscnm,
+            dectcem::Dectcem, mouse::MouseTrack, rl_bracket::RlBracket,
+            sync_updates::SynchronizedUpdates, xtcblink::XtCBlink, xtextscrn::XtExtscrn,
+            xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
         },
         osc::{AnsiOscInternalType, AnsiOscType, UrlResponse},
         sgr::SelectGraphicRendition,
@@ -959,6 +960,12 @@ impl TerminalState {
             }
             Mode::Decscnm(decscnm) => {
                 self.modes.invert_screen = decscnm.clone();
+            }
+            Mode::AllowColumnModeSwitch(AllowColumnModeSwitch::Query) => {
+                self.report_mode(&AllowColumnModeSwitch::Query.report(None));
+            }
+            Mode::AllowColumnModeSwitch(allow_column_resize) => {
+                warn!("Received AllowColumnResize({allow_column_resize}), but it's not supported");
             }
         }
     }

@@ -6,10 +6,10 @@
 use std::fmt;
 
 use super::modes::{
-    decarm::Decarm, decawm::Decawm, decckm::Decckm, deccolm::Deccolm, decom::Decom,
-    decsclm::Decsclm, decscnm::Decscnm, dectcem::Dectcem, mouse::MouseTrack, rl_bracket::RlBracket,
-    sync_updates::SynchronizedUpdates, unknown::UnknownMode, xtcblink::XtCBlink,
-    xtextscrn::XtExtscrn, xtmsewin::XtMseWin, ReportMode,
+    allow_column_mode_switch::AllowColumnModeSwitch, decarm::Decarm, decawm::Decawm,
+    decckm::Decckm, deccolm::Deccolm, decom::Decom, decsclm::Decsclm, decscnm::Decscnm,
+    dectcem::Dectcem, mouse::MouseTrack, rl_bracket::RlBracket, sync_updates::SynchronizedUpdates,
+    unknown::UnknownMode, xtcblink::XtCBlink, xtextscrn::XtExtscrn, xtmsewin::XtMseWin, ReportMode,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -47,6 +47,7 @@ pub struct TerminalModes {
 pub enum Mode {
     // Cursor keys mode
     // https://vt100.net/docs/vt100-ug/chapter3.html
+    AllowColumnModeSwitch(AllowColumnModeSwitch),
     Decckm(Decckm),
     Decawm(Decawm),
     Dectem(Dectcem),
@@ -89,6 +90,7 @@ impl Mode {
             }
             b"?12" => Self::XtCBlink(XtCBlink::new(mode)),
             b"?25" => Self::Dectem(Dectcem::new(mode)),
+            b"?40" => Self::AllowColumnModeSwitch(AllowColumnModeSwitch::new(mode)),
             b"?1000" => {
                 if mode == &SetMode::DecSet {
                     Self::MouseMode(MouseTrack::XtMseX11)
@@ -188,6 +190,9 @@ impl Mode {
 impl ReportMode for Mode {
     fn report(&self, override_mode: Option<SetMode>) -> String {
         match self {
+            Self::AllowColumnModeSwitch(allow_column_mode_switch) => {
+                allow_column_mode_switch.report(override_mode)
+            }
             Self::Decarm(decarm) => decarm.report(override_mode),
             Self::Decckm(decckm) => decckm.report(override_mode),
             Self::Decom(decom) => decom.report(override_mode),
@@ -215,6 +220,9 @@ impl ReportMode for Mode {
 impl fmt::Display for Mode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::AllowColumnModeSwitch(allow_column_mode_switch) => {
+                write!(f, "{allow_column_mode_switch}")
+            }
             Self::Decarm(decarm) => write!(f, "{decarm}"),
             Self::Decckm(decckm) => write!(f, "{decckm}"),
             Self::Decawm(decawm) => write!(f, "{decawm}"),
