@@ -5,6 +5,7 @@
 
 use super::mode::SetMode;
 
+pub mod decarm;
 pub mod decawm;
 pub mod decckm;
 pub mod deccolm;

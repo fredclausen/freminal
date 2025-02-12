@@ -6,8 +6,8 @@
 use std::fmt;
 
 use super::modes::{
-    decawm::Decawm, decckm::Decckm, deccolm::Deccolm, decom::Decom, decsclm::Decsclm,
-    decscnm::Decscnm, dectcem::Dectcem, mouse::MouseTrack, rl_bracket::RlBracket,
+    decarm::Decarm, decawm::Decawm, decckm::Decckm, deccolm::Deccolm, decom::Decom,
+    decsclm::Decsclm, decscnm::Decscnm, dectcem::Dectcem, mouse::MouseTrack, rl_bracket::RlBracket,
     sync_updates::SynchronizedUpdates, unknown::UnknownMode, xtcblink::XtCBlink,
     xtextscrn::XtExtscrn, xtmsewin::XtMseWin, ReportMode,
 };
@@ -40,6 +40,7 @@ pub struct TerminalModes {
     pub mouse_tracking: MouseTrack,
     pub synchronized_updates: SynchronizedUpdates,
     pub invert_screen: Decscnm,
+    pub repeat_keys: Decarm,
 }
 
 #[derive(Eq, PartialEq, Debug)]
@@ -53,6 +54,7 @@ pub enum Mode {
     Decsclm(Decsclm),
     Decscnm(Decscnm),
     Decom(Decom),
+    Decarm(Decarm),
     XtCBlink(XtCBlink),
     XtExtscrn(XtExtscrn),
     XtMseWin(XtMseWin),
@@ -74,6 +76,7 @@ impl Mode {
             b"?5" => Self::Decscnm(Decscnm::new(mode)),
             b"?6" => Self::Decom(Decom::new(mode)),
             b"?7" => Self::Decawm(Decawm::new(mode)),
+            b"?8" => Self::Decarm(Decarm::new(mode)),
             // TODO: Implement this
             b"?9" => {
                 if mode == &SetMode::DecSet {
@@ -185,6 +188,7 @@ impl Mode {
 impl ReportMode for Mode {
     fn report(&self, override_mode: Option<SetMode>) -> String {
         match self {
+            Self::Decarm(decarm) => decarm.report(override_mode),
             Self::Decckm(decckm) => decckm.report(override_mode),
             Self::Decom(decom) => decom.report(override_mode),
             Self::DecColm(deccolm) => deccolm.report(override_mode),
@@ -211,6 +215,7 @@ impl ReportMode for Mode {
 impl fmt::Display for Mode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Decarm(decarm) => write!(f, "{decarm}"),
             Self::Decckm(decckm) => write!(f, "{decckm}"),
             Self::Decawm(decawm) => write!(f, "{decawm}"),
             Self::Decom(decom) => write!(f, "{decom}"),

@@ -19,10 +19,10 @@ use crate::{
         line_draw::DecSpecialGraphics,
         mode::{Mode, SetMode, TerminalModes},
         modes::{
-            decawm::Decawm, decckm::Decckm, deccolm::Deccolm, decom::Decom, decsclm::Decsclm,
-            decscnm::Decscnm, dectcem::Dectcem, mouse::MouseTrack, rl_bracket::RlBracket,
-            sync_updates::SynchronizedUpdates, xtcblink::XtCBlink, xtextscrn::XtExtscrn,
-            xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
+            decarm::Decarm, decawm::Decawm, decckm::Decckm, deccolm::Deccolm, decom::Decom,
+            decsclm::Decsclm, decscnm::Decscnm, dectcem::Dectcem, mouse::MouseTrack,
+            rl_bracket::RlBracket, sync_updates::SynchronizedUpdates, xtcblink::XtCBlink,
+            xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
         },
         osc::{AnsiOscInternalType, AnsiOscType, UrlResponse},
         sgr::SelectGraphicRendition,
@@ -159,6 +159,11 @@ impl TerminalState {
     #[must_use]
     pub const fn is_normal_display(&self) -> bool {
         self.modes.invert_screen.is_normal_display()
+    }
+
+    #[must_use]
+    pub fn should_repeat_keys(&self) -> bool {
+        self.modes.repeat_keys == Decarm::RepeatKey
     }
 
     #[must_use]
@@ -945,6 +950,12 @@ impl TerminalState {
             }
             Mode::Decscnm(Decscnm::Query) => {
                 self.report_mode(&self.modes.invert_screen.report(None));
+            }
+            Mode::Decarm(Decarm::Query) => {
+                self.report_mode(&self.modes.repeat_keys.report(None));
+            }
+            Mode::Decarm(decarm) => {
+                self.modes.repeat_keys = decarm.clone();
             }
             Mode::Decscnm(decscnm) => {
                 self.modes.invert_screen = decscnm.clone();
