@@ -15,6 +15,7 @@ pub mod decsclm;
 pub mod decscnm;
 pub mod dectcem;
 pub mod mouse;
+pub mod reverse_wrap_around;
 pub mod rl_bracket;
 pub mod sync_updates;
 pub mod unknown;

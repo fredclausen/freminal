@@ -21,9 +21,9 @@ use crate::{
         modes::{
             allow_column_mode_switch::AllowColumnModeSwitch, decarm::Decarm, decawm::Decawm,
             decckm::Decckm, deccolm::Deccolm, decom::Decom, decsclm::Decsclm, decscnm::Decscnm,
-            dectcem::Dectcem, mouse::MouseTrack, rl_bracket::RlBracket,
-            sync_updates::SynchronizedUpdates, xtcblink::XtCBlink, xtextscrn::XtExtscrn,
-            xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
+            dectcem::Dectcem, mouse::MouseTrack, reverse_wrap_around::ReverseWrapAround,
+            rl_bracket::RlBracket, sync_updates::SynchronizedUpdates, xtcblink::XtCBlink,
+            xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
         },
         osc::{AnsiOscInternalType, AnsiOscType, UrlResponse},
         sgr::SelectGraphicRendition,
@@ -966,6 +966,12 @@ impl TerminalState {
             }
             Mode::AllowColumnModeSwitch(allow_column_resize) => {
                 warn!("Received AllowColumnResize({allow_column_resize}), but it's not supported");
+            }
+            Mode::ReverseWrapAround(ReverseWrapAround::Query) => {
+                self.report_mode(&ReverseWrapAround::Query.report(None));
+            }
+            Mode::ReverseWrapAround(reverse_wrap_around) => {
+                warn!("Received ReverseWrapAround({reverse_wrap_around}), but it's not supported");
             }
         }
     }

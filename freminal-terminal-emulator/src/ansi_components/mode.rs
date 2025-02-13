@@ -8,8 +8,9 @@ use std::fmt;
 use super::modes::{
     allow_column_mode_switch::AllowColumnModeSwitch, decarm::Decarm, decawm::Decawm,
     decckm::Decckm, deccolm::Deccolm, decom::Decom, decsclm::Decsclm, decscnm::Decscnm,
-    dectcem::Dectcem, mouse::MouseTrack, rl_bracket::RlBracket, sync_updates::SynchronizedUpdates,
-    unknown::UnknownMode, xtcblink::XtCBlink, xtextscrn::XtExtscrn, xtmsewin::XtMseWin, ReportMode,
+    dectcem::Dectcem, mouse::MouseTrack, reverse_wrap_around::ReverseWrapAround,
+    rl_bracket::RlBracket, sync_updates::SynchronizedUpdates, unknown::UnknownMode,
+    xtcblink::XtCBlink, xtextscrn::XtExtscrn, xtmsewin::XtMseWin, ReportMode,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -61,6 +62,7 @@ pub enum Mode {
     XtMseWin(XtMseWin),
     BracketedPaste(RlBracket),
     MouseMode(MouseTrack),
+    ReverseWrapAround(ReverseWrapAround),
     SynchronizedUpdates(SynchronizedUpdates),
     UnknownQuery(Vec<u8>),
     Unknown(UnknownMode),
@@ -91,6 +93,7 @@ impl Mode {
             b"?12" => Self::XtCBlink(XtCBlink::new(mode)),
             b"?25" => Self::Dectem(Dectcem::new(mode)),
             b"?40" => Self::AllowColumnModeSwitch(AllowColumnModeSwitch::new(mode)),
+            b"?45" => Self::ReverseWrapAround(ReverseWrapAround::new(mode)),
             b"?1000" => {
                 if mode == &SetMode::DecSet {
                     Self::MouseMode(MouseTrack::XtMseX11)
@@ -206,6 +209,9 @@ impl ReportMode for Mode {
             Self::XtMseWin(xt_mse_win) => xt_mse_win.report(override_mode),
             Self::BracketedPaste(rl_bracket) => rl_bracket.report(override_mode),
             Self::MouseMode(mouse_mode) => mouse_mode.report(override_mode),
+            Self::ReverseWrapAround(reverse_wrap_around) => {
+                reverse_wrap_around.report(override_mode)
+            }
             Self::SynchronizedUpdates(sync_updates) => sync_updates.report(override_mode),
             Self::Unknown(mode) => mode.report(override_mode),
             Self::UnknownQuery(v) => {
@@ -236,6 +242,7 @@ impl fmt::Display for Mode {
             Self::XtMseWin(xt_mse_win) => write!(f, "{xt_mse_win}"),
             Self::XtExtscrn(xt_extscrn) => write!(f, "{xt_extscrn}"),
             Self::BracketedPaste(bracketed_paste) => write!(f, "{bracketed_paste}"),
+            Self::ReverseWrapAround(reverse_wrap_around) => write!(f, "{reverse_wrap_around}"),
             Self::SynchronizedUpdates(sync_updates) => write!(f, "{sync_updates}"),
             Self::Unknown(params) => write!(f, "{params}"),
             Self::UnknownQuery(v) => write!(f, "Unknown Query({v:?})"),
