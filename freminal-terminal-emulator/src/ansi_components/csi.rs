@@ -136,7 +136,7 @@ impl AnsiCsiParser {
             AnsiCsiParserState::Finished(b'D') => {
                 ansi_parser_inner_csi_finished_move_cursor_left(&self.params, output)
             }
-            AnsiCsiParserState::Finished(b'H') => {
+            AnsiCsiParserState::Finished(b'H' | b'f') => {
                 ansi_parser_inner_csi_finished_set_position_h(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'G') => {
