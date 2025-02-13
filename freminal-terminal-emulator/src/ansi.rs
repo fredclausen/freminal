@@ -257,10 +257,7 @@ impl FreminalAnsiParser {
             }
             _ => {
                 let char_decoded = b as char;
-                error!(
-                    "Unhandled escape sequence {b:x}/{b}/{char_decoded} Internal parser state: {:?}",
-                    self.inner
-                );
+                error!("Unhandled escape sequence. Hex: {b:x}/Int: {b}/ASCII: {char_decoded}",);
                 self.inner = ParserInner::Empty;
 
                 return Err(ParserFailures::UnhandledInnerEscape(format!("{b:x}")).into());
