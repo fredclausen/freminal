@@ -255,6 +255,27 @@ impl FreminalAnsiParser {
                 self.inner = ParserInner::Empty;
                 output.push(TerminalOutput::NormalKeypadMode);
             }
+            b'M' => {
+                self.inner = ParserInner::Empty;
+                output.push(TerminalOutput::SetCursorPosRel {
+                    x: None,
+                    y: Some(-1),
+                });
+            }
+            b'D' => {
+                self.inner = ParserInner::Empty;
+                output.push(TerminalOutput::SetCursorPosRel {
+                    x: None,
+                    y: Some(1),
+                });
+            }
+            b'E' => {
+                self.inner = ParserInner::Empty;
+                output.push(TerminalOutput::SetCursorPosRel {
+                    x: Some(1),
+                    y: Some(1),
+                });
+            }
             _ => {
                 let char_decoded = b as char;
                 error!("Unhandled escape sequence. Hex: {b:x}/Int: {b}/ASCII: {char_decoded}",);
