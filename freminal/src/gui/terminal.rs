@@ -50,7 +50,11 @@ fn control_key(key: Key) -> Option<Cow<'static, [TerminalInput]>> {
     None
 }
 
-#[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
+#[allow(
+    clippy::cognitive_complexity,
+    clippy::too_many_lines,
+    clippy::too_many_arguments
+)]
 fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     input: &InputState,
     terminal_emulator: &mut TerminalEmulator<Io>,
@@ -59,15 +63,17 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
     last_reported_mouse_pos: Option<PreviousMouseState>,
     repeat_characters: bool,
     previous_key: Option<Key>,
-) -> (bool, Option<PreviousMouseState>, Option<Key>) {
+    scroll_amount: f32,
+) -> (bool, Option<PreviousMouseState>, Option<Key>, f32) {
     if input.raw.events.is_empty() {
-        return (false, last_reported_mouse_pos, previous_key);
+        return (false, last_reported_mouse_pos, previous_key, scroll_amount);
     }
 
     let mut previous_key = previous_key;
     let mut state_changed = false;
     let mut last_reported_mouse_pos = last_reported_mouse_pos;
     let mut left_mouse_button_pressed = false;
+    let mut scroll_amount = scroll_amount;
 
     for event in &input.raw.events {
         debug!("event: {:?}", event);
@@ -286,12 +292,33 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 }
             }
             Event::MouseWheel {
-                delta, modifiers, ..
+                delta,
+                modifiers,
+                unit,
             } => {
+                match unit {
+                    egui::MouseWheelUnit::Point => {
+                        scroll_amount += delta.y;
+                    }
+                    egui::MouseWheelUnit::Line => {
+                        scroll_amount += delta.y * character_size_y;
+                    }
+                    egui::MouseWheelUnit::Page => {
+                        error!("Unhandled MouseWheelUnit: {:?}", unit);
+                        continue;
+                    }
+                }
                 // TODO: should we care if we scrolled in the x axis?
-                if delta.y == 0.0 {
+
+                if scroll_amount.abs() < character_size_y {
                     continue;
                 }
+
+                // the amount scrolled should be in increments of the character size
+                // the remaineder should be added to the next scroll event
+
+                let scroll_amount_to_do = scroll_amount.floor();
+                scroll_amount -= scroll_amount_to_do;
 
                 state_changed = true;
 
@@ -302,7 +329,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                         *last_mouse_position = last_mouse_position.clone();
                     }
                     let response = handle_pointer_scroll(
-                        *delta,
+                        egui::Vec2::new(0.0, scroll_amount_to_do),
                         last_mouse_position,
                         &terminal_emulator.internal.modes.mouse_tracking,
                     );
@@ -310,12 +337,12 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                     if let Some(response) = response {
                         response
                     } else {
-                        terminal_emulator.internal.scroll(delta.y);
+                        terminal_emulator.internal.scroll(scroll_amount_to_do);
 
                         continue;
                     }
                 } else {
-                    terminal_emulator.internal.scroll(delta.y);
+                    terminal_emulator.internal.scroll(scroll_amount_to_do);
 
                     continue;
                 }
@@ -342,6 +369,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
         left_mouse_button_pressed,
         last_reported_mouse_pos,
         previous_key,
+        scroll_amount,
     )
 }
 
@@ -830,6 +858,7 @@ pub struct FreminalTerminalWidget {
     previous_pass: TerminalOutputRenderResponse,
     previous_mouse_state: Option<PreviousMouseState>,
     previous_key: Option<Key>,
+    previous_scroll_amount: f32,
     ctx: Context,
 }
 
@@ -850,6 +879,7 @@ impl FreminalTerminalWidget {
             },
             previous_mouse_state: None,
             previous_key: None,
+            previous_scroll_amount: 0.0,
             ctx: ctx.clone(),
         }
     }
@@ -928,7 +958,7 @@ impl FreminalTerminalWidget {
             }
 
             let repeat_characters = terminal_emulator.internal.should_repeat_keys();
-            let (left_mouse_button_pressed, new_mouse_pos, previous_key) =
+            let (left_mouse_button_pressed, new_mouse_pos, previous_key, scroll_amount) =
                 ui.input(|input_state| {
                     write_input_to_terminal(
                         input_state,
@@ -938,10 +968,12 @@ impl FreminalTerminalWidget {
                         self.previous_mouse_state.clone(),
                         repeat_characters,
                         self.previous_key,
+                        self.previous_scroll_amount,
                     )
                 });
             self.previous_mouse_state = new_mouse_pos;
             self.previous_key = previous_key;
+            self.previous_scroll_amount = scroll_amount;
 
             if terminal_emulator.needs_redraw() {
                 self.previous_pass =
