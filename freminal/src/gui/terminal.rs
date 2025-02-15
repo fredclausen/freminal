@@ -329,7 +329,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                         *last_mouse_position = last_mouse_position.clone();
                     }
                     let response = handle_pointer_scroll(
-                        egui::Vec2::new(0.0, scroll_amount_to_do),
+                        egui::Vec2::new(0.0, scroll_amount_to_do / character_size_y),
                         last_mouse_position,
                         &terminal_emulator.internal.modes.mouse_tracking,
                     );
@@ -337,7 +337,6 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                     if let Some(response) = response {
                         response
                     } else {
-                        info!("Scrolling: {:?}", scroll_amount_to_do);
                         terminal_emulator
                             .internal
                             .scroll(scroll_amount_to_do / character_size_y);
@@ -347,7 +346,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 } else {
                     terminal_emulator
                         .internal
-                        .scroll(scroll_amount / character_size_y);
+                        .scroll(scroll_amount_to_do / character_size_y);
 
                     continue;
                 }
