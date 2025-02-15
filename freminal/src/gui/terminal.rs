@@ -337,12 +337,17 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                     if let Some(response) = response {
                         response
                     } else {
-                        terminal_emulator.internal.scroll(scroll_amount_to_do);
+                        info!("Scrolling: {:?}", scroll_amount_to_do);
+                        terminal_emulator
+                            .internal
+                            .scroll(scroll_amount_to_do / character_size_y);
 
                         continue;
                     }
                 } else {
-                    terminal_emulator.internal.scroll(scroll_amount_to_do);
+                    terminal_emulator
+                        .internal
+                        .scroll(scroll_amount / character_size_y);
 
                     continue;
                 }
