@@ -62,6 +62,11 @@ pub fn run_terminal(
 
     cmd.env("TERMINFO", termcaps);
     cmd.env("TERM", "freminal");
+    cmd.env("COLORTERM", "truecolor");
+
+    // get the version of freminal
+    let version = env!("CARGO_PKG_VERSION");
+    cmd.env("TERM_PROGRAM_VERSION", version);
     let _child = pair.slave.spawn_command(cmd)?;
 
     // Release any handles owned by the slave: we don't need it now
