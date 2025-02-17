@@ -267,6 +267,41 @@ impl StandardParser {
                         }
                     }
                 }
+                Some(b'+') => {
+                    let value = self.params.first();
+
+                    match value {
+                        None => {
+                            format_error_output(&self.sequence);
+                            output.push(TerminalOutput::Invalid);
+                            Ok(Some(ParserInner::Empty))
+                        }
+                        Some(value) => {
+                            match value {
+                                // FIXME: Should this be the same as DecSpecialGraphics::Replace?
+                                b'0' => output.push(TerminalOutput::DecSpecial),
+                                b'A' => output.push(TerminalOutput::CharsetUK),
+                                b'B' => output.push(TerminalOutput::CharsetUSASCII),
+                                b'4' => output.push(TerminalOutput::CharsetDutch),
+                                b'5' | b'C' => output.push(TerminalOutput::CharsetFinnish),
+                                b'R' => output.push(TerminalOutput::CharsetFrench),
+                                b'Q' => output.push(TerminalOutput::CharsetFrenchCanadian),
+                                b'K' => output.push(TerminalOutput::CharsetGerman),
+                                b'Y' => output.push(TerminalOutput::CharsetItalian),
+                                b'E' | b'6' => output.push(TerminalOutput::CharsetNorwegianDanish),
+                                b'Z' => output.push(TerminalOutput::CharsetSpanish),
+                                b'H' | b'7' => output.push(TerminalOutput::CharsetSwedish),
+                                b'=' => output.push(TerminalOutput::CharsetSwiss),
+                                _ => {
+                                    format_error_output(&self.sequence);
+                                    output.push(TerminalOutput::Invalid);
+                                }
+                            }
+
+                            Ok(Some(ParserInner::Empty))
+                        }
+                    }
+                }
                 Some(value) => {
                     let value = *value as char;
                     #[allow(clippy::match_single_binding)]

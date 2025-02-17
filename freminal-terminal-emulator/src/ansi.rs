@@ -74,6 +74,20 @@ pub enum TerminalOutput {
     CharsetG1,
     CharsetG2,
     CharsetG3,
+    DecSpecial,
+    CharsetUK,
+    CharsetUS,
+    CharsetUSASCII,
+    CharsetDutch,
+    CharsetFinnish,
+    CharsetFrench,
+    CharsetFrenchCanadian,
+    CharsetGerman,
+    CharsetItalian,
+    CharsetNorwegianDanish,
+    CharsetSpanish,
+    CharsetSwedish,
+    CharsetSwiss,
 }
 
 // impl format display for TerminalOutput
@@ -145,6 +159,20 @@ impl std::fmt::Display for TerminalOutput {
             Self::CharsetG1 => write!(f, "CharsetG1"),
             Self::CharsetG2 => write!(f, "CharsetG2"),
             Self::CharsetG3 => write!(f, "CharsetG3"),
+            Self::DecSpecial => write!(f, "DecSpecial"),
+            Self::CharsetUK => write!(f, "CharsetUK"),
+            Self::CharsetUS => write!(f, "CharsetUS"),
+            Self::CharsetUSASCII => write!(f, "CharsetUSASCII"),
+            Self::CharsetDutch => write!(f, "CharsetDutch"),
+            Self::CharsetFinnish => write!(f, "CharsetFinnish"),
+            Self::CharsetFrench => write!(f, "CharsetFrench"),
+            Self::CharsetFrenchCanadian => write!(f, "CharsetFrenchCanadian"),
+            Self::CharsetGerman => write!(f, "CharsetGerman"),
+            Self::CharsetItalian => write!(f, "CharsetItalian"),
+            Self::CharsetNorwegianDanish => write!(f, "CharsetNorwegianDanish"),
+            Self::CharsetSpanish => write!(f, "CharsetSpanish"),
+            Self::CharsetSwedish => write!(f, "CharsetSwedish"),
+            Self::CharsetSwiss => write!(f, "CharsetSwiss"),
         }
     }
 }
