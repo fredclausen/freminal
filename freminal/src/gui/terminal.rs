@@ -94,12 +94,25 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
             Event::Key {
                 key: Key::Enter,
                 pressed: true,
+                modifiers,
                 ..
-            } => [TerminalInput::Enter].as_ref().into(),
+            } => {
+                if modifiers.is_none() {
+                    [TerminalInput::Enter].as_ref().into()
+                } else {
+                    continue;
+                }
+            }
             // https://github.com/emilk/egui/issues/3653
             // FIXME: Technically not correct if we were on a mac, but also we are using linux
             // syscalls so we'd have to solve that before this is a problem
             Event::Copy => [TerminalInput::Ctrl(b'c')].as_ref().into(),
+            Event::Key {
+                key: Key::J | Key::K,
+                pressed: true,
+                modifiers: Modifiers { ctrl: true, .. },
+                ..
+            } => [TerminalInput::LineFeed].as_ref().into(),
             Event::Key {
                 key,
                 pressed: true,
@@ -173,6 +186,7 @@ fn write_input_to_terminal<Io: FreminalTermInputOutput>(
                 pressed: true,
                 ..
             } => [TerminalInput::Tab].as_ref().into(),
+
             // log any Event::Key that we don't handle
             // Event::Key { key, pressed: true, .. } => {
             //     warn!("Unhandled key event: {:?}", key);

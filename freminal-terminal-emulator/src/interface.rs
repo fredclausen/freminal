@@ -57,6 +57,7 @@ pub enum TerminalInput {
     // Normal keypress with ctrl
     Ctrl(u8),
     Enter,
+    LineFeed,
     Backspace,
     ArrowRight,
     ArrowLeft,
@@ -86,8 +87,9 @@ impl TerminalInput {
             // The shell itself is fine with \n. So who knows.
             // TODO: really fix this out one.
             Self::Enter => TerminalInputPayload::Single(char_to_ctrl_code(b'm')),
+            Self::LineFeed => TerminalInputPayload::Single(b'\n'),
             // Hard to tie back, but check default VERASE in terminfo definition
-            Self::Backspace => TerminalInputPayload::Single(0x7f),
+            Self::Backspace => TerminalInputPayload::Single(char_to_ctrl_code(b'H')),
             Self::Escape => TerminalInputPayload::Single(0x1b),
             // https://vt100.net/docs/vt100-ug/chapter3.html
             // Table 3-6
@@ -159,7 +161,7 @@ impl TerminalInput {
                     }
                 }
             }
-            Self::Tab => TerminalInputPayload::Single(b'\t'),
+            Self::Tab => TerminalInputPayload::Single(char_to_ctrl_code(b'i')),
             // Why \e[3~? It seems like we are emulating the vt510. Other terminals do it, so we
             // can too
             // https://web.archive.org/web/20160304024035/http://www.vt100.net/docs/vt510-rm/chapter8
