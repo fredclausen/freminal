@@ -318,6 +318,24 @@ impl StandardParser {
                         '|' => output.push(TerminalOutput::CharsetG3AsGR),
                         '}' => output.push(TerminalOutput::CharsetG2AsGR),
                         '~' => output.push(TerminalOutput::CharsetG1AsGR),
+                        'M' => {
+                            output.push(TerminalOutput::SetCursorPosRel {
+                                x: None,
+                                y: Some(-1),
+                            });
+                        }
+                        'D' => {
+                            output.push(TerminalOutput::SetCursorPosRel {
+                                x: None,
+                                y: Some(1),
+                            });
+                        }
+                        'E' => {
+                            output.push(TerminalOutput::SetCursorPosRel {
+                                x: Some(1),
+                                y: Some(1),
+                            });
+                        }
                         _ => {
                             format_error_output(&self.sequence);
                             output.push(TerminalOutput::Invalid);
@@ -358,6 +376,9 @@ pub const fn is_standard_intermediate_final(b: u8) -> bool {
             | 0x3d
             | 0x37
             | 0x38
+            | 0x4d
+            | 0x44
+            | 0x45
     )
 }
 

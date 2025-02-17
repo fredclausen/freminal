@@ -324,27 +324,6 @@ impl FreminalAnsiParser {
             b']' => {
                 self.inner = ParserInner::Osc(AnsiOscParser::new());
             }
-            b'M' => {
-                self.inner = ParserInner::Empty;
-                output.push(TerminalOutput::SetCursorPosRel {
-                    x: None,
-                    y: Some(-1),
-                });
-            }
-            b'D' => {
-                self.inner = ParserInner::Empty;
-                output.push(TerminalOutput::SetCursorPosRel {
-                    x: None,
-                    y: Some(1),
-                });
-            }
-            b'E' => {
-                self.inner = ParserInner::Empty;
-                output.push(TerminalOutput::SetCursorPosRel {
-                    x: Some(1),
-                    y: Some(1),
-                });
-            }
             _ => {
                 let mut parser = StandardParser::new();
 
