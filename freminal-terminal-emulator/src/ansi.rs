@@ -5,7 +5,7 @@
 
 use crate::ansi_components::{
     csi::AnsiCsiParser,
-    line_draw::{DecSpecialGraphics, DecSpecialGraphicsParser},
+    line_draw::DecSpecialGraphics,
     mode::Mode,
     osc::{AnsiOscParser, AnsiOscType},
     sgr::SelectGraphicRendition,
@@ -70,6 +70,10 @@ pub enum TerminalOutput {
     ScreenAlignmentTest,
     CharsetDefault,
     CharsetUTF8,
+    CharsetG0,
+    CharsetG1,
+    CharsetG2,
+    CharsetG3,
 }
 
 // impl format display for TerminalOutput
@@ -137,6 +141,10 @@ impl std::fmt::Display for TerminalOutput {
             Self::ScreenAlignmentTest => write!(f, "ScreenAlignmentTest"),
             Self::CharsetDefault => write!(f, "CharsetDefault"),
             Self::CharsetUTF8 => write!(f, "CharsetUTF8"),
+            Self::CharsetG0 => write!(f, "CharsetG0"),
+            Self::CharsetG1 => write!(f, "CharsetG1"),
+            Self::CharsetG2 => write!(f, "CharsetG2"),
+            Self::CharsetG3 => write!(f, "CharsetG3"),
         }
     }
 }
@@ -191,7 +199,6 @@ pub enum ParserInner {
     Escape,
     Csi(AnsiCsiParser),
     Osc(AnsiOscParser),
-    DecSpecialGraphics(DecSpecialGraphicsParser),
     Standard(StandardParser),
 }
 
@@ -266,9 +273,6 @@ impl FreminalAnsiParser {
             }
             b']' => {
                 self.inner = ParserInner::Osc(AnsiOscParser::new());
-            }
-            b'(' => {
-                self.inner = ParserInner::DecSpecialGraphics(DecSpecialGraphicsParser::new());
             }
             b'=' => {
                 self.inner = ParserInner::Empty;
@@ -415,23 +419,6 @@ impl FreminalAnsiParser {
                             error!("OSC Sequence that threw an error: {output_string_sequence}");
                             self.inner = ParserInner::Empty;
                         }
-                    }
-                }
-                ParserInner::DecSpecialGraphics(parser) => {
-                    output_string_sequence.push(*b as char);
-                    match parser.ansi_parser_inner_line_draw(*b, &mut output) {
-                        Some(value) => {
-                            self.inner = value;
-
-                            // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
-
-                            if output.last() == Some(&TerminalOutput::Invalid) {
-                                error!(
-                                    "DecSpecialGraphics Sequence that threw an error: {output_string_sequence}",
-                                );
-                            }
-                        }
-                        None => continue,
                     }
                 }
             }

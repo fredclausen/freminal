@@ -4,6 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::ansi::{ParserInner, TerminalOutput};
+use crate::ansi_components::line_draw::DecSpecialGraphics;
 use crate::error::ParserFailures;
 use anyhow::Result;
 
@@ -103,6 +104,7 @@ impl StandardParser {
     ///
     /// # Errors
     /// Will return an error if the parser encounters an invalid state
+    #[allow(clippy::too_many_lines)]
     pub fn standard_parser_inner(
         &mut self,
         b: u8,
@@ -191,6 +193,76 @@ impl StandardParser {
                                 }
                             }
 
+                            Ok(Some(ParserInner::Empty))
+                        }
+                    }
+                }
+                Some(b'(') => {
+                    let value = self.params.first();
+
+                    match value {
+                        None => {
+                            format_error_output(&self.sequence);
+                            output.push(TerminalOutput::Invalid);
+                            Ok(Some(ParserInner::Empty))
+                        }
+                        Some(value) => {
+                            let value = *value as char;
+
+                            match value {
+                                '0' => output.push(TerminalOutput::DecSpecialGraphics(
+                                    DecSpecialGraphics::Replace,
+                                )),
+                                'B' => output.push(TerminalOutput::DecSpecialGraphics(
+                                    DecSpecialGraphics::DontReplace,
+                                )),
+                                'C' => output.push(TerminalOutput::CharsetG0),
+                                _ => {
+                                    format_error_output(&self.sequence);
+                                    output.push(TerminalOutput::Invalid);
+                                }
+                            }
+                            Ok(Some(ParserInner::Empty))
+                        }
+                    }
+                }
+                Some(b')') => {
+                    let value = self.params.first();
+
+                    match value {
+                        None => {
+                            format_error_output(&self.sequence);
+                            output.push(TerminalOutput::Invalid);
+                            Ok(Some(ParserInner::Empty))
+                        }
+                        Some(value) => {
+                            if *value == b'C' {
+                                output.push(TerminalOutput::CharsetG1);
+                            } else {
+                                format_error_output(&self.sequence);
+                                output.push(TerminalOutput::Invalid);
+                            }
+
+                            Ok(Some(ParserInner::Empty))
+                        }
+                    }
+                }
+                Some(b'*') => {
+                    let value = self.params.first();
+
+                    match value {
+                        None => {
+                            format_error_output(&self.sequence);
+                            output.push(TerminalOutput::Invalid);
+                            Ok(Some(ParserInner::Empty))
+                        }
+                        Some(value) => {
+                            if *value == b'C' {
+                                output.push(TerminalOutput::CharsetG2);
+                            } else {
+                                format_error_output(&self.sequence);
+                                output.push(TerminalOutput::Invalid);
+                            }
                             Ok(Some(ParserInner::Empty))
                         }
                     }
