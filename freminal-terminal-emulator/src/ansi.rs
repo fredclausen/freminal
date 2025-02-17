@@ -63,6 +63,11 @@ pub enum TerminalOutput {
     AnsiConformanceLevelOne,
     AnsiConformanceLevelTwo,
     AnsiConformanceLevelThree,
+    DoubleLineHeightTop,
+    DoubleLineHeightBottom,
+    SingleWidthLine,
+    DoubleWidthLine,
+    ScreenAlignmentTest,
 }
 
 // impl format display for TerminalOutput
@@ -123,6 +128,11 @@ impl std::fmt::Display for TerminalOutput {
             Self::AnsiConformanceLevelOne => write!(f, "AnsiConformanceLevelOne"),
             Self::AnsiConformanceLevelTwo => write!(f, "AnsiConformanceLevelTwo"),
             Self::AnsiConformanceLevelThree => write!(f, "AnsiConformanceLevelThree"),
+            Self::DoubleLineHeightTop => write!(f, "DoubleLineHeightTop"),
+            Self::DoubleLineHeightBottom => write!(f, "DoubleLineHeightBottom"),
+            Self::SingleWidthLine => write!(f, "SingleWidthLine"),
+            Self::DoubleWidthLine => write!(f, "DoubleWidthLine"),
+            Self::ScreenAlignmentTest => write!(f, "ScreenAlignmentTest"),
         }
     }
 }

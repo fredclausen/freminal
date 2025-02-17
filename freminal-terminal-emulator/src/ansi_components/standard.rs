@@ -144,6 +144,33 @@ impl StandardParser {
                         }
                     }
                 }
+                Some(b'#') => {
+                    let value = self.params.first();
+
+                    match value {
+                        None => {
+                            format_error_output(&self.sequence);
+                            output.push(TerminalOutput::Invalid);
+                            Ok(Some(ParserInner::Empty))
+                        }
+                        Some(value) => {
+                            let value = *value as char;
+                            match value {
+                                '3' => output.push(TerminalOutput::DoubleLineHeightTop),
+                                '4' => output.push(TerminalOutput::DoubleLineHeightBottom),
+                                '5' => output.push(TerminalOutput::SingleWidthLine),
+                                '6' => output.push(TerminalOutput::DoubleWidthLine),
+                                '8' => output.push(TerminalOutput::ScreenAlignmentTest),
+                                _ => {
+                                    format_error_output(&self.sequence);
+                                    output.push(TerminalOutput::Invalid);
+                                }
+                            }
+
+                            Ok(Some(ParserInner::Empty))
+                        }
+                    }
+                }
                 Some(value) => {
                     let value = *value as char;
                     #[allow(clippy::match_single_binding)]
