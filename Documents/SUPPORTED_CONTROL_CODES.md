@@ -7,6 +7,27 @@
 - 🚧 - Partially implemented
 - ❌ - Will not be implemented
 
+## C1 (8 Bit) Control Characters
+
+| Control Code | Name                              | Implemented |
+| ------------ | --------------------------------- | ----------- |
+| ESC D        | Index                             | ✅          |
+| ESC E        | Next Line                         | ✅          |
+| ESC H        | Tab Set                           | ⬜          |
+| ESC M        | Reverse Index                     | ⬜          |
+| ESC N        | Single Shift Select of G2 Charset | ❌          |
+| ESC O        | Single Shift Select of G3 Charset | ❌          |
+| ESC P        | Device Control String             | ⬜          |
+| ESC V        | Start of Guarded Area             | ❌          |
+| ESC W        | End of Guarded Area               | ❌          |
+| ESC X        | Start of String                   | ❌          |
+| ESC Z        | Return of Terminal ID             | ⬜          |
+| ESC \        | String Terminator                 |             |
+| ESC [        | Control Sequence Introducer       | ✅          |
+| ESC ]        | Operating System Command          | ✅          |
+| ESC ^        | Privacy Message                   | ❌          |
+| ESC \_       | Application Program Command       | ❌          |
+
 ## Standard Escape Codes
 
 | Control Code | Name                   | Description                                                                                | Implemented |
@@ -16,10 +37,10 @@
 | ESC SP L     | Ansi Conformance Level | Level 1                                                                                    | ❌          |
 | ESC SP M     | Ansi Conformance Level | Level 2                                                                                    | ❌          |
 | ESC SP N     | Ansi Conformance Level | Level 3                                                                                    | ❌          |
-| ESC # 3      | DECDHL                 | Double Line Height, Top Half                                                               | ❌          |
-| ESC # 4      | DECDHL                 | Double Line Height, Bottom Half                                                            | ❌          |
-| ESC # 5      | DECSWL                 | Single Width Line                                                                          | ❌          |
-| ESC # 6      | DECDWL                 | Double Width Line                                                                          | ❌          |
+| ESC # 3      | DECDHL                 | Double Line Height, Top Half                                                               | ⬜          |
+| ESC # 4      | DECDHL                 | Double Line Height, Bottom Half                                                            | ⬜          |
+| ESC # 5      | DECSWL                 | Single Width Line                                                                          | ⬜          |
+| ESC # 6      | DECDWL                 | Double Width Line                                                                          | ⬜          |
 | ESC # 8      | DECALN                 | Screen Alignment Test                                                                      | ⬜          |
 | ESC % @      | Character Set          | Default Character Set                                                                      | ❌          |
 | ESC % G      | Character Set          | UTF Character Set                                                                          | ❌          |
