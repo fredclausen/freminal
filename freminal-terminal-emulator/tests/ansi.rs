@@ -1,4 +1,5 @@
 use test_log::test;
+use tracing::info;
 
 // Copyright (C) 2024-2025 Fred Clausen
 // Use of this source code is governed by an MIT-style
@@ -777,6 +778,7 @@ fn test_verify_parser_state_internal_is_osc() {
 fn test_application_keypad_support_mode() {
     let mut output_buffer = FreminalAnsiParser::new();
     let output = output_buffer.push(b"\x1b=");
+    info!("{:?}", output_buffer.inner);
     assert_eq!(output.len(), 1);
     assert_eq!(output[0], TerminalOutput::ApplicationKeypadMode);
 }

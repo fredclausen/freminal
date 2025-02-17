@@ -304,8 +304,20 @@ impl StandardParser {
                 }
                 Some(value) => {
                     let value = *value as char;
-                    #[allow(clippy::match_single_binding)]
                     match value {
+                        '7' => output.push(TerminalOutput::SaveCursor),
+                        '8' => output.push(TerminalOutput::RestoreCursor),
+                        '=' => output.push(TerminalOutput::ApplicationKeypadMode),
+                        '>' => output.push(TerminalOutput::NormalKeypadMode),
+                        'F' => output.push(TerminalOutput::CursorToLowerLeftCorner),
+                        'c' => output.push(TerminalOutput::ResetDevice),
+                        'l' => output.push(TerminalOutput::MemoryLock),
+                        'm' => output.push(TerminalOutput::MemoryUnlock),
+                        'n' => output.push(TerminalOutput::CharsetG2AsGL),
+                        'o' => output.push(TerminalOutput::CharsetG3AsGL),
+                        '|' => output.push(TerminalOutput::CharsetG3AsGR),
+                        '}' => output.push(TerminalOutput::CharsetG2AsGR),
+                        '~' => output.push(TerminalOutput::CharsetG1AsGR),
                         _ => {
                             format_error_output(&self.sequence);
                             output.push(TerminalOutput::Invalid);
@@ -332,7 +344,20 @@ pub const fn is_standard_intermediate_final(b: u8) -> bool {
 
     matches!(
         b,
-        0x7 | 0x8 | 0x3e | 0x46 | 0x63 | 0x6c | 0x6d | 0x6e | 0x6f | 0x7c | 0x7d | 0x7e
+        0x7 | 0x8
+            | 0x3e
+            | 0x46
+            | 0x63
+            | 0x6c
+            | 0x6d
+            | 0x6e
+            | 0x6f
+            | 0x7c
+            | 0x7d
+            | 0x7e
+            | 0x3d
+            | 0x37
+            | 0x38
     )
 }
 

@@ -72,8 +72,13 @@ pub enum TerminalOutput {
     CharsetUTF8,
     CharsetG0,
     CharsetG1,
+    CharsetG1AsGR,
     CharsetG2,
+    CharsetG2AsGR,
+    CharsetG2AsGL,
     CharsetG3,
+    CharsetG3AsGR,
+    CharsetG3AsGL,
     DecSpecial,
     CharsetUK,
     CharsetUS,
@@ -88,6 +93,12 @@ pub enum TerminalOutput {
     CharsetSpanish,
     CharsetSwedish,
     CharsetSwiss,
+    SaveCursor,
+    RestoreCursor,
+    CursorToLowerLeftCorner,
+    ResetDevice,
+    MemoryLock,
+    MemoryUnlock,
 }
 
 // impl format display for TerminalOutput
@@ -157,8 +168,13 @@ impl std::fmt::Display for TerminalOutput {
             Self::CharsetUTF8 => write!(f, "CharsetUTF8"),
             Self::CharsetG0 => write!(f, "CharsetG0"),
             Self::CharsetG1 => write!(f, "CharsetG1"),
+            Self::CharsetG1AsGR => write!(f, "CharsetG1AsGR"),
             Self::CharsetG2 => write!(f, "CharsetG2"),
+            Self::CharsetG2AsGR => write!(f, "CharsetG2AsGR"),
+            Self::CharsetG2AsGL => write!(f, "CharsetG2AsGL"),
             Self::CharsetG3 => write!(f, "CharsetG3"),
+            Self::CharsetG3AsGR => write!(f, "CharsetG3AsGR"),
+            Self::CharsetG3AsGL => write!(f, "CharsetG3AsGL"),
             Self::DecSpecial => write!(f, "DecSpecial"),
             Self::CharsetUK => write!(f, "CharsetUK"),
             Self::CharsetUS => write!(f, "CharsetUS"),
@@ -173,6 +189,12 @@ impl std::fmt::Display for TerminalOutput {
             Self::CharsetSpanish => write!(f, "CharsetSpanish"),
             Self::CharsetSwedish => write!(f, "CharsetSwedish"),
             Self::CharsetSwiss => write!(f, "CharsetSwiss"),
+            Self::SaveCursor => write!(f, "SaveCursor"),
+            Self::RestoreCursor => write!(f, "RestoreCursor"),
+            Self::CursorToLowerLeftCorner => write!(f, "CursorToLowerLeftCorner"),
+            Self::ResetDevice => write!(f, "ResetDevice"),
+            Self::MemoryLock => write!(f, "MemoryLock"),
+            Self::MemoryUnlock => write!(f, "MemoryUnlock"),
         }
     }
 }
@@ -301,14 +323,6 @@ impl FreminalAnsiParser {
             }
             b']' => {
                 self.inner = ParserInner::Osc(AnsiOscParser::new());
-            }
-            b'=' => {
-                self.inner = ParserInner::Empty;
-                output.push(TerminalOutput::ApplicationKeypadMode);
-            }
-            b'>' => {
-                self.inner = ParserInner::Empty;
-                output.push(TerminalOutput::NormalKeypadMode);
             }
             b'M' => {
                 self.inner = ParserInner::Empty;
