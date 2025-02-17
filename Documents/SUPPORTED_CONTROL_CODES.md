@@ -27,6 +27,19 @@
 | ESC ) C      | Character Set          | G1 Character Set                                                                           | ❌          |
 | ESC \* C     | Character Set          | G2 Character Set                                                                           | ❌          |
 | ESC + C      | Character Set          | Where `C` is a charset defined at [xfreeorg](https://www.xfree86.org/current/ctlseqs.html) | ❌          |
+| ESC 7        | Save Cursor            |                                                                                            | ⬜          |
+| ESC 8        | Restore Cursor         |                                                                                            | ⬜          |
+| ESC =        | DECPAM                 | Application Keypad Mode                                                                    | ✅          |
+| ESC >        | DECPNM                 | Application Normal Keypad Mode                                                             | ✅          |
+| ESC F        |                        | Cursor to lower left of screen                                                             | ❌          |
+| ESC c        |                        | Full reset (RIS)                                                                           | ❌          |
+| ESC l        |                        | Memory lock                                                                                | ❌          |
+| ESC m        |                        | Memory unlock                                                                              | ❌          |
+| ESC n        | Character Set          | Invoke the G2 character set as GL                                                          | ❌          |
+| ESC o        | Character Set          | Invoke the G3 character set as GL                                                          | ❌          |
+| ESC \|       | Character Set          | Invoke the G3 character set as GR                                                          | ❌          |
+| ESC }        | Character Set          | Invoke the G2 character set as GR                                                          | ❌          |
+| ESC ~        | Character Set          | Invoke the G1 character set as GR                                                          | ❌          |
 
 ## CSI Control Codes
 
