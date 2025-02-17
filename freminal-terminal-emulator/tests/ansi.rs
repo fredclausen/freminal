@@ -1,10 +1,10 @@
+use test_log::test;
+
 // Copyright (C) 2024-2025 Fred Clausen
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
-
-use test_log::test;
-
+#[cfg(test)]
 use freminal_common::colors::TerminalColor;
 use freminal_terminal_emulator::{
     ansi::{parse_param_as, FreminalAnsiParser, ParserInner, TerminalOutput},
@@ -809,6 +809,7 @@ fn test_terminal_output_bell() {
 fn test_invalid_inner_escape() {
     let mut output_buffer = FreminalAnsiParser::new();
     let output = output_buffer.push(b"\x1b_");
-    assert_eq!(output.len(), 0);
+    assert_eq!(output.len(), 1);
+    assert_eq!(output[0], TerminalOutput::Invalid);
     assert!(matches!(output_buffer.inner, ParserInner::Empty));
 }

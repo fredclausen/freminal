@@ -1354,7 +1354,7 @@ impl TerminalState {
                     self.set_top_and_bottom_margins(top_margin, bottom_margin);
                 }
                 TerminalOutput::RequestDeviceAttributes => self.report_da(),
-                TerminalOutput::Invalid => {
+                _ => {
                     info!("Unhandled terminal output: {segment:?}");
                 }
             }

@@ -3,15 +3,13 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::{
-    ansi_components::{
-        csi::AnsiCsiParser,
-        line_draw::{DecSpecialGraphics, DecSpecialGraphicsParser},
-        mode::Mode,
-        osc::{AnsiOscParser, AnsiOscType},
-        sgr::SelectGraphicRendition,
-    },
-    error::ParserFailures,
+use crate::ansi_components::{
+    csi::AnsiCsiParser,
+    line_draw::{DecSpecialGraphics, DecSpecialGraphicsParser},
+    mode::Mode,
+    osc::{AnsiOscParser, AnsiOscType},
+    sgr::SelectGraphicRendition,
+    standard::StandardParser,
 };
 
 use anyhow::Result;
@@ -60,6 +58,11 @@ pub enum TerminalOutput {
         top_margin: usize,
         bottom_margin: usize,
     },
+    EightBitControl,
+    SevenBitControl,
+    AnsiConformanceLevelOne,
+    AnsiConformanceLevelTwo,
+    AnsiConformanceLevelThree,
 }
 
 // impl format display for TerminalOutput
@@ -115,6 +118,11 @@ impl std::fmt::Display for TerminalOutput {
                 write!(f, "SetTopAndBottomMargins({top_margin}, {bottom_margin})")
             }
             Self::RequestDeviceAttributes => write!(f, "RequestDeviceAttributes"),
+            Self::EightBitControl => write!(f, "EightBitControl"),
+            Self::SevenBitControl => write!(f, "SevenBitControl"),
+            Self::AnsiConformanceLevelOne => write!(f, "AnsiConformanceLevelOne"),
+            Self::AnsiConformanceLevelTwo => write!(f, "AnsiConformanceLevelTwo"),
+            Self::AnsiConformanceLevelThree => write!(f, "AnsiConformanceLevelThree"),
         }
     }
 }
@@ -170,6 +178,7 @@ pub enum ParserInner {
     Csi(AnsiCsiParser),
     Osc(AnsiOscParser),
     DecSpecialGraphics(DecSpecialGraphicsParser),
+    Standard(StandardParser),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -234,7 +243,7 @@ impl FreminalAnsiParser {
         b: u8,
         data_output: &mut Vec<u8>,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<()> {
+    ) {
         push_data_if_non_empty(data_output, output);
 
         match b {
@@ -277,17 +286,31 @@ impl FreminalAnsiParser {
                 });
             }
             _ => {
-                let char_decoded = b as char;
-                error!("Unhandled escape sequence. Hex: {b:x}/Int: {b}/ASCII: {char_decoded}",);
-                self.inner = ParserInner::Empty;
+                let mut parser = StandardParser::new();
 
-                return Err(ParserFailures::UnhandledInnerEscape(format!("{b:x}")).into());
+                match parser.standard_parser_inner(b, output) {
+                    Ok(value) => match value {
+                        Some(return_value) => {
+                            self.inner = return_value;
+                            // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
+
+                            if output.last() == Some(&TerminalOutput::Invalid) {
+                                error!("CSI Sequence that threw an error: ESC{}", b as char);
+                            }
+                        }
+                        None => self.inner = ParserInner::Standard(parser),
+                    },
+                    Err(e) => {
+                        error!("Parser Error: {e}");
+                        error!("CSI Sequence that threw an error: ESC{}", b as char);
+                        self.inner = ParserInner::Empty;
+                    }
+                }
             }
         }
-
-        Ok(())
     }
 
+    #[allow(clippy::too_many_lines)]
     pub fn push(&mut self, incoming: &[u8]) -> Vec<TerminalOutput> {
         let mut output = Vec::new();
         let mut data_output = Vec::new();
@@ -307,11 +330,30 @@ impl FreminalAnsiParser {
                     data_output.push(*b);
                 }
                 ParserInner::Escape => {
-                    if let Err(e) = self.ansiparser_inner_escape(*b, &mut data_output, &mut output)
-                    {
-                        error!("Parser Error: {e}");
-                        error!("Escape Sequence that threw an error: {output_string_sequence}");
-                        self.inner = ParserInner::Empty;
+                    self.ansiparser_inner_escape(*b, &mut data_output, &mut output);
+                }
+                ParserInner::Standard(parser) => {
+                    output_string_sequence.push(*b as char);
+                    match parser.standard_parser_inner(*b, &mut output) {
+                        Ok(Some(value)) => {
+                            self.inner = value;
+
+                            // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
+
+                            if output.last() == Some(&TerminalOutput::Invalid) {
+                                error!(
+                                    "Standard Sequence that threw an error: {output_string_sequence}",
+                                );
+                            }
+                        }
+                        Ok(None) => continue,
+                        Err(e) => {
+                            error!("Parser Error: {e}");
+                            error!(
+                                "Standard Sequence that threw an error: {output_string_sequence}"
+                            );
+                            self.inner = ParserInner::Empty;
+                        }
                     }
                 }
                 ParserInner::Csi(parser) => {

@@ -10,3 +10,4 @@ pub mod mode;
 pub mod modes;
 pub mod osc;
 pub mod sgr;
+pub mod standard;
