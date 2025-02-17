@@ -68,6 +68,8 @@ pub enum TerminalOutput {
     SingleWidthLine,
     DoubleWidthLine,
     ScreenAlignmentTest,
+    CharsetDefault,
+    CharsetUTF8,
 }
 
 // impl format display for TerminalOutput
@@ -133,6 +135,8 @@ impl std::fmt::Display for TerminalOutput {
             Self::SingleWidthLine => write!(f, "SingleWidthLine"),
             Self::DoubleWidthLine => write!(f, "DoubleWidthLine"),
             Self::ScreenAlignmentTest => write!(f, "ScreenAlignmentTest"),
+            Self::CharsetDefault => write!(f, "CharsetDefault"),
+            Self::CharsetUTF8 => write!(f, "CharsetUTF8"),
         }
     }
 }

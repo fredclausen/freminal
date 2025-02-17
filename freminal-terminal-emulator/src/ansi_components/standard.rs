@@ -171,6 +171,30 @@ impl StandardParser {
                         }
                     }
                 }
+                Some(b'%') => {
+                    let value = self.params.first();
+
+                    match value {
+                        None => {
+                            format_error_output(&self.sequence);
+                            output.push(TerminalOutput::Invalid);
+                            Ok(Some(ParserInner::Empty))
+                        }
+                        Some(value) => {
+                            let value = *value as char;
+                            match value {
+                                '@' => output.push(TerminalOutput::CharsetDefault),
+                                'G' => output.push(TerminalOutput::CharsetUTF8),
+                                _ => {
+                                    format_error_output(&self.sequence);
+                                    output.push(TerminalOutput::Invalid);
+                                }
+                            }
+
+                            Ok(Some(ParserInner::Empty))
+                        }
+                    }
+                }
                 Some(value) => {
                     let value = *value as char;
                     #[allow(clippy::match_single_binding)]
