@@ -34,11 +34,13 @@ The below list is not a complete list of all completed tasks. It's a reflection 
 
 ## Version 0.2.0
 
-Will be focused on performance improvements as well as a replay system to help step through control codes that caused a problem. Very likely, this will mean a rewrite/improvement to the way that the terminal emulator is handling the internal buffer
+Will be focused on performance improvements as well as a replay system to help step through control codes that caused a problem. Very likely, this will mean a rewrite/improvement to the way that the terminal emulator is handling the internal buffer.
 
 ## Version 0.3.0
 
 Will be focused on moving from the current text box we're drawing to using raw OpenGL and shaders. This will allow for more advanced features like ligatures, supporting OSC 1337 for image display, and other features that are not possible with the current text box.
+
+Finally, muxxing / tabs will be introduced.
 
 ## Version 0.4.0
 
