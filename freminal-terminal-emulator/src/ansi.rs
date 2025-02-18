@@ -100,6 +100,7 @@ pub enum TerminalOutput {
     MemoryLock,
     MemoryUnlock,
     DeviceControlString(Vec<u8>),
+    RequestDeviceNameandVersion,
 }
 
 // impl format display for TerminalOutput
@@ -199,6 +200,7 @@ impl std::fmt::Display for TerminalOutput {
             Self::DeviceControlString(data) => {
                 write!(f, "DeviceControlString({})", String::from_utf8_lossy(data))
             }
+            Self::RequestDeviceNameandVersion => write!(f, "RequestDeviceNameandVersion"),
         }
     }
 }

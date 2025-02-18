@@ -20,6 +20,7 @@ use super::{
         ed::ansi_parser_inner_csi_finished_set_position_j,
         el::ansi_parser_inner_csi_finished_set_position_k, ict::ansi_parser_inner_csi_finished_ich,
         il::ansi_parser_inner_csi_finished_set_position_l,
+        report_xt_version::ansi_parser_inner_csi_finished_report_version_q,
         send_device_attributes::ansi_parser_inner_csi_finished_send_da,
         sgr::ansi_parser_inner_csi_finished_sgr_ansi,
     },
@@ -188,7 +189,13 @@ impl AnsiCsiParser {
                 ansi_parser_inner_csi_finished_decrqm(&self.params, &self.intermediates, b, output)
             }
             AnsiCsiParserState::Finished(b'q') => {
-                ansi_parser_inner_csi_finished_set_position_q(&self.params, output)
+                if self.params.is_empty() || self.params.first().unwrap_or(&b'0') != &b'>' {
+                    ansi_parser_inner_csi_finished_set_position_q(&self.params, output)?;
+                } else {
+                    ansi_parser_inner_csi_finished_report_version_q(&self.params, output)?;
+                }
+
+                Ok(Some(ParserInner::Empty))
             }
             AnsiCsiParserState::Finished(b'r') => {
                 ansi_parser_inner_csi_set_top_and_bottom_margins(&self.params, output)

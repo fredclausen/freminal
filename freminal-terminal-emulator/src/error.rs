@@ -48,4 +48,6 @@ pub enum ParserFailures {
     UnhandledDECRQMCommand(Vec<u8>),
     #[error("Invalid send device attributes (DA) set position sequence: {0}")]
     UnhandledDACommand(String),
+    #[error("Invalid request device name and version (XTVERSION) set position sequence: {0}")]
+    UnhandledXTVERSIONCommand(String),
 }

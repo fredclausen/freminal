@@ -1200,6 +1200,19 @@ impl TerminalState {
         }
     }
 
+    pub fn report_device_name_and_version(&mut self) {
+        let version = env!("CARGO_PKG_VERSION");
+        let output = collect_text(&format!("\x1bP>|Freminal {version}\x1b\\"));
+        for input in output.iter() {
+            match self.write(input) {
+                Ok(()) => (),
+                Err(e) => {
+                    error!("Failed to write device name and version: {e}");
+                }
+            }
+        }
+    }
+
     pub fn report_title(&mut self, title: &str) {
         let output = collect_text(&format!("\x1b]l{title}\x1b\\"));
         for input in output.iter() {
@@ -1367,6 +1380,9 @@ impl TerminalState {
                     if let Some(saved_cursor_pos) = self.saved_cursor_pos {
                         self.get_current_buffer().cursor_state.pos = saved_cursor_pos;
                     }
+                }
+                TerminalOutput::RequestDeviceNameandVersion => {
+                    self.report_device_name_and_version();
                 }
                 _ => {
                     info!("Unhandled terminal output: {segment}");

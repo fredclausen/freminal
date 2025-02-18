@@ -19,5 +19,6 @@ pub mod ed;
 pub mod el;
 pub mod ict;
 pub mod il;
+pub mod report_xt_version;
 pub mod send_device_attributes;
 pub mod sgr;
