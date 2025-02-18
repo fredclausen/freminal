@@ -181,9 +181,23 @@ fn test_canvas_clear_forwards() {
         TChar::new_from_single_char(b'6'),
         TChar::new_from_single_char(b'7'),
         TChar::new_from_single_char(b'8'),
+        TChar::Space,
         TChar::NewLine,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
         TChar::NewLine,
-        TChar::NewLine,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
         TChar::NewLine,
     ];
 
@@ -204,10 +218,26 @@ fn test_canvas_clear_forwards() {
         TChar::new_from_single_char(b'2'),
         TChar::new_from_single_char(b'3'),
         TChar::new_from_single_char(b'4'),
-        TChar::NewLine,
-        TChar::NewLine,
-        TChar::NewLine,
-        TChar::NewLine,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
+        TChar::Space,
         TChar::NewLine,
     ];
     assert_eq!(buffer.data(true).visible, expected);
@@ -1163,7 +1193,7 @@ fn test_clear_backwards() {
     let mut canvas = TerminalBufferHolder::new(5, 5, BufferType::Primary);
 
     // Test empty canvas
-    let response = canvas.clear_backwards(&CursorPos { x: 0, y: 0 }).unwrap();
+    let response = canvas.clear_backwards(&CursorPos { x: 0, y: 0 });
     assert_eq!(response, None);
     assert_eq!(canvas.data(true).visible, b"");
 
@@ -1220,7 +1250,7 @@ fn test_clear_backwards() {
     ];
 
     assert_eq!(canvas.data(true).visible, expected);
-    assert_eq!(response, Some(0..3));
+    assert_eq!(response, 0..3);
 
     // clearing on the second line
     let response = canvas.clear_backwards(&CursorPos { x: 3, y: 1 }).unwrap();
@@ -1248,7 +1278,7 @@ fn test_clear_backwards() {
     ];
 
     assert_eq!(canvas.data(true).visible, expected);
-    assert_eq!(response, Some(5..8));
+    assert_eq!(response, 0..8);
 }
 
 #[test]

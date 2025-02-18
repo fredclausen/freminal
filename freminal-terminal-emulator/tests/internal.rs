@@ -210,7 +210,7 @@ fn test_clear_display_from_cursor_to_end_of_display() {
         .get_current_buffer()
         .terminal_buffer
         .data(true);
-    let expected = TChar::from_vec(b"Hello, Wor\n").unwrap();
+    let expected = TChar::from_vec(b"Hello, Wor   \n").unwrap();
     assert_eq!(buffer.visible, expected);
 }
 

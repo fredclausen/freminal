@@ -176,6 +176,18 @@ impl TerminalBufferHolder {
         self.buffer_line_ranges = line_ranges;
     }
 
+    pub fn screen_alignment_test(&mut self) -> Range<usize> {
+        for _ in 0..self.height {
+            for _ in 0..self.width {
+                self.buf.push(TChar::new_from_single_char(b'E'));
+            }
+            self.buf.push(TChar::NewLine);
+        }
+
+        self.line_ranges_to_visible_line_ranges();
+        self.visible_line_ranges[0].start..self.visible_line_ranges[self.height - 1].end
+    }
+
     /// Inserts data into the buffer at the cursor position
     ///
     /// # Errors
@@ -311,72 +323,36 @@ impl TerminalBufferHolder {
         }
     }
 
-    /// Clear backwards from the cursor position
+    /// Clear backwards from the cursor position to start of screen
     ///
     /// Returns the buffer position that was cleared to
     ///
     /// # Errors
     /// Will error if the cursor position changes during the clear
-    pub fn clear_backwards(&mut self, cursor_pos: &CursorPos) -> Result<Option<Range<usize>>> {
-        let visible_line_ranges = self.visible_line_ranges.clone();
+    pub fn clear_backwards(&mut self, cursor_pos: &CursorPos) -> Option<Range<usize>> {
+        let (buf_pos, _) = self.cursor_to_buf_pos(cursor_pos)?;
 
-        let Some((buf_pos, _)) = self.cursor_to_buf_pos(cursor_pos) else {
-            return Ok(None);
-        };
+        if self.visible_line_ranges.is_empty() {
+            return None;
+        }
 
         // we want to clear from the start of the visible line to the cursor pos
 
         // clear from the buf pos that is the start of the visible line to the cursor pos
 
-        let previous_last_char = self.buf[buf_pos].clone();
+        let start_pos = self.visible_line_ranges[0].start;
+        let clear_range = start_pos..buf_pos;
 
-        for line in &visible_line_ranges {
-            // replace all characters from the start of the visible lines to buf_pos with spaces
-            if line.start < buf_pos {
-                self.buf[line.start..buf_pos].fill(TChar::Space);
-            }
-
-            // if the line is where the cursor is, we want to clear from the start of the line to the cursor pos
-            if line.start == buf_pos {
-                self.buf[line.start..buf_pos].fill(TChar::Space);
-                break;
-            }
-        }
-
-        let mut pos = self.buf_to_cursor_pos(buf_pos);
-        // NOTE: buf to cursor pos may put the cursor one past the end of the line. In this
-        // case it's ok because there are two valid cursor positions and we only care about one
-        // of them
-        if pos.x == self.width {
-            pos.x = 0;
-            pos.y += 1;
-            //pos.x_as_characters = 0;
-        }
-        let new_cursor_pos = pos;
-
-        // If we truncate at the start of a line, and the previous line did not end with a newline,
-        // the first inserted newline will not have an effect on the number of visible lines. This
-        // is because we are allowed to have a trailing newline that is longer than the terminal
-        // width. To keep the cursor pos the same as it was before, if the truncate position is the
-        // start of a line, and the previous character is _not_ a newline, insert an extra newline
-        // to compensate
-        //
-        // If we truncated a newline it's the same situation
-        if cursor_pos.x == 0 && buf_pos > 0 && self.buf[buf_pos - 1] != TChar::NewLine
-            || previous_last_char == TChar::NewLine
-        {
-            self.buf.push(TChar::NewLine);
-        }
-
-        if new_cursor_pos != cursor_pos.clone() {
-            return Err(anyhow::anyhow!(
-                "Cursor position changed while clearing backwards"
-            ));
+        for i in clear_range.clone() {
+            match self.buf.get(i) {
+                Some(TChar::NewLine | TChar::Space) => continue,
+                Some(_) => self.buf[i] = TChar::Space,
+                None => break,
+            };
         }
 
         self.line_ranges_to_visible_line_ranges();
-
-        Ok(Some(visible_line_ranges[cursor_pos.y].start..buf_pos))
+        Some(clear_range)
     }
 
     /// Clear forwards from the cursor position
@@ -385,59 +361,18 @@ impl TerminalBufferHolder {
     ///
     /// # Errors
     /// Will error if the cursor position changes during the clear
-    pub fn clear_forwards(&mut self, cursor_pos: &CursorPos) -> Result<Option<usize>> {
-        let visible_line_ranges = &self.visible_line_ranges;
+    pub fn clear_forwards(&mut self, cursor_pos: &CursorPos) -> Option<Range<usize>> {
+        let (buf_pos, _) = self.cursor_to_buf_pos(cursor_pos)?;
 
-        let Some((buf_pos, _)) = self.cursor_to_buf_pos(cursor_pos) else {
-            return Ok(None);
-        };
-
-        let previous_last_char = self.buf[buf_pos].clone();
-        self.buf.truncate(buf_pos);
-
-        // If we truncate at the start of a line, and the previous line did not end with a newline,
-        // the first inserted newline will not have an effect on the number of visible lines. This
-        // is because we are allowed to have a trailing newline that is longer than the terminal
-        // width. To keep the cursor pos the same as it was before, if the truncate position is the
-        // start of a line, and the previous character is _not_ a newline, insert an extra newline
-        // to compensate
-        //
-        // If we truncated a newline it's the same situation
-        if cursor_pos.x == 0 && buf_pos > 0 && self.buf[buf_pos - 1] != TChar::NewLine
-            || previous_last_char == TChar::NewLine
-        {
-            self.buf.push(TChar::NewLine);
+        for i in buf_pos..self.buf.len() {
+            match self.buf.get(i) {
+                Some(TChar::NewLine) => continue,
+                Some(_) => self.buf[i] = TChar::Space,
+                None => break,
+            };
         }
-
-        for line in visible_line_ranges {
-            if line.end > buf_pos {
-                self.buf.push(TChar::NewLine);
-            }
-        }
-
-        let mut pos = self.buf_to_cursor_pos(buf_pos);
-
-        // NOTE: buf to cursor pos may put the cursor one past the end of the line. In this
-        // case it's ok because there are two valid cursor positions and we only care about one
-        // of them
-        if pos.x == self.width {
-            pos.x = 0;
-            pos.y += 1;
-            //pos.x_as_characters = 0;
-        }
-        let new_cursor_pos = pos;
-
-        // assert_eq!(new_cursor_pos, cursor_pos.clone());
-
-        if new_cursor_pos != *cursor_pos {
-            return Err(anyhow::anyhow!(
-                "Cursor position changed while clearing forwards"
-            ));
-        }
-
         self.line_ranges_to_visible_line_ranges();
-
-        Ok(Some(buf_pos))
+        Some(buf_pos..self.buf.len())
     }
 
     pub fn clear_line_forwards(&mut self, cursor_pos: &CursorPos) -> Option<Range<usize>> {

@@ -457,38 +457,25 @@ impl TerminalState {
 
     pub(crate) fn clear_forwards(&mut self) {
         let current_buffer = self.get_current_buffer();
-        match current_buffer
+        if let Some(buf_pos) = current_buffer
             .terminal_buffer
             .clear_forwards(&current_buffer.cursor_state.pos)
         {
-            Ok(Some(buf_pos)) => {
-                current_buffer
-                    .format_tracker
-                    .push_range(&current_buffer.cursor_state, buf_pos..usize::MAX);
-            }
-            // FIXME: why on god's green earth are we having an option type here?
-            Ok(None) => (),
-            Err(e) => {
-                error!("Failed to clear forwards: {e}");
-            }
+            current_buffer
+                .format_tracker
+                .push_range(&current_buffer.cursor_state, buf_pos);
         }
     }
 
     pub(crate) fn clear_backwards(&mut self) {
         let current_buffer = self.get_current_buffer();
-        match current_buffer
+        if let Some(buf_pos) = current_buffer
             .terminal_buffer
             .clear_backwards(&current_buffer.cursor_state.pos)
         {
-            Ok(Some(buf_pos)) => {
-                current_buffer
-                    .format_tracker
-                    .push_range(&current_buffer.cursor_state, buf_pos);
-            }
-            Ok(None) => (),
-            Err(e) => {
-                error!("Failed to clear backwards: {e}");
-            }
+            current_buffer
+                .format_tracker
+                .push_range(&current_buffer.cursor_state, buf_pos);
         }
     }
 
@@ -794,6 +781,19 @@ impl TerminalState {
             .push_range_adjustment(response.insertion_range);
     }
 
+    pub(crate) fn screen_alignment_test(&mut self) {
+        self.reset();
+        self.clear_all();
+        let current_buffer = self.get_current_buffer();
+        let response = current_buffer.terminal_buffer.screen_alignment_test();
+        current_buffer
+            .format_tracker
+            .push_range_adjustment(response);
+
+        // set the cursor to the top left corner
+        current_buffer.cursor_state.pos = CursorPos::default();
+    }
+
     #[allow(clippy::too_many_lines)]
     pub(crate) fn set_mode(&mut self, mode: &Mode) {
         match mode {
@@ -844,6 +844,7 @@ impl TerminalState {
                 self.report_mode(&to_write);
             }
             Mode::XtExtscrn(XtExtscrn::Alternate) => {
+                debug!("Switching to alternate screen buffer");
                 // SPEC Steps:
                 // 1. Save the cursor position
                 // 2. Switch to the alternate screen buffer
@@ -1266,6 +1267,7 @@ impl TerminalState {
     }
 
     pub fn handle_incoming_data(&mut self, incoming: &[u8]) {
+        debug!("Handling Incoming Data");
         #[cfg(debug_assertions)]
         let now = Instant::now();
         // if we have leftover data, prepend it to the incoming data
@@ -1354,6 +1356,7 @@ impl TerminalState {
                     self.set_top_and_bottom_margins(top_margin, bottom_margin);
                 }
                 TerminalOutput::RequestDeviceAttributes => self.report_da(),
+                TerminalOutput::ScreenAlignmentTest => self.screen_alignment_test(),
                 _ => {
                     info!("Unhandled terminal output: {segment:?}");
                 }
@@ -1376,6 +1379,7 @@ impl TerminalState {
 
         self.set_state_changed();
         self.request_redraw();
+        debug!("Finished handling incoming data");
     }
 
     /// Write data to the terminal
