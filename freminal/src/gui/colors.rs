@@ -6,6 +6,7 @@
 use eframe::egui::Color32;
 use freminal_common::colors::TerminalColor;
 
+// We use the default Wez color scheme
 #[must_use]
 pub fn internal_color_to_egui(
     default_foreground_color: Color32,
@@ -18,22 +19,22 @@ pub fn internal_color_to_egui(
         | TerminalColor::DefaultUnderlineColor
         | TerminalColor::DefaultCursorColor => default_foreground_color,
         TerminalColor::DefaultBackground => default_background_color,
-        TerminalColor::Black => Color32::from_rgb(0, 0, 0),
-        TerminalColor::Red => Color32::from_rgb(205, 0, 0),
-        TerminalColor::Green => Color32::from_rgb(0, 205, 0),
-        TerminalColor::Yellow => Color32::from_rgb(205, 205, 0),
-        TerminalColor::Blue => Color32::from_rgb(0, 0, 238),
-        TerminalColor::Magenta => Color32::from_rgb(205, 0, 205),
-        TerminalColor::Cyan => Color32::from_rgb(0, 205, 205),
-        TerminalColor::White => Color32::from_rgb(229, 229, 229),
-        TerminalColor::BrightYellow => Color32::from_rgb(255, 255, 0),
-        TerminalColor::BrightRed => Color32::from_rgb(255, 0, 0),
-        TerminalColor::BrightGreen => Color32::from_rgb(0, 255, 0),
-        TerminalColor::BrightBlue => Color32::from_rgb(92, 92, 255),
-        TerminalColor::BrightMagenta => Color32::from_rgb(255, 0, 255),
-        TerminalColor::BrightCyan => Color32::from_rgb(0, 255, 255),
-        TerminalColor::BrightWhite => Color32::from_rgb(255, 255, 255),
-        TerminalColor::BrightBlack => Color32::from_rgb(127, 127, 127),
+        TerminalColor::Black => Color32::from_hex("#000000").unwrap_or_default(),
+        TerminalColor::Red => Color32::from_hex("#cc5555").unwrap_or_default(),
+        TerminalColor::Green => Color32::from_hex("#55cc55").unwrap_or_default(),
+        TerminalColor::Yellow => Color32::from_hex("#cdcd55").unwrap_or_default(),
+        TerminalColor::Blue => Color32::from_hex("#5555cc").unwrap_or_default(),
+        TerminalColor::Magenta => Color32::from_hex("#cc55cc").unwrap_or_default(),
+        TerminalColor::Cyan => Color32::from_hex("#7acaca").unwrap_or_default(),
+        TerminalColor::White => Color32::from_hex("#b3b3b3").unwrap_or_default(),
+        TerminalColor::BrightBlack => Color32::from_hex("#555555").unwrap_or_default(),
+        TerminalColor::BrightRed => Color32::from_hex("#ff5555").unwrap_or_default(),
+        TerminalColor::BrightGreen => Color32::from_hex("#55ff55").unwrap_or_default(),
+        TerminalColor::BrightYellow => Color32::from_hex("#ffff55").unwrap_or_default(),
+        TerminalColor::BrightBlue => Color32::from_hex("#5555ff").unwrap_or_default(),
+        TerminalColor::BrightMagenta => Color32::from_hex("#ff55ff").unwrap_or_default(),
+        TerminalColor::BrightCyan => Color32::from_hex("#55ffff").unwrap_or_default(),
+        TerminalColor::BrightWhite => Color32::from_hex("#ffffff").unwrap_or_default(),
         TerminalColor::Custom(r, g, b) => Color32::from_rgb(r, g, b),
     };
 
@@ -43,3 +44,17 @@ pub fn internal_color_to_egui(
         color_before_faint
     }
 }
+
+// https://github.com/mbadolato/iTerm2-Color-Schemes/blob/master/wezterm/Wez.toml
+// # Wez
+// [colors]
+// foreground = "#b3b3b3"
+// background = "#000000"
+// cursor_bg = "#53ae71"
+// cursor_border = "#53ae71"
+// cursor_fg = "#000000"
+// selection_bg = "#4d52f8"
+// selection_fg = "#000000"
+
+// ansi = ["#000000","#cc5555","#55cc55","#cdcd55","#5555cc","#cc55cc","#7acaca","#cccccc"]
+// brights = ["#555555","#ff5555","#55ff55","#ffff55","#5555ff","#ff55ff","#55ffff","#ffffff"]
