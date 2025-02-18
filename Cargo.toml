@@ -19,7 +19,7 @@ version = "0.1.0"
 [workspace.dependencies]
 anyhow = "1.0.95"
 cargo_metadata = "0.19.1"
-clap = { version = "4.5.29", features = ["derive"] }
+clap = { version = "4.5.30", features = ["derive"] }
 clap-cargo = { version = "0.15.2", features = ["cargo_metadata"] }
 clap-verbosity-flag = "3.0.2"
 color-eyre = "0.6.3"
@@ -52,4 +52,4 @@ tracing-subscriber = { version = "0.3.19", features = [
 ] }
 unicode-segmentation = "1.12.0"
 test-log = { version = "0.2.17", features = ["trace"] }
-tempfile = "3.16.0"
+tempfile = "3.17.1"
