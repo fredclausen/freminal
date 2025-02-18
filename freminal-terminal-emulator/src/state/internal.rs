@@ -971,10 +971,10 @@ impl TerminalState {
                 warn!("Received AllowColumnResize({allow_column_resize}), but it's not supported");
             }
             Mode::ReverseWrapAround(ReverseWrapAround::Query) => {
-                self.report_mode(&ReverseWrapAround::Query.report(None));
+                self.report_mode(&self.modes.reverse_wrap_around.report(None));
             }
             Mode::ReverseWrapAround(reverse_wrap_around) => {
-                warn!("Received ReverseWrapAround({reverse_wrap_around}), but it's not supported");
+                self.modes.reverse_wrap_around = reverse_wrap_around.clone();
             }
         }
     }

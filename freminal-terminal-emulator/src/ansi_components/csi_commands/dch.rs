@@ -29,7 +29,12 @@ pub fn ansi_parser_inner_csi_finished_set_position_p(
         return Err(ParserFailures::UnhandledDCHCommand(format!("{params:?}")).into());
     };
 
-    output.push(TerminalOutput::Delete(param.unwrap_or(1)));
+    let param = match param {
+        Some(0 | 1) | None => 1,
+        Some(n) => n,
+    };
+
+    output.push(TerminalOutput::Delete(param));
 
     Ok(Some(ParserInner::Empty))
 }

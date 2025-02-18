@@ -27,7 +27,10 @@ pub fn ansi_parser_inner_csi_finished_set_cursor_position_g(
         .into());
     };
 
-    let x_pos = param.unwrap_or(1);
+    let x_pos = match param {
+        Some(0 | 1) | None => 1,
+        Some(n) => n,
+    };
 
     output.push(TerminalOutput::SetCursorPos {
         x: Some(x_pos),

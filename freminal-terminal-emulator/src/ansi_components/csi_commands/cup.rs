@@ -28,9 +28,19 @@ pub fn ansi_parser_inner_csi_finished_set_position_h(
         return Err(ParserFailures::UnhandledCUPCommand(params.to_vec()).into());
     };
 
+    let x = match extract_param(1, &params) {
+        Some(0 | 1) | None => 1,
+        Some(n) => n,
+    };
+
+    let y = match extract_param(0, &params) {
+        Some(0 | 1) | None => 1,
+        Some(n) => n,
+    };
+
     output.push(TerminalOutput::SetCursorPos {
-        x: Some(extract_param(1, &params).unwrap_or(1)),
-        y: Some(extract_param(0, &params).unwrap_or(1)),
+        x: Some(x),
+        y: Some(y),
     });
 
     Ok(Some(ParserInner::Empty))

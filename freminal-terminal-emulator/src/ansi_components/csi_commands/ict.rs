@@ -29,8 +29,13 @@ pub fn ansi_parser_inner_csi_finished_ich(
         return Err(ParserFailures::UnhandledICHCommand(format!("{params:?}")).into());
     };
 
+    let param = match param {
+        Some(0 | 1) | None => 1,
+        Some(n) => n,
+    };
+
     // ecma-48 8.3.64
-    output.push(TerminalOutput::InsertSpaces(param.unwrap_or(1)));
+    output.push(TerminalOutput::InsertSpaces(param));
 
     Ok(Some(ParserInner::Empty))
 }

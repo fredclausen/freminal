@@ -42,6 +42,7 @@ pub struct TerminalModes {
     pub synchronized_updates: SynchronizedUpdates,
     pub invert_screen: Decscnm,
     pub repeat_keys: Decarm,
+    pub reverse_wrap_around: ReverseWrapAround,
 }
 
 #[derive(Eq, PartialEq, Debug)]

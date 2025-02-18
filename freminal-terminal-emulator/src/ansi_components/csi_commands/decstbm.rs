@@ -61,7 +61,11 @@ pub fn ansi_parser_inner_csi_set_top_and_bottom_margins(
         return Err(ParserFailures::UnhandledDECSTBMCommand(format!("{params:?}")).into());
     }
 
-    let pt = params[0].unwrap_or(1);
+    let pt = match params.first() {
+        Some(Some(0 | 1) | None) | None => 1,
+        Some(Some(n)) => *n,
+    };
+
     let pb = params[1].unwrap_or(usize::MAX);
 
     if pt >= pb || pt == 0 || pb == 0 {

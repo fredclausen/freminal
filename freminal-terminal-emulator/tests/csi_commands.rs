@@ -285,7 +285,7 @@ fn test_dch() {
 
     output.clear();
     ansi_parser_inner_csi_finished_set_position_p(b"0", &mut output).unwrap();
-    assert_eq!(output, vec![TerminalOutput::Delete(0)]);
+    assert_eq!(output, vec![TerminalOutput::Delete(1)]);
 
     output.clear();
     ansi_parser_inner_csi_finished_set_position_p(b"1", &mut output).unwrap();
@@ -375,7 +375,7 @@ fn test_ich() {
     output.clear();
     params.push(b'0');
     ansi_parser_inner_csi_finished_ich(&params, &mut output).unwrap();
-    assert_eq!(output, vec![TerminalOutput::InsertSpaces(0)]);
+    assert_eq!(output, vec![TerminalOutput::InsertSpaces(1)]);
 
     output.clear();
     params.push(b';');

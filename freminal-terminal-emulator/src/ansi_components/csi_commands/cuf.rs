@@ -27,8 +27,13 @@ pub fn ansi_parser_inner_csi_finished_move_right(
         .into());
     };
 
+    let param = match param {
+        Some(0 | 1) | None => 1,
+        Some(n) => n,
+    };
+
     output.push(TerminalOutput::SetCursorPosRel {
-        x: Some(param.unwrap_or(1)),
+        x: Some(param),
         y: None,
     });
 
