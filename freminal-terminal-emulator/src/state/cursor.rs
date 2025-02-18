@@ -171,7 +171,7 @@ impl CursorState {
 }
 
 #[allow(clippy::module_name_repetitions)]
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Copy)]
 pub struct CursorPos {
     pub x: usize,
     pub y: usize,

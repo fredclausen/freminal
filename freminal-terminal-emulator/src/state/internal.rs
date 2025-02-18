@@ -114,6 +114,7 @@ pub struct TerminalState {
     pub mouse_position: Option<egui::Pos2>,
     pub window_focused: bool,
     pub window_commands: Vec<WindowManipulation>,
+    pub saved_cursor_pos: Option<CursorPos>,
 }
 
 impl Default for TerminalState {
@@ -154,6 +155,7 @@ impl TerminalState {
             mouse_position: None,
             window_focused: true,
             window_commands: Vec::new(),
+            saved_cursor_pos: None,
         }
     }
 
@@ -266,7 +268,7 @@ impl TerminalState {
 
     #[must_use]
     pub fn cursor_pos(&mut self) -> CursorPos {
-        self.get_current_buffer().cursor_state.pos.clone()
+        self.get_current_buffer().cursor_state.pos
     }
 
     pub fn set_win_size(
@@ -280,7 +282,7 @@ impl TerminalState {
             height,
             &current_buffer.cursor_state.pos,
         );
-        self.get_current_buffer().cursor_state.pos = response.new_cursor_pos.clone();
+        self.get_current_buffer().cursor_state.pos = response.new_cursor_pos;
 
         response
     }
@@ -1266,6 +1268,7 @@ impl TerminalState {
         self.set_cursor_pos(Some(1), Some(1));
     }
 
+    #[allow(clippy::too_many_lines)]
     pub fn handle_incoming_data(&mut self, incoming: &[u8]) {
         debug!("Handling Incoming Data");
         #[cfg(debug_assertions)]
@@ -1357,6 +1360,14 @@ impl TerminalState {
                 }
                 TerminalOutput::RequestDeviceAttributes => self.report_da(),
                 TerminalOutput::ScreenAlignmentTest => self.screen_alignment_test(),
+                TerminalOutput::SaveCursor => {
+                    self.saved_cursor_pos = Some(self.get_current_buffer().cursor_state.pos);
+                }
+                TerminalOutput::RestoreCursor => {
+                    if let Some(saved_cursor_pos) = self.saved_cursor_pos {
+                        self.get_current_buffer().cursor_state.pos = saved_cursor_pos;
+                    }
+                }
                 _ => {
                     info!("Unhandled terminal output: {segment:?}");
                 }

@@ -253,7 +253,7 @@ impl TerminalBufferHolder {
             TerminalBufferInsertResponse {
                 written_range: buf_pos..buf_pos + used_spaces,
                 insertion_range: buf_pos..buf_pos + num_inserted,
-                new_cursor_pos: cursor_pos.clone(),
+                new_cursor_pos: *cursor_pos,
             }
         } else {
             let PadBufferForWriteResponse {
@@ -264,7 +264,7 @@ impl TerminalBufferHolder {
             TerminalBufferInsertResponse {
                 written_range: write_idx..write_idx + num_spaces,
                 insertion_range: inserted_padding,
-                new_cursor_pos: cursor_pos.clone(),
+                new_cursor_pos: *cursor_pos,
             }
         }
     }
@@ -708,7 +708,7 @@ impl TerminalBufferHolder {
             return TerminalBufferSetWinSizeResponse {
                 changed: false,
                 _insertion_range: 0..0,
-                new_cursor_pos: cursor_pos.clone(),
+                new_cursor_pos: *cursor_pos,
             };
         }
 

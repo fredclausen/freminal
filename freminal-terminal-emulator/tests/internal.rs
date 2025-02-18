@@ -42,6 +42,7 @@ fn test_internal_terminal_state_new() {
         mouse_position: None,
         window_focused: true,
         window_commands: vec![],
+        saved_cursor_pos: None,
     };
 
     assert_eq!(terminal_state, expected);
@@ -76,33 +77,33 @@ fn test_internal_terminal_state_new() {
     assert_eq!(cursor_key_mode, Decckm::default());
 
     terminal_state.set_cursor_pos(Some(5), Some(5));
-    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos;
     let expected = CursorPos { x: 4, y: 4 };
     assert_eq!(cursor_pos, expected);
 
     terminal_state.set_cursor_pos(Some(1), None);
-    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos;
     let expected = CursorPos { x: 0, y: 4 };
     assert_eq!(cursor_pos, expected);
 
     terminal_state.set_cursor_pos(None, Some(10));
-    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos;
     let expected = CursorPos { x: 0, y: 9 };
     assert_eq!(cursor_pos, expected);
 
     // set cursor rel
     terminal_state.set_cursor_pos_rel(Some(1), Some(1));
-    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos;
     let expected = CursorPos { x: 1, y: 10 };
     assert_eq!(cursor_pos, expected);
 
     terminal_state.set_cursor_pos_rel(Some(1), None);
-    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos;
     let expected = CursorPos { x: 2, y: 10 };
     assert_eq!(cursor_pos, expected);
 
     terminal_state.set_cursor_pos_rel(None, Some(-8));
-    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos;
     let expected = CursorPos { x: 2, y: 2 };
     assert_eq!(cursor_pos, expected);
 }
@@ -160,14 +161,14 @@ fn test_set_cursor_pos() {
     let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
     assert_eq!(buffer.visible, expected);
     // verify that the cursor position is set to the end of the string
-    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos;
     let expected = CursorPos { x: 13, y: 0 };
     assert_eq!(cursor_pos, expected);
 
     // test cursor movement
     let data: [u8; 6] = [0x1b, 0x5b, 0x31, 0x3b, 0x31, 0x48];
     terminal_state.handle_incoming_data(&data);
-    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos;
     let expected = CursorPos { x: 0, y: 0 };
     assert_eq!(cursor_pos, expected);
 }
@@ -183,7 +184,7 @@ fn test_set_cursor_pos_rel() {
     // "\0x1b[3D" moves the cursor right by 3
     let data: [u8; 4] = [0x1b, 0x5b, 0x33, 0x44];
     terminal_state.handle_incoming_data(&data);
-    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
+    let cursor_pos = terminal_state.get_current_buffer().cursor_state.pos;
     let expected = CursorPos { x: 10, y: 0 };
     assert_eq!(cursor_pos, expected);
 }
@@ -290,7 +291,7 @@ fn test_clear_display() {
         display_vec_tchar_as_string(&scrollback_expected)
     );
 
-    let old_cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
+    let old_cursor_pos = terminal_state.get_current_buffer().cursor_state.pos;
     // clear just the visible buffer
     let data: [u8; 4] = [0x1b, 0x5b, 0x32, 0x4a];
     terminal_state.handle_incoming_data(&data);
@@ -421,7 +422,7 @@ fn test_backspace_and_delete_and_spaces() {
     terminal_state.handle_incoming_data(data);
 
     // send a backspace
-    let previous_cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
+    let previous_cursor_pos = terminal_state.get_current_buffer().cursor_state.pos;
     let data: [u8; 1] = [0x08];
     terminal_state.handle_incoming_data(&data);
     let buffer = terminal_state
@@ -429,7 +430,7 @@ fn test_backspace_and_delete_and_spaces() {
         .terminal_buffer
         .data(true);
     let expected = TChar::from_vec(b"Hello, World!\n").unwrap();
-    let new_cursor_pos = terminal_state.get_current_buffer().cursor_state.pos.clone();
+    let new_cursor_pos = terminal_state.get_current_buffer().cursor_state.pos;
     assert_eq!(buffer.visible, expected);
     assert_eq!(
         new_cursor_pos,
