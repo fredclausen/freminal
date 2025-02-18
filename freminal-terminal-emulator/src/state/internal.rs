@@ -934,10 +934,10 @@ impl TerminalState {
             Mode::Unknown(_) => {
                 warn!("unhandled mode: {mode}");
             }
-            Mode::DecColm(Deccolm::Query) => {
+            Mode::Deccolm(Deccolm::Query) => {
                 self.report_mode(&Deccolm::Query.report(None));
             }
-            Mode::DecColm(deccolm) => {
+            Mode::Deccolm(deccolm) => {
                 warn!("Received DECCOLM({deccolm}), but it's not supported");
             }
             Mode::Decsclm(Decsclm::Query) => {
