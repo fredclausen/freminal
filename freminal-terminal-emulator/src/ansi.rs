@@ -100,11 +100,13 @@ pub enum TerminalOutput {
     MemoryLock,
     MemoryUnlock,
     DeviceControlString(Vec<u8>),
+    ApplicationProgramCommand(Vec<u8>),
     RequestDeviceNameandVersion,
 }
 
 // impl format display for TerminalOutput
 
+#[allow(clippy::too_many_lines)]
 impl std::fmt::Display for TerminalOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -199,6 +201,13 @@ impl std::fmt::Display for TerminalOutput {
             Self::MemoryUnlock => write!(f, "MemoryUnlock"),
             Self::DeviceControlString(data) => {
                 write!(f, "DeviceControlString({})", String::from_utf8_lossy(data))
+            }
+            Self::ApplicationProgramCommand(data) => {
+                write!(
+                    f,
+                    "ApplicationProgramCommand({})",
+                    String::from_utf8_lossy(data)
+                )
             }
             Self::RequestDeviceNameandVersion => write!(f, "RequestDeviceNameandVersion"),
         }

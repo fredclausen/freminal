@@ -810,7 +810,7 @@ fn test_terminal_output_bell() {
 #[test]
 fn test_invalid_inner_escape() {
     let mut output_buffer = FreminalAnsiParser::new();
-    let output = output_buffer.push(b"\x1b_");
+    let output = output_buffer.push(b"\x1b\"");
     assert_eq!(output.len(), 1);
     assert_eq!(output[0], TerminalOutput::Invalid);
     assert!(matches!(output_buffer.inner, ParserInner::Empty));
