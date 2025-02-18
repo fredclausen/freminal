@@ -204,6 +204,7 @@ impl AnsiCsiParser {
                 ansi_parser_inner_csi_finished_send_da(&self.params, &self.intermediates, output)
             }
             AnsiCsiParserState::Finished(b'u') => {
+                // https://sw.kovidgoyal.net/kitty/keyboard-protocol/
                 format_error_output(&self.sequence);
                 output.push(TerminalOutput::Skipped);
                 Ok(Some(ParserInner::Empty))
