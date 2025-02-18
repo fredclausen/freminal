@@ -99,6 +99,7 @@ pub enum TerminalOutput {
     ResetDevice,
     MemoryLock,
     MemoryUnlock,
+    DeviceControlString(Vec<u8>),
 }
 
 // impl format display for TerminalOutput
@@ -195,6 +196,9 @@ impl std::fmt::Display for TerminalOutput {
             Self::ResetDevice => write!(f, "ResetDevice"),
             Self::MemoryLock => write!(f, "MemoryLock"),
             Self::MemoryUnlock => write!(f, "MemoryUnlock"),
+            Self::DeviceControlString(data) => {
+                write!(f, "DeviceControlString({})", String::from_utf8_lossy(data))
+            }
         }
     }
 }

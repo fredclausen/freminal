@@ -1369,7 +1369,7 @@ impl TerminalState {
                     }
                 }
                 _ => {
-                    info!("Unhandled terminal output: {segment:?}");
+                    info!("Unhandled terminal output: {segment}");
                 }
             }
         }

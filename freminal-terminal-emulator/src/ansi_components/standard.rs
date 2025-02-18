@@ -43,6 +43,7 @@ pub struct StandardParser {
     pub params: Vec<u8>,
     pub intermediates: Vec<u8>,
     pub sequence: Vec<u8>,
+    pub dcs: bool,
 }
 
 impl Default for StandardParser {
@@ -59,7 +60,13 @@ impl StandardParser {
             params: Vec::new(),
             intermediates: Vec::new(),
             sequence: Vec::new(),
+            dcs: false,
         }
+    }
+
+    #[must_use]
+    pub fn contains_string_terminator(&self) -> bool {
+        self.sequence.ends_with(b"\x1b\\")
     }
 
     /// Push a byte into the parser
@@ -81,12 +88,22 @@ impl StandardParser {
                 } else if is_standard_intermediate_continue(b) {
                     self.state = StandardParserState::Params;
                     self.intermediates.push(b);
+
+                    if b == b'P' {
+                        self.dcs = true;
+                    }
                 } else {
                     self.state = StandardParserState::Invalid;
                 }
             }
             StandardParserState::Params => {
-                if is_standard_param(b) {
+                if self.dcs {
+                    self.params.push(b);
+
+                    if self.contains_string_terminator() {
+                        self.state = StandardParserState::Finished;
+                    }
+                } else if is_standard_param(b) {
                     self.params.push(b);
                     self.state = StandardParserState::Finished;
                 } else {
@@ -111,6 +128,11 @@ impl StandardParser {
         output: &mut Vec<TerminalOutput>,
     ) -> Result<Option<ParserInner>> {
         self.push(b)?;
+
+        if self.state == StandardParserState::Finished && self.dcs {
+            output.push(TerminalOutput::DeviceControlString(self.sequence.clone()));
+            return Ok(Some(ParserInner::Empty));
+        }
 
         match self.state {
             StandardParserState::Finished => match self.intermediates.first() {
@@ -386,7 +408,7 @@ pub const fn is_standard_intermediate_final(b: u8) -> bool {
 pub const fn is_standard_intermediate_continue(b: u8) -> bool {
     // space # % ( ) * + is a state where we want to continue and get a Params
 
-    matches!(b, 0x20 | 0x23 | 0x25 | 0x28 | 0x29 | 0x2a | 0x2b)
+    matches!(b, 0x20 | 0x23 | 0x25 | 0x28 | 0x29 | 0x2a | 0x2b | 0x50)
 }
 
 #[must_use]
