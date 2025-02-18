@@ -23,6 +23,7 @@ portable-pty.workspace = true
 conv.workspace = true
 tempfile.workspace = true
 tar.workspace = true
+sys-locale.workspace = true
 
 # dev dependencies
 [dev-dependencies]

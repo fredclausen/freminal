@@ -9,6 +9,7 @@ use super::{FreminalTermInputOutput, PtyRead, PtyWrite};
 use anyhow::Result;
 use crossbeam_channel::{Receiver, Sender};
 use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
+use sys_locale::get_locale;
 use tempfile::TempDir;
 use thiserror::Error;
 
@@ -36,6 +37,7 @@ enum ExtractTerminfoError {
     CreateTempDir(#[source] std::io::Error),
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn run_terminal(
     write_rx: Receiver<PtyWrite>,
     send_tx: Sender<PtyRead>,
@@ -66,7 +68,38 @@ pub fn run_terminal(
 
     // get the version of freminal
     let version = env!("CARGO_PKG_VERSION");
+    cmd.env("TERM_PROGRAM", "freminal");
     cmd.env("TERM_PROGRAM_VERSION", version);
+    cmd.env("__CFBundleIdentifier", "com.fredclausen.freminal");
+
+    // FIXME: I don't know if this works for all locales
+    // the problem here is some programs (like ohmyposh and zsh)
+    // want the LANG env variable set, otherwise it fucks up.
+    // at least on my system, LANG isn't set by default.
+    // I'm assuming this is the case for others, that `.utf-8` is
+    // correct and that `-` in the locale should be replaced with `_`.
+
+    if cmd.get_env("LANG").is_none() || cmd.get_env("LANG") == Some(std::ffi::OsStr::new("")) {
+        let locale = format!(
+            "{}.UTF-8",
+            get_locale()
+                .unwrap_or_else(|| String::from("en_US"))
+                .replace('-', "_")
+        );
+        info!("No LANG detected in the environment. Detected locale: {locale}. Setting LANG");
+
+        cmd.env("LANG", locale);
+    }
+
+    // these are cleanups because I develop this on my system under wezterm. I don't want
+    // to inherit anything from the env except what the system provides.
+    cmd.env_remove("WEZTERM_CONFIG_DIR");
+    cmd.env_remove("WEZTERM_CONFIG_FILE");
+    cmd.env_remove("WEZTERM_EXECUTABLE");
+    cmd.env_remove("WEZTERM_EXECUTABLE_DIR");
+    cmd.env_remove("WEZTERM_PANE");
+    cmd.env_remove("WEZTERM_UNIX_SOCKET");
+
     let _child = pair.slave.spawn_command(cmd)?;
 
     // Release any handles owned by the slave: we don't need it now
