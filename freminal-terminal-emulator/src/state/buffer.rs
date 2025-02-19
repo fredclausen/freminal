@@ -197,7 +197,6 @@ impl TerminalBufferHolder {
         cursor_pos: &CursorPos,
         data: &[u8],
     ) -> Result<TerminalBufferInsertResponse> {
-        // info!("inserting data: {:?} with cursor {:?}", data, cursor_pos);
         // loop through all of the characters
         // if the character is utf8, then we need all of the bytes to be written
 
@@ -806,8 +805,6 @@ impl TerminalBufferHolder {
                     let new_position = position + 1;
                     let to_add = ranges_from_start_and_end(current_length, new_position, width, 0);
                     ret.extend_from_slice(&to_add);
-
-                    wrapping = false;
                 } else if previous_char_was_newline {
                     // If the previous character was a newline, we need to add an empty line but the range is just going to include the newline character
                     ret.push(position + 1..position + 1);
@@ -819,6 +816,7 @@ impl TerminalBufferHolder {
                 current_start = position;
                 consecutive_newlines = previous_char_was_newline;
                 previous_char_was_newline = true;
+                wrapping = false;
 
                 continue;
             }
@@ -840,7 +838,11 @@ impl TerminalBufferHolder {
             if wrapping && current_start > width {
                 let mut current_length = current_start;
                 let mut offset_end = 1;
-                if previous_char_was_newline && !consecutive_newlines && !ret.is_empty() {
+                if previous_char_was_newline
+                    && !consecutive_newlines
+                    && !ret.is_empty()
+                    && buf[current_start.saturating_sub(1)] == TChar::NewLine
+                {
                     current_length = current_length.saturating_sub(1);
                 } else if consecutive_newlines {
                     offset_end = 0;

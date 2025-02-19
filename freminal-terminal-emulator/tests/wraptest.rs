@@ -36,11 +36,38 @@ fn read_and_strip(rx: &crossbeam_channel::Receiver<PtyWrite>) -> (usize, usize) 
     (cursor_pos[0], cursor_pos[1])
 }
 
+fn junk_to_fill_buffer() -> Vec<u8> {
+    let junk = b"                      ..'
+                  ,xNMM.           fred@Freds-Mac-Studio
+                .OMMMMo            ---------------------
+                lMM\"               OS: macOS Sequoia 15.3.1 arm64
+      .;loddo:.  .olloddol;.       Host: Mac Studio (M1 Max, 2022, Two USB-C front ports)
+    cKMMMMMMMMMMNWMMMMMMMMMM0:     Kernel: Darwin 24.3.0
+  .KMMMMMMMMMMMMMMMMMMMMMMMWd.     Uptime: 8 days, 14 hours, 45 mins
+  XMMMMMMMMMMMMMMMMMMMMMMMX.
+ ;MMMMMMMMMMMMMMMMMMMMMMMM:        Packages: 221 (brew), 34 (brew-cask)
+ :MMMMMMMMMMMMMMMMMMMMMMMM:        Shell: zsh 5.9
+ .MMMMMMMMMMMMMMMMMMMMMMMMX.       Display (Sceptre C35): 3440x1440 @ 60 Hz in 35\" [External] *
+  kMMMMMMMMMMMMMMMMMMMMMMMMWd.     Display (R240HY): 1920x1080 @ 60 Hz in 24\" [External]
+  'XMMMMMMMMMMMMMMMMMMMMMMMMMMk    Display (R240HY): 1920x1080 @ 60 Hz in 24\" [External]
+   'XMMMMMMMMMMMMMMMMMMMMMMMMK.    Terminal: freminal 0.1.0
+     kMMMMMMMMMMMMMMMMMMMMMMd
+      ;KMMMMMMMWXXWMMMMMMMk.       CPU: Apple M1 Max (10) @ 3.23 GHz
+        \"cooc*\"    \"*coo'\"         GPU: Apple M1 Max (24) @ 1.30 GHz [Integrated]
+                                   Memory: 20.47 GiB / 32.00 GiB (64%)
+
+
+
+ \xE2\x9D\xAF ./a.out";
+    junk.to_vec()
+}
+
 #[test]
-fn test_wrap() {
+fn wrap_works() {
     let (tx, rx) = crossbeam_channel::unbounded();
     let mut terminal_state = TerminalState::new(tx.clone());
     terminal_state.set_win_size(213, 53);
+    terminal_state.handle_incoming_data(junk_to_fill_buffer().as_slice());
     info!(
         "Terminal width/height: {:?}",
         terminal_state

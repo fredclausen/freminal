@@ -33,6 +33,7 @@ use crate::{
         collect_text, split_format_data_for_scrollback, TerminalInput, TerminalInputPayload,
     },
     io::PtyWrite,
+    //state::term_char::display_vec_tchar_as_string,
 };
 
 use super::{
@@ -1116,6 +1117,7 @@ impl TerminalState {
 
         let x = current_buffer.cursor_state.pos.x + 1;
         let y = current_buffer.cursor_state.pos.y + 1;
+        debug!("Reporting cursor position: {y}, {x}");
         let output = collect_text(&format!("\x1b[{y};{x}R"));
 
         for input in output.iter() {
@@ -1428,6 +1430,22 @@ impl TerminalState {
         } else {
             debug!("Data processing time: {}μs", elapsed.as_micros());
         }
+
+        // Leave this in. Can be uncommented for debugging
+        // debug!(
+        //     "Visible lines: {:?}",
+        //     self.get_current_buffer()
+        //         .terminal_buffer
+        //         .get_visible_line_ranges()
+        // );
+        // let current_buffer = self.get_current_buffer();
+        // let lines = current_buffer.terminal_buffer.get_visible_line_ranges();
+        // for line in lines {
+        //     debug!(
+        //         "{}",
+        //         display_vec_tchar_as_string(&current_buffer.terminal_buffer.buf[line.clone()])
+        //     );
+        // }
 
         self.set_state_changed();
         self.request_redraw();

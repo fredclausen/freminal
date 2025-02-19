@@ -13,6 +13,7 @@ use freminal_terminal_emulator::state::{
     internal::BufferType,
     term_char::TChar,
 };
+use tracing::info;
 
 /// Calculate the indexes of the start and end of each line in the buffer given an input width.
 /// Ranges do not include newlines. If a newline appears past the width, it does not result in an
@@ -98,6 +99,14 @@ fn test_insert_utf8_data() {
 
     // verify the buffer is correct
     assert_eq!(buffer.data(true).visible, expected);
+}
+
+#[test]
+fn test_wrap_at_first_line() {
+    let buf = b"TTTTT";
+    let buf_tchar = TChar::from_vec(buf).unwrap();
+    let line_starts = calc_line_ranges(&buf_tchar, 4, &0);
+    assert_eq!(line_starts, &[0..4, 4..5]);
 }
 
 #[test]
@@ -1754,4 +1763,40 @@ fn test_line_ranges_that_do_overlap_subsequent_range() {
             454..479
         ]
     );
+}
+
+// Special test for a bug we had
+// Basically if you insert data, and the data is past the end of the line (aka extending the length)
+// we'd hit an edge case where the line lengths would be off
+#[test]
+fn test_line_range_insert_with_new_line() {
+    let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
+
+    let data = b"ZZ\nZZZ\nZZZZ\nZZZZZ";
+    buffer.insert_data(&CursorPos::default(), data).unwrap();
+
+    let expected_ranges = vec![
+        0..2,   // "ZZ"
+        3..6,   // "ZZZ"
+        7..11,  // "ZZZZ"
+        12..17, // "ZZZZZ"
+    ];
+    buffer.clear_visible();
+
+    assert_eq!(buffer.get_visible_line_ranges(), expected_ranges);
+
+    let cursor_pos = CursorPos { x: 4, y: 0 };
+    let data = "AB";
+    buffer.insert_data(&cursor_pos, data.as_bytes()).unwrap();
+    info!("buffer: {:?}", buffer.buf);
+
+    let updated_expected_ranges = vec![
+        0..5,   // "ZZ  A"
+        5..7,   // "BZ"
+        7..10,  // "ZZZ"
+        11..15, // "ZZZZ"
+        16..21, // "ZZZZZ"
+    ];
+
+    assert_eq!(buffer.get_visible_line_ranges(), updated_expected_ranges);
 }
