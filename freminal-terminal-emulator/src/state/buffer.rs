@@ -42,8 +42,8 @@ pub struct TerminalBufferSetWinSizeResponse {
 #[derive(Eq, PartialEq, Debug)]
 pub struct TerminalBufferHolder {
     pub buf: Vec<TChar>,
-    width: usize,
-    height: usize,
+    pub width: usize,
+    pub height: usize,
     visible_line_ranges: Vec<Range<usize>>,
     buffer_line_ranges: Vec<Range<usize>>,
     viewable_index_bottom: usize, // usize::MAX represents the bottom of the buffer
