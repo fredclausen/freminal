@@ -541,7 +541,6 @@ fn create_terminal_output_layout_job(
             colors: tag.colors.clone(),
             font_weight: tag.font_weight.clone(),
             font_decorations: tag.font_decorations.clone(),
-            line_wrap_mode: tag.line_wrap_mode.clone(),
             url: tag.url.clone(),
         });
     }

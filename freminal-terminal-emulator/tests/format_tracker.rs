@@ -7,7 +7,6 @@ use test_log::test;
 
 use freminal_common::colors::TerminalColor;
 use freminal_terminal_emulator::{
-    ansi_components::modes::decawm::Decawm,
     format_tracker::{ranges_overlap, FormatTag, FormatTracker},
     state::{
         cursor::{CursorState, ReverseVideo, StateColors},
@@ -27,7 +26,6 @@ fn basic_color_test_one(format_tracker: &FormatTracker) {
                 colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -36,7 +34,6 @@ fn basic_color_test_one(format_tracker: &FormatTracker) {
                 colors: StateColors::default().with_color(TerminalColor::Yellow),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -45,7 +42,6 @@ fn basic_color_test_one(format_tracker: &FormatTracker) {
                 colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
         ]
@@ -63,7 +59,6 @@ fn basic_color_test_two(format_tracker: &FormatTracker) {
                 colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -72,7 +67,6 @@ fn basic_color_test_two(format_tracker: &FormatTracker) {
                 colors: StateColors::default().with_color(TerminalColor::Yellow),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -81,7 +75,6 @@ fn basic_color_test_two(format_tracker: &FormatTracker) {
                 colors: StateColors::default().with_color(TerminalColor::Blue),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -90,7 +83,6 @@ fn basic_color_test_two(format_tracker: &FormatTracker) {
                 colors: StateColors::default().with_color(TerminalColor::Yellow),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -99,7 +91,6 @@ fn basic_color_test_two(format_tracker: &FormatTracker) {
                 colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
         ]
@@ -117,7 +108,6 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
                 colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -126,7 +116,6 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
                 colors: StateColors::default().with_color(TerminalColor::Yellow),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -135,7 +124,6 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
                 colors: StateColors::default().with_color(TerminalColor::Blue),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -144,7 +132,6 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
                 colors: StateColors::default().with_color(TerminalColor::Green),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -153,7 +140,6 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
                 colors: StateColors::default().with_color(TerminalColor::Yellow),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -162,7 +148,6 @@ fn basic_color_test_three(format_tracker: &FormatTracker) {
                 colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
         ]
@@ -180,7 +165,6 @@ fn basic_color_test_four(format_tracker: &FormatTracker) {
                 colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -189,7 +173,6 @@ fn basic_color_test_four(format_tracker: &FormatTracker) {
                 colors: StateColors::default().with_color(TerminalColor::Yellow),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -198,7 +181,6 @@ fn basic_color_test_four(format_tracker: &FormatTracker) {
                 colors: StateColors::default().with_color(TerminalColor::Blue),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -207,7 +189,6 @@ fn basic_color_test_four(format_tracker: &FormatTracker) {
                 colors: StateColors::default().with_color(TerminalColor::Red),
                 font_weight: FontWeight::Bold,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -216,7 +197,6 @@ fn basic_color_test_four(format_tracker: &FormatTracker) {
                 colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
         ]
@@ -270,7 +250,6 @@ fn del_range_test_one(format_tracker: &FormatTracker) {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -284,7 +263,6 @@ fn del_range_test_one(format_tracker: &FormatTracker) {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -293,7 +271,6 @@ fn del_range_test_one(format_tracker: &FormatTracker) {
                 colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             }
         ]
@@ -315,7 +292,6 @@ fn del_range_test_two(format_tracker: &FormatTracker) {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -329,7 +305,6 @@ fn del_range_test_two(format_tracker: &FormatTracker) {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -338,7 +313,6 @@ fn del_range_test_two(format_tracker: &FormatTracker) {
                 colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             }
         ]
@@ -360,7 +334,6 @@ fn del_range_test_three(format_tracker: &FormatTracker) {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -374,7 +347,6 @@ fn del_range_test_three(format_tracker: &FormatTracker) {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -383,7 +355,6 @@ fn del_range_test_three(format_tracker: &FormatTracker) {
                 colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             }
         ]
@@ -405,7 +376,6 @@ fn del_range_test_four(format_tracker: &FormatTracker) {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -419,7 +389,6 @@ fn del_range_test_four(format_tracker: &FormatTracker) {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -428,7 +397,6 @@ fn del_range_test_four(format_tracker: &FormatTracker) {
                 colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             }
         ]
@@ -471,7 +439,6 @@ fn range_adjustment_test_one(format_tracker: &FormatTracker) {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -485,7 +452,6 @@ fn range_adjustment_test_one(format_tracker: &FormatTracker) {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -494,7 +460,6 @@ fn range_adjustment_test_one(format_tracker: &FormatTracker) {
                 colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
         ]
@@ -516,7 +481,6 @@ fn range_adjustment_test_two(format_tracker: &FormatTracker) {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -530,7 +494,6 @@ fn range_adjustment_test_two(format_tracker: &FormatTracker) {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -539,7 +502,6 @@ fn range_adjustment_test_two(format_tracker: &FormatTracker) {
                 colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
         ]
@@ -561,7 +523,6 @@ fn range_adjustment_test_three(format_tracker: &FormatTracker) {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -575,7 +536,6 @@ fn range_adjustment_test_three(format_tracker: &FormatTracker) {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -584,7 +544,6 @@ fn range_adjustment_test_three(format_tracker: &FormatTracker) {
                 colors: StateColors::default(),
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
         ]

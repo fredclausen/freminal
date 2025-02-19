@@ -7,7 +7,6 @@ use test_log::test;
 
 use freminal_common::colors::TerminalColor;
 use freminal_terminal_emulator::{
-    ansi_components::modes::decawm::Decawm,
     format_tracker::FormatTag,
     interface::split_format_data_for_scrollback,
     state::{
@@ -29,7 +28,6 @@ fn get_tags() -> Vec<FormatTag> {
             },
             font_weight: FontWeight::Normal,
             font_decorations: Vec::new(),
-            line_wrap_mode: Decawm::default(),
             url: None,
         },
         FormatTag {
@@ -43,7 +41,6 @@ fn get_tags() -> Vec<FormatTag> {
             },
             font_weight: FontWeight::Normal,
             font_decorations: Vec::new(),
-            line_wrap_mode: Decawm::default(),
             url: None,
         },
         FormatTag {
@@ -57,7 +54,6 @@ fn get_tags() -> Vec<FormatTag> {
             },
             font_weight: FontWeight::Normal,
             font_decorations: Vec::new(),
-            line_wrap_mode: Decawm::default(),
             url: None,
         },
         FormatTag {
@@ -71,7 +67,6 @@ fn get_tags() -> Vec<FormatTag> {
             },
             font_weight: FontWeight::Normal,
             font_decorations: Vec::new(),
-            line_wrap_mode: Decawm::default(),
             url: None,
         },
     ]
@@ -96,7 +91,6 @@ fn test_format_tracker_scrollback_split_on_boundary() {
             },
             font_weight: FontWeight::Normal,
             font_decorations: Vec::new(),
-            line_wrap_mode: Decawm::default(),
             url: None,
         },]
     );
@@ -122,7 +116,6 @@ fn test_format_tracker_scrollback_split_segment() {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -136,7 +129,6 @@ fn test_format_tracker_scrollback_split_segment() {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -150,7 +142,6 @@ fn test_format_tracker_scrollback_split_segment() {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
         ]
@@ -170,7 +161,6 @@ fn test_format_tracker_scrollback_split_segment() {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
             FormatTag {
@@ -184,7 +174,6 @@ fn test_format_tracker_scrollback_split_segment() {
                 },
                 font_weight: FontWeight::Normal,
                 font_decorations: Vec::new(),
-                line_wrap_mode: Decawm::default(),
                 url: None,
             },
         ]
