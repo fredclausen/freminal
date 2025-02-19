@@ -204,3 +204,210 @@ fn test_tab_wraps() {
     //   tab_wraps_at_margin = (r == 2);
     assert!(r == 2, "Expected cursor position y to be 2 found {}", r);
 }
+
+// TEST SEVEN
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_tab_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+
+    //   /* Check whether TAB cancels wrap state. */
+    //   cup(1, width - 1);
+    //   wr("AB\tC");
+    let cup_str = format!("\x1b[1;{}HAB\tC", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //   tab_cancels_wrap = (r == 1 && c >= width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c >= width,
+        "Expected cursor position x to be greater than or equal to {} found {}",
+        width,
+        c
+    );
+}
+
+// TEST EIGHT
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_nl_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+
+    //   /* Check whether NL cancels wrap state. */
+    //   cup(1, width - 1);
+    //   wr("AB\nC");
+    let cup_str = format!("\x1b[1;{}HAB\nC", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //   nl_cancels_wrap = (r == 2 && c == width);
+    assert!(r == 2, "Expected cursor position y to be 2 found {}", r);
+    assert!(
+        c == width,
+        "Expected cursor position x to be {} found {}",
+        width,
+        c
+    );
+}
+
+// TEST NINE
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_nul_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+    //   /* Check whether NUL cancels the wrap state. */
+    //   cup(1, width - 1);
+    //   wr("AB%cC", 0);
+    let cup_str = format!("\x1b[1;{}HAB\x00C", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //   nul_cancels_wrap = (r == 1 && c >= width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c >= width,
+        "Expected cursor position x to be greater than or equal to {} found {}",
+        width,
+        c
+    );
+}
+
+// TEST TEN
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_bel_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+    //   /* Check whether BEL cancels the wrap state. */
+    //   cup(1, width - 1);
+    //   wr("AB\aC");
+    let cup_str = format!("\x1b[1;{}HAB\x07C", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //   bel_cancels_wrap = (r == 1 && c >= width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c >= width,
+        "Expected cursor position x to be greater than or equal to {} found {}",
+        width,
+        c
+    );
+}
+
+//   /* Check whether RI (Reverse Index) cancels the wrap state. */
+//   cup(2, width - 1);
+//   wr("AB\33MC");
+//   getpos(&r, &c);
+//   ri_cancels_wrap = (r == 1 && c >= width);
+
+//   /* Check whether SGR (Select Graphic Rendition) cancels the wrap state. */
+//   cup(1, width - 1);
+//   wr("AB\33[mC");
+//   getpos(&r, &c);
+//   sgr_cancels_wrap = (r == 1 && c >= width);
+
+//   /* Check whether SM (Set Mode) cancels the wrap state. */
+//   cup(1, width - 1);
+//   wr("AB\33[hC");
+//   getpos(&r, &c);
+//   sm_cancels_wrap = (r == 1 && c >= width);
+
+//   /* Check whether CUP (Set Cursor Position) cancels the wrap state. */
+//   cup(1, width - 1);
+//   wr("AB");
+//   cup(1, width);
+//   wr("C");
+//   getpos(&r, &c);
+//   cup_cancels_wrap = (r == 1 && c >= width);
+
+//   /* Check whether CUF (Cursor Forward) cancels the wrap state. */
+//   cup(1, width - 1);
+//   wr("AB\33[CC");
+//   getpos(&r, &c);
+//   cuf_cancels_wrap = (r == 1 && c >= width);
+
+//   /* Check whether EL (Erase in Line) cancels the wrap state. */
+//   cup(1, width - 1);
+//   wr("AB\33[KC");
+//   getpos(&r, &c);
+//   el_cancels_wrap = (r == 1 && c == width);
+
+//   /* Check whether ED (Erase in Display) cancels the wrap state. */
+//   cup(1, width - 1);
+//   wr("AB\33[JC");
+//   getpos(&r, &c);
+//   ed_cancels_wrap = (r == 1 && c >= width);
+
+//   /* Check whether DCH (Delete Character) cancels the wrap state. */
+//   cup(1, width - 1);
+//   wr("AB\33[PC");
+//   getpos(&r, &c);
+//   dch_cancels_wrap = (r == 1 && c >= width);
+
+//   if (!VT100_ONLY) {
+//     /* Check whether ICH (Insert Character) cancels the wrap state. */
+//     cup(1, width - 1);
+//     wr("AB\33[@C");
+//     getpos(&r, &c);
+//     ich_cancels_wrap = (r == 1 && c >= width);
+
+//     /* Check whether ECH (Erase Character) cancels the wrap state. */
+//     cup(1, width - 1);
+//     wr("AB\33[XC");
+//     getpos(&r, &c);
+//     ech_cancels_wrap = (r == 1 && c >= width);
+//   }
+
+//   /* Check whether CPR (Cursor Position Report) cancels the wrap state. */
+//   cup(1, width - 1);
+//   wr("AB");
+//   getpos(&r, &c);
+//   wr("C");
+//   getpos(&r, &c);
+//   cpr_cancels_wrap = (r == 1 && c >= width);
+
+//   /* Check whether DECSC (Save Cursor) cancels the wrap state. */
+//   cup(1, width - 1);
+//   wr("AB\33" "7" "C");
+//   getpos(&r, &c);
+//   decsc_cancels_wrap = (r == 1 && c >= width);
+
+//   /* Check whether DECRC (Restore Cursor) restores the wrap state. */
+//   cup(1, width - 1);
+//   wr("AB\33" "7");
+//   cup(3, 10);
+//   wr("Q\33" "8" "X");
+//   getpos(&r, &c);
+//   decrc_restores_wrap = (r == 2);
+
+//   /* Check whether DECRC (Restore Cursor) restores DECAWM=on. */
+//   cup(1, 1);
+//   wr("\33" "7");
+//   decawm(0);
+//   wr("\33" "8");
+//   cup(1, width - 1);
+//   wr("ABC");
+//   getpos(&r, &c);
+//   decrc_restores_decawm_on = (r == 2);
+//   decawm(1);
+
+//   /* Check whether DECRC (Restore Cursor) restores DECAWM=off. */
+//   cup(1, 1);
+//   decawm(0);
+//   wr("\33" "7");
+//   decawm(1);
+//   wr("\33" "8");
+//   cup(1, width - 1);
+//   wr("ABC");
+//   getpos(&r, &c);
+//   decrc_restores_decawm_off = (r == 1);
+//   decawm(1);
