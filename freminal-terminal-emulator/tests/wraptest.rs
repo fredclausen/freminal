@@ -62,20 +62,12 @@ fn junk_to_fill_buffer() -> Vec<u8> {
     junk.to_vec()
 }
 
-#[test]
-fn wrap_works() {
+fn setup() -> (TerminalState, crossbeam_channel::Receiver<PtyWrite>, usize) {
     let (tx, rx) = crossbeam_channel::unbounded();
     let mut terminal_state = TerminalState::new(tx.clone());
     terminal_state.set_win_size(213, 53);
     terminal_state.handle_incoming_data(junk_to_fill_buffer().as_slice());
-    info!(
-        "Terminal width/height: {:?}",
-        terminal_state
-            .get_current_buffer()
-            .terminal_buffer
-            .get_win_size()
-    );
-    // TEST ONE
+
     //     decawm(1);
     let decawm = b"\x1b[?7h";
     terminal_state.handle_incoming_data(decawm);
@@ -92,6 +84,24 @@ fn wrap_works() {
     terminal_state.handle_incoming_data(REQUEST_CURSOR_POSITION);
     let (r, width) = read_and_strip(&rx);
     info!("Cursor position: {} {}", r, width);
+
+    (terminal_state, rx, width)
+}
+
+fn get_position(
+    terminal_state: &mut TerminalState,
+    rx: &crossbeam_channel::Receiver<PtyWrite>,
+) -> (usize, usize) {
+    terminal_state.handle_incoming_data(REQUEST_CURSOR_POSITION);
+    let (r, c) = read_and_strip(rx);
+
+    (r, c)
+}
+
+// TEST ONE
+#[test]
+fn wrap_works() {
+    let (mut terminal_state, rx, width) = setup();
     //   /* Check that wrap works. */
     //   cup(1, width - 1);
     //   wr("ABC");
@@ -99,10 +109,57 @@ fn wrap_works() {
     let cup = cup_str.as_bytes();
     terminal_state.handle_incoming_data(cup);
     //   getpos(&r, &c);
-    terminal_state.handle_incoming_data(REQUEST_CURSOR_POSITION);
-    let (r, c) = read_and_strip(&rx);
+    let (r, c) = get_position(&mut terminal_state, &rx);
     info!("Cursor position after writing ABC: {} {}", r, c);
     //   wrap_works = (r == 2 && c == 2);
     assert!(r == 2, "Expected cursor position y to be 2 found {}", r);
     assert!(c == 2, "Expected cursor position x to be 2 found {}", c);
+}
+
+// TEST TWO and THREE
+#[test]
+fn test_wrap_deferred() {
+    let (mut terminal_state, rx, width) = setup();
+
+    /* Check that wrap is deferred after writing to the last column. */
+    //   cup(1, width - 1);
+    //   wr("AB");
+    let cup_str = format!("\x1b[1;{}HAB", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    let (r, wrap_col) = get_position(&mut terminal_state, &rx);
+    info!("Cursor position after writing AB: {} {}", r, wrap_col);
+    //   wrap_is_deferred = (r == 1 && wrap_col >= width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        wrap_col >= width,
+        "Expected wrap column to be greater than width found {}",
+        wrap_col
+    );
+
+    /* Whether CPR reports a position beyond the last column in the wrap state. */
+    //   cpr_beyond_last_col = (wrap_col > width);
+    assert!(
+        wrap_col > width,
+        "Expected wrap column to be greater than width found {}",
+        wrap_col
+    );
+}
+
+// TEST FOUR
+#[test]
+fn test_cr_works_after_writing_last_column() {
+    let (mut terminal_state, rx, width) = setup();
+
+    /* Check that CR works after writing to the last column. */
+    //     cup(1, width - 1);
+    //   wr("AB\r");
+    let cup_str = format!("\x1b[1;{}HAB\r", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    info!("Cursor position after writing AB\\r: {} {}", r, c);
+    //   cr_works_at_margin = (r == 1 && c == 1);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(c == 1, "Expected cursor position x to be 1 found {}", c);
 }
