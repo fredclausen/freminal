@@ -8,7 +8,7 @@ use std::fmt;
 use super::modes::{
     allow_column_mode_switch::AllowColumnModeSwitch, decarm::Decarm, decawm::Decawm,
     decckm::Decckm, deccolm::Deccolm, decom::Decom, decsclm::Decsclm, decscnm::Decscnm,
-    dectcem::Dectcem, mouse::MouseTrack, reverse_wrap_around::ReverseWrapAround,
+    dectcem::Dectcem, lnm::Lnm, mouse::MouseTrack, reverse_wrap_around::ReverseWrapAround,
     rl_bracket::RlBracket, sync_updates::SynchronizedUpdates, unknown::UnknownMode,
     xtcblink::XtCBlink, xtextscrn::XtExtscrn, xtmsewin::XtMseWin, ReportMode,
 };
@@ -43,6 +43,7 @@ pub struct TerminalModes {
     pub invert_screen: Decscnm,
     pub repeat_keys: Decarm,
     pub reverse_wrap_around: ReverseWrapAround,
+    pub line_feed_mode: Lnm,
 }
 
 #[derive(Eq, PartialEq, Debug)]
@@ -58,6 +59,7 @@ pub enum Mode {
     Decscnm(Decscnm),
     Decom(Decom),
     Decarm(Decarm),
+    LineFeedMode(Lnm),
     XtCBlink(XtCBlink),
     XtExtscrn(XtExtscrn),
     XtMseWin(XtMseWin),
@@ -92,6 +94,7 @@ impl Mode {
                 }
             }
             b"?12" => Self::XtCBlink(XtCBlink::new(mode)),
+            b"20" => Self::LineFeedMode(Lnm::new(mode)),
             b"?25" => Self::Dectem(Dectcem::new(mode)),
             b"?40" => Self::AllowColumnModeSwitch(AllowColumnModeSwitch::new(mode)),
             b"?45" => Self::ReverseWrapAround(ReverseWrapAround::new(mode)),
@@ -177,7 +180,7 @@ impl Mode {
                 let output_params = params
                     .to_vec()
                     .iter()
-                    .skip(usize::from(params[0] == b'?'))
+                    .skip(usize::from(params.first().unwrap_or(&b'?') == &b'?'))
                     .copied()
                     .collect::<Vec<u8>>();
 
@@ -205,6 +208,7 @@ impl ReportMode for Mode {
             Self::Decawm(decawm) => decawm.report(override_mode),
             Self::Dectem(dectem) => dectem.report(override_mode),
             Self::Decscnm(decscnm) => decscnm.report(override_mode),
+            Self::LineFeedMode(lnm) => lnm.report(override_mode),
             Self::XtCBlink(xt_cblink) => xt_cblink.report(override_mode),
             Self::XtExtscrn(xt_extscrn) => xt_extscrn.report(override_mode),
             Self::XtMseWin(xt_mse_win) => xt_mse_win.report(override_mode),
@@ -238,6 +242,7 @@ impl fmt::Display for Mode {
             Self::Decscnm(decscnm) => write!(f, "{decscnm}"),
             Self::Decsclm(decsclm) => write!(f, "{decsclm}"),
             Self::Deccolm(deccolm) => write!(f, "{deccolm}"),
+            Self::LineFeedMode(lnm) => write!(f, "{lnm}"),
             Self::XtCBlink(xt_cblink) => write!(f, "{xt_cblink}"),
             Self::MouseMode(mouse_mode) => write!(f, "{mouse_mode}"),
             Self::XtMseWin(xt_mse_win) => write!(f, "{xt_mse_win}"),

@@ -14,6 +14,7 @@ pub mod decom;
 pub mod decsclm;
 pub mod decscnm;
 pub mod dectcem;
+pub mod lnm;
 pub mod mouse;
 pub mod reverse_wrap_around;
 pub mod rl_bracket;

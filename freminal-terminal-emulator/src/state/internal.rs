@@ -21,7 +21,7 @@ use crate::{
         modes::{
             allow_column_mode_switch::AllowColumnModeSwitch, decarm::Decarm, decawm::Decawm,
             decckm::Decckm, deccolm::Deccolm, decom::Decom, decsclm::Decsclm, decscnm::Decscnm,
-            dectcem::Dectcem, mouse::MouseTrack, reverse_wrap_around::ReverseWrapAround,
+            dectcem::Dectcem, lnm::Lnm, mouse::MouseTrack, reverse_wrap_around::ReverseWrapAround,
             rl_bracket::RlBracket, sync_updates::SynchronizedUpdates, xtcblink::XtCBlink,
             xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
         },
@@ -563,6 +563,10 @@ impl TerminalState {
 
     pub(crate) fn new_line(&mut self) {
         self.get_current_buffer().cursor_state.pos.y += 1;
+
+        if self.modes.line_feed_mode == Lnm::NewLine {
+            self.get_current_buffer().cursor_state.pos.x = 0;
+        }
     }
 
     pub(crate) fn backspace(&mut self) {
@@ -976,6 +980,12 @@ impl TerminalState {
             Mode::ReverseWrapAround(reverse_wrap_around) => {
                 self.modes.reverse_wrap_around = reverse_wrap_around.clone();
             }
+            Mode::LineFeedMode(Lnm::Query) => {
+                self.report_mode(&self.modes.line_feed_mode.report(None));
+            }
+            Mode::LineFeedMode(line_feed_new_line) => {
+                self.modes.line_feed_mode = line_feed_new_line.clone();
+            }
         }
     }
 
@@ -1091,7 +1101,7 @@ impl TerminalState {
 
         let x = current_buffer.cursor_state.pos.x + 1;
         let y = current_buffer.cursor_state.pos.y + 1;
-        let output = collect_text(&format!("\x1b[{y};{x}R\x1b\\"));
+        let output = collect_text(&format!("\x1b[{y};{x}R"));
 
         for input in output.iter() {
             if let Err(e) = self.write(input) {
