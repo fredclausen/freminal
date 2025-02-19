@@ -35,4 +35,5 @@ extend-ignore-identifiers-re = [ # NDK - Native  Development Kit
     "BA",
     "Ot",
     "Sur",
+    "Sceptre",
 ]

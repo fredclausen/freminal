@@ -19,6 +19,32 @@ The below list is not a complete list of all completed tasks. It's a reflection 
 - [ ] Test suite 100% coverage on `freminal-terminal-emulator/src/ansi_components`
 - [ ] Pass validation of [vttest](http://invisible-island.net/vttest/)
 - [ ] Pass validation of [wraptest](https://github.com/mattiase/wraptest)
+  - [x] Re-write all wrap tests in to rust
+  - [x] Pass test 1
+  - [x] Pass test 2
+  - [x] Pass test 3
+  - [x] Pass test 4
+  - [ ] Pass test 5
+  - [x] Pass test 6
+  - [ ] Pass test 7
+  - [ ] Pass test 8
+  - [ ] Pass test 9
+  - [ ] Pass test 10
+  - [ ] Pass test 11
+  - [ ] Pass test 12
+  - [ ] Pass test 13
+  - [x] Pass test 14
+  - [x] Pass test 15
+  - [ ] Pass test 16
+  - [ ] Pass test 17
+  - [ ] Pass test 18
+  - [ ] Pass test 19
+  - [ ] Pass test 20
+  - [ ] Pass test 21
+  - [ ] Pass test 22
+  - [x] Pass test 23
+  - [x] Pass test 24
+  - [ ] Pass test 25
 - [ ] Complete [Supported Control Codes](SUPPORTED_CONTROL_CODES.md)
 - [ ] Adjust mouse mode to include all active mouse modes
 - [ ] GitHub CI action to build/publish executables
