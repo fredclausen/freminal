@@ -163,3 +163,27 @@ fn test_cr_works_after_writing_last_column() {
     assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
     assert!(c == 1, "Expected cursor position x to be 1 found {}", c);
 }
+
+// TEST FIVE
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_bs_works_after_writing_last_column() {
+    let (mut terminal_state, rx, width) = setup();
+    /* Check that BS works after writing to the last column. */
+    //   cup(1, width - 1);
+    //   wr("AB\b");
+    let cup_str = format!("\x1b[1;{}HAB\x08", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //   bs_works_at_margin = (r == 1 && c == width - 1);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c == width - 1,
+        "Expected cursor position x to be {} found {}",
+        width - 1,
+        c
+    );
+}
