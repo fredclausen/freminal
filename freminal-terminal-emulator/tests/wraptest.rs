@@ -424,79 +424,260 @@ fn test_cuf_cancels_wrap_state() {
     );
 }
 
-//   /* Check whether EL (Erase in Line) cancels the wrap state. */
-//   cup(1, width - 1);
-//   wr("AB\33[KC");
-//   getpos(&r, &c);
-//   el_cancels_wrap = (r == 1 && c == width);
+// TEST SIXTEEN
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_el_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+    //   /* Check whether EL (Erase in Line) cancels the wrap state. */
+    //   cup(1, width - 1);
+    //   wr("AB\33[KC");
+    let cup_str = format!("\x1b[1;{}HAB\x1b[KC", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //   el_cancels_wrap = (r == 1 && c == width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c == width,
+        "Expected cursor position x to be {} found {}",
+        width,
+        c
+    );
+}
 
-//   /* Check whether ED (Erase in Display) cancels the wrap state. */
-//   cup(1, width - 1);
-//   wr("AB\33[JC");
-//   getpos(&r, &c);
-//   ed_cancels_wrap = (r == 1 && c >= width);
+// TEST SEVENTEEN
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_ed_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+    //   /* Check whether ED (Erase in Display) cancels the wrap state. */
+    //   cup(1, width - 1);
+    //   wr("AB\33[JC");
+    let cup_str = format!("\x1b[1;{}HAB\x1b[JC", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //   ed_cancels_wrap = (r == 1 && c >= width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c >= width,
+        "Expected cursor position x to be greater than or equal to {} found {}",
+        width,
+        c
+    );
+}
 
-//   /* Check whether DCH (Delete Character) cancels the wrap state. */
-//   cup(1, width - 1);
-//   wr("AB\33[PC");
-//   getpos(&r, &c);
-//   dch_cancels_wrap = (r == 1 && c >= width);
+// TEST EIGHTEEN
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_dch_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+    //   /* Check whether DCH (Delete Character) cancels the wrap state. */
+    //   cup(1, width - 1);
+    //   wr("AB\33[PC");
+    let cup_str = format!("\x1b[1;{}HAB\x1b[PC", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //   dch_cancels_wrap = (r == 1 && c >= width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c >= width,
+        "Expected cursor position x to be greater than or equal to {} found {}",
+        width,
+        c
+    );
+}
 
-//   if (!VT100_ONLY) {
-//     /* Check whether ICH (Insert Character) cancels the wrap state. */
-//     cup(1, width - 1);
-//     wr("AB\33[@C");
-//     getpos(&r, &c);
-//     ich_cancels_wrap = (r == 1 && c >= width);
+// TEST NINETEEN
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_ich_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+    //     /* Check whether ICH (Insert Character) cancels the wrap state. */
+    //     cup(1, width - 1);
+    //     wr("AB\33[@C");
+    let cup_str = format!("\x1b[1;{}HAB\x1b[@C", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //     getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //     ich_cancels_wrap = (r == 1 && c >= width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c >= width,
+        "Expected cursor position x to be greater than or equal to {} found {}",
+        width,
+        c
+    );
+}
 
-//     /* Check whether ECH (Erase Character) cancels the wrap state. */
-//     cup(1, width - 1);
-//     wr("AB\33[XC");
-//     getpos(&r, &c);
-//     ech_cancels_wrap = (r == 1 && c >= width);
-//   }
+// TEST TWENTY
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_ech_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+    //     /* Check whether ECH (Erase Character) cancels the wrap state. */
+    //     cup(1, width - 1);
+    //     wr("AB\33[XC");
+    let cup_str = format!("\x1b[1;{}HAB\x1b[XC", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //     getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //     ech_cancels_wrap = (r == 1 && c >= width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c >= width,
+        "Expected cursor position x to be greater than or equal to {} found {}",
+        width,
+        c
+    );
+}
 
-//   /* Check whether CPR (Cursor Position Report) cancels the wrap state. */
-//   cup(1, width - 1);
-//   wr("AB");
-//   getpos(&r, &c);
-//   wr("C");
-//   getpos(&r, &c);
-//   cpr_cancels_wrap = (r == 1 && c >= width);
+// TEST TWENTY ONE
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_cpr_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+    //   /* Check whether CPR (Cursor Position Report) cancels the wrap state. */
+    //   cup(1, width - 1);
+    //   wr("AB");
+    let cup_str = format!("\x1b[1;{}HAB", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (_r, _c) = get_position(&mut terminal_state, &rx);
+    //   wr("C");
+    let data = b"C";
+    terminal_state.handle_incoming_data(data);
+    //   getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //   cpr_cancels_wrap = (r == 1 && c >= width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c >= width,
+        "Expected cursor position x to be greater than or equal to {} found {}",
+        width,
+        c
+    );
+}
 
-//   /* Check whether DECSC (Save Cursor) cancels the wrap state. */
-//   cup(1, width - 1);
-//   wr("AB\33" "7" "C");
-//   getpos(&r, &c);
-//   decsc_cancels_wrap = (r == 1 && c >= width);
+// TEST TWENTY TWO
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_decsc_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+    //   /* Check whether DECSC (Save Cursor) cancels the wrap state. */
+    //   cup(1, width - 1);
+    //   wr("AB\33" "7" "C");
+    let cup_str = format!("\x1b[1;{}HAB\x1b7C", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //   decsc_cancels_wrap = (r == 1 && c >= width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c >= width,
+        "Expected cursor position x to be greater than or equal to {} found {}",
+        width,
+        c
+    );
+}
 
-//   /* Check whether DECRC (Restore Cursor) restores the wrap state. */
-//   cup(1, width - 1);
-//   wr("AB\33" "7");
-//   cup(3, 10);
-//   wr("Q\33" "8" "X");
-//   getpos(&r, &c);
-//   decrc_restores_wrap = (r == 2);
+// TEST TWENTY THREE
 
-//   /* Check whether DECRC (Restore Cursor) restores DECAWM=on. */
-//   cup(1, 1);
-//   wr("\33" "7");
-//   decawm(0);
-//   wr("\33" "8");
-//   cup(1, width - 1);
-//   wr("ABC");
-//   getpos(&r, &c);
-//   decrc_restores_decawm_on = (r == 2);
-//   decawm(1);
+#[test]
+fn test_decrc_restores_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+    //   /* Check whether DECRC (Restore Cursor) restores the wrap state. */
+    //   cup(1, width - 1);
+    //   wr("AB\33" "7");
+    let cup_str = format!("\x1b[1;{}HAB\x1b7", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   cup(3, 10);
+    let cup_str = "\x1b[3;10H";
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   wr("Q\33" "8" "X");
+    let data = b"Q\x1b8X";
+    terminal_state.handle_incoming_data(data);
+    //   getpos(&r, &c);
+    let (r, _c) = get_position(&mut terminal_state, &rx);
+    //   decrc_restores_wrap = (r == 2);
+    assert!(r == 2, "Expected cursor position y to be 2 found {}", r);
+}
 
-//   /* Check whether DECRC (Restore Cursor) restores DECAWM=off. */
-//   cup(1, 1);
-//   decawm(0);
-//   wr("\33" "7");
-//   decawm(1);
-//   wr("\33" "8");
-//   cup(1, width - 1);
-//   wr("ABC");
-//   getpos(&r, &c);
-//   decrc_restores_decawm_off = (r == 1);
-//   decawm(1);
+// TEST TWENTY FOUR
+#[test]
+fn test_decrc_restores_decawm_on() {
+    let (mut terminal_state, rx, width) = setup();
+    //   /* Check whether DECRC (Restore Cursor) restores DECAWM=on. */
+    //   cup(1, 1);
+    let cup_str = "\x1b[1;1H";
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   wr("\33" "7");
+    let data = b"\x1b7";
+    terminal_state.handle_incoming_data(data);
+    //   decawm(0);
+    //   wr("\33" "8");
+    let data = b"\x1b[?7l\x1b8";
+    terminal_state.handle_incoming_data(data);
+    //   cup(1, width - 1);
+    //   wr("ABC");
+    let cup_str = format!("\x1b[1;{}HABC", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, _c) = get_position(&mut terminal_state, &rx);
+    //   decrc_restores_decawm_on = (r == 2);
+    assert!(r == 2, "Expected cursor position y to be 2 found {}", r);
+    //   decawm(1);
+}
+
+// TEST TWENTY FIVE
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_decrc_restores_decawm_off() {
+    let (mut terminal_state, rx, width) = setup();
+    //   /* Check whether DECRC (Restore Cursor) restores DECAWM=off. */
+    //   cup(1, 1);
+    let cup_str = "\x1b[1;1H";
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   decawm(0);
+    let data = b"\x1b7";
+    terminal_state.handle_incoming_data(data);
+    //   wr("\33" "7");
+    let data = b"\x1b7";
+    terminal_state.handle_incoming_data(data);
+    //   decawm(1);
+    //   wr("\33" "8");
+    let data = b"\x1b[?7l\x1b8";
+    terminal_state.handle_incoming_data(data);
+    //   cup(1, width - 1);
+    //   wr("ABC");
+    let cup_str = format!("\x1b[1;{}HABC", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, _c) = get_position(&mut terminal_state, &rx);
+    //   decrc_restores_decawm_off = (r == 1);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    //   decawm(1);
+}

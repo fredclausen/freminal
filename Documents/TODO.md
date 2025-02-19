@@ -19,7 +19,7 @@ The below list is not a complete list of all completed tasks. It's a reflection 
 - [ ] Test suite 100% coverage on `freminal-terminal-emulator/src/ansi_components`
 - [ ] Pass validation of [vttest](http://invisible-island.net/vttest/)
 - [ ] Pass validation of [wraptest](https://github.com/mattiase/wraptest)
-  - [ ] Re-write all wrap tests in to rust
+  - [x] Re-write all wrap tests in to rust
   - [x] Pass test 1
   - [x] Pass test 2
   - [x] Pass test 3
