@@ -187,3 +187,20 @@ fn test_bs_works_after_writing_last_column() {
         c
     );
 }
+
+// TEST SIX
+#[test]
+fn test_tab_wraps() {
+    let (mut terminal_state, rx, width) = setup();
+
+    //      /* Check whether TAB wraps after writing to the last column. */
+    //   cup(1, width - 1);
+    //   wr("AB\t");
+    let cup_str = format!("\x1b[1;{}HAB\t", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, _c) = get_position(&mut terminal_state, &rx);
+    //   tab_wraps_at_margin = (r == 2);
+    assert!(r == 2, "Expected cursor position y to be 2 found {}", r);
+}
