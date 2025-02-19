@@ -303,37 +303,126 @@ fn test_bel_cancels_wrap_state() {
     );
 }
 
-//   /* Check whether RI (Reverse Index) cancels the wrap state. */
-//   cup(2, width - 1);
-//   wr("AB\33MC");
-//   getpos(&r, &c);
-//   ri_cancels_wrap = (r == 1 && c >= width);
+// TEST ELEVEN
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_ri_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+    //   /* Check whether RI (Reverse Index) cancels the wrap state. */
+    //   cup(2, width - 1);
+    //   wr("AB\33MC");
+    let cup_str = format!("\x1b[2;{}HAB\x1bMC", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //   ri_cancels_wrap = (r == 1 && c >= width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c >= width,
+        "Expected cursor position x to be greater than or equal to {} found {}",
+        width,
+        c
+    );
+}
 
-//   /* Check whether SGR (Select Graphic Rendition) cancels the wrap state. */
-//   cup(1, width - 1);
-//   wr("AB\33[mC");
-//   getpos(&r, &c);
-//   sgr_cancels_wrap = (r == 1 && c >= width);
+// TEST TWELVE
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_sgr_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+    //   /* Check whether SGR (Select Graphic Rendition) cancels the wrap state. */
+    //   cup(1, width - 1);
+    //   wr("AB\33[mC");
+    let cup_str = format!("\x1b[1;{}HAB\x1b[mC", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //   sgr_cancels_wrap = (r == 1 && c >= width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c >= width,
+        "Expected cursor position x to be greater than or equal to {} found {}",
+        width,
+        c
+    );
+}
 
-//   /* Check whether SM (Set Mode) cancels the wrap state. */
-//   cup(1, width - 1);
-//   wr("AB\33[hC");
-//   getpos(&r, &c);
-//   sm_cancels_wrap = (r == 1 && c >= width);
+// TEST THIRTEEN
+// This fails because we have a bug. Marking ignored for now
+#[ignore]
+#[test]
+fn test_sm_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+    //   /* Check whether SM (Set Mode) cancels the wrap state. */
+    //   cup(1, width - 1);
+    //   wr("AB\33[hC");
+    let cup_str = format!("\x1b[1;{}HAB\x1b[hC", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //   sm_cancels_wrap = (r == 1 && c >= width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c >= width,
+        "Expected cursor position x to be greater than or equal to {} found {}",
+        width,
+        c
+    );
+}
 
-//   /* Check whether CUP (Set Cursor Position) cancels the wrap state. */
-//   cup(1, width - 1);
-//   wr("AB");
-//   cup(1, width);
-//   wr("C");
-//   getpos(&r, &c);
-//   cup_cancels_wrap = (r == 1 && c >= width);
+// TEST FOURTEEN
+#[test]
+fn test_cup_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+    //   /* Check whether CUP (Set Cursor Position) cancels the wrap state. */
+    //   cup(1, width - 1);
+    //   wr("AB");
+    let cup_str = format!("\x1b[1;{}HAB", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   cup(1, width);
+    //   wr("C");
+    let cup_str = format!("\x1b[1;{}HC", width);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //   cup_cancels_wrap = (r == 1 && c >= width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c >= width,
+        "Expected cursor position x to be greater than or equal to {} found {}",
+        width,
+        c
+    );
+}
 
-//   /* Check whether CUF (Cursor Forward) cancels the wrap state. */
-//   cup(1, width - 1);
-//   wr("AB\33[CC");
-//   getpos(&r, &c);
-//   cuf_cancels_wrap = (r == 1 && c >= width);
+// TEST FIFTEEN
+#[test]
+fn test_cuf_cancels_wrap_state() {
+    let (mut terminal_state, rx, width) = setup();
+    //   /* Check whether CUF (Cursor Forward) cancels the wrap state. */
+    //   cup(1, width - 1);
+    //   wr("AB\33[CC");
+    let cup_str = format!("\x1b[1;{}HAB\x1b[CC", width - 1);
+    let cup = cup_str.as_bytes();
+    terminal_state.handle_incoming_data(cup);
+    //   getpos(&r, &c);
+    let (r, c) = get_position(&mut terminal_state, &rx);
+    //   cuf_cancels_wrap = (r == 1 && c >= width);
+    assert!(r == 1, "Expected cursor position y to be 1 found {}", r);
+    assert!(
+        c >= width,
+        "Expected cursor position x to be greater than or equal to {} found {}",
+        width,
+        c
+    );
+}
 
 //   /* Check whether EL (Erase in Line) cancels the wrap state. */
 //   cup(1, width - 1);
