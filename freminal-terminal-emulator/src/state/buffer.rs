@@ -3,6 +3,8 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+use crate::ansi_components::modes::decawm::Decawm;
+
 use super::{cursor::CursorPos, data::TerminalSections, internal::BufferType, term_char::TChar};
 use anyhow::Result;
 use freminal_common::scroll::ScrollDirection;
@@ -196,11 +198,38 @@ impl TerminalBufferHolder {
         &mut self,
         cursor_pos: &CursorPos,
         data: &[u8],
+        decawm: &Decawm,
     ) -> Result<TerminalBufferInsertResponse> {
         // loop through all of the characters
         // if the character is utf8, then we need all of the bytes to be written
 
-        let converted_buffer = TChar::from_vec(data)?;
+        let mut converted_buffer = TChar::from_vec(data)?;
+
+        if decawm == &Decawm::NoAutoWrap && cursor_pos.x + converted_buffer.len() > self.width {
+            // if the cursor pos + the length of the data is greater than self.width, we need to truncate the incoming data
+
+            // example
+            // buffer = AAAAA
+            // width = 10
+            // incoming data
+            // MNOPQRS
+            // cursor pos = 5
+            // expected truncation is MNOPS
+
+            // find the amount of characters in the incoming data until we hit the end of the line
+            let keep = self.width.saturating_sub(cursor_pos.x);
+            // the final data is converted_buffer[0..keep] + the last character in the buffer
+            let last = converted_buffer.last().unwrap_or(&TChar::Space).clone();
+            info!(
+                "Keep: {}, length: {}, cursorposx: {}",
+                keep,
+                converted_buffer.len(),
+                cursor_pos.x
+            );
+            let drained: Vec<_> = converted_buffer.drain(0..keep).collect();
+            info!("Drained: {:?}", drained);
+            converted_buffer.push(last);
+        }
 
         let PadBufferForWriteResponse {
             write_idx,

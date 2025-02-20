@@ -397,10 +397,11 @@ impl TerminalState {
         };
 
         let current_buffer = self.get_current_buffer();
-        let response = match current_buffer
-            .terminal_buffer
-            .insert_data(&current_buffer.cursor_state.pos, &data)
-        {
+        let response = match current_buffer.terminal_buffer.insert_data(
+            &current_buffer.cursor_state.pos,
+            &data,
+            &current_buffer.cursor_state.line_wrap_mode.clone(),
+        ) {
             Ok(response) => response,
             Err(e) => {
                 error!("Failed to insert data: {e}");
@@ -835,6 +836,7 @@ impl TerminalState {
                 self.report_mode(&to_write.report(None));
             }
             Mode::Decawm(decawm) => {
+                info!("Received DECAWM: {}", decawm);
                 self.get_current_buffer().cursor_state.line_wrap_mode = decawm.clone();
             }
             Mode::Dectem(Dectcem::Query) => {

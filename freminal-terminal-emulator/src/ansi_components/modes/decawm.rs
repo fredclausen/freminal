@@ -12,12 +12,12 @@ use super::ReportMode;
 /// Autowrap Mode (DECAWM) ?7
 #[derive(Eq, PartialEq, Debug, Default, Clone)]
 pub enum Decawm {
-    #[default]
     /// Normal (Reset) Mode
     /// Disables autowrap mode.
     NoAutoWrap,
     /// Alternate (Set) Mode
     /// Enables autowrap mode
+    #[default]
     AutoWrap,
     Query,
 }
