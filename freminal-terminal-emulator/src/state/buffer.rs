@@ -202,10 +202,19 @@ impl TerminalBufferHolder {
     ) -> Result<TerminalBufferInsertResponse> {
         // loop through all of the characters
         // if the character is utf8, then we need all of the bytes to be written
+        let mut cursor_pos = *cursor_pos;
+        if data.is_empty() {
+            return Ok(TerminalBufferInsertResponse {
+                written_range: 0..0,
+                insertion_range: 0..0,
+                new_cursor_pos: cursor_pos,
+            });
+        }
 
         let mut converted_buffer = TChar::from_vec(data)?;
 
-        if decawm == &Decawm::NoAutoWrap && cursor_pos.x + converted_buffer.len() > self.width {
+        info!("cursor pos: {:?}", cursor_pos);
+        if decawm == &Decawm::NoAutoWrap && cursor_pos.x + converted_buffer.len() >= self.width {
             // if the cursor pos + the length of the data is greater than self.width, we need to truncate the incoming data
 
             // example
@@ -215,26 +224,34 @@ impl TerminalBufferHolder {
             // MNOPQRS
             // cursor pos = 5
             // expected truncation is MNOPS
-
+            info!("Truncating");
+            let last_char = converted_buffer.pop().unwrap_or(TChar::Space); // Unwrap with anything is just to make rust happy. It should never be a None value if we ended up here
+            let last_element_index = converted_buffer.len();
+            let keep = self.width.saturating_sub(cursor_pos.x).saturating_sub(1);
+            let _ = converted_buffer.drain(keep..last_element_index);
+            converted_buffer.push(last_char);
+            cursor_pos.x = self.width - converted_buffer.len();
             // find the amount of characters in the incoming data until we hit the end of the line
-            let keep = self.width.saturating_sub(cursor_pos.x);
-            // the final data is converted_buffer[0..keep] + the last character in the buffer
-            let last = converted_buffer.last().unwrap_or(&TChar::Space).clone();
-            info!(
-                "Keep: {}, length: {}, cursorposx: {}",
-                keep,
-                converted_buffer.len(),
-                cursor_pos.x
-            );
-            let drained: Vec<_> = converted_buffer.drain(0..keep).collect();
-            info!("Drained: {:?}", drained);
-            converted_buffer.push(last);
+            // let keep = self.width.saturating_sub(cursor_pos.x).saturating_sub(1);
+            // // the final data is converted_buffer[0..keep] + the last character in the buffer
+            // let last = converted_buffer.last().unwrap_or(&TChar::Space).clone();
+            // info!(
+            //     "Keep: {}, length: {}, cursorposx: {}",
+            //     keep,
+            //     converted_buffer.len(),
+            //     cursor_pos.x
+            // );
+            // let drained: Vec<_> = converted_buffer
+            //     .drain(0..converted_buffer.len().saturating_sub(keep))
+            //     .collect();
+            // info!("Drained: {:?}", drained);
+            // converted_buffer.push(last);
         }
 
         let PadBufferForWriteResponse {
             write_idx,
             inserted_padding,
-        } = self.pad_buffer_for_write(cursor_pos, converted_buffer.len());
+        } = self.pad_buffer_for_write(&cursor_pos, converted_buffer.len());
         let write_range = write_idx..write_idx + converted_buffer.len();
 
         self.buf

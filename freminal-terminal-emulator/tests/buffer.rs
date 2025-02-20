@@ -7,11 +7,14 @@ use test_log::test;
 // https://opensource.org/licenses/MIT.
 #[cfg(test)]
 use anyhow::Result;
-use freminal_terminal_emulator::state::{
-    buffer::{TerminalBufferHolder, TerminalBufferInsertResponse},
-    cursor::CursorPos,
-    internal::BufferType,
-    term_char::TChar,
+use freminal_terminal_emulator::{
+    ansi_components::modes::decawm::Decawm,
+    state::{
+        buffer::{TerminalBufferHolder, TerminalBufferInsertResponse},
+        cursor::CursorPos,
+        internal::BufferType,
+        term_char::TChar,
+    },
 };
 use tracing::info;
 
@@ -51,10 +54,14 @@ fn simulate_resize(
 ) -> Result<TerminalBufferInsertResponse> {
     let mut response = canvas.set_win_size(width, height, cursor_pos);
     response.new_cursor_pos.x = 0;
-    let mut response = canvas.insert_data(&response.new_cursor_pos, &vec![b' '; width])?;
+    let mut response = canvas.insert_data(
+        &response.new_cursor_pos,
+        &vec![b' '; width],
+        &Decawm::AutoWrap,
+    )?;
     response.new_cursor_pos.x = 0;
 
-    canvas.insert_data(&response.new_cursor_pos, b"$ ")
+    canvas.insert_data(&response.new_cursor_pos, b"$ ", &Decawm::AutoWrap)
 }
 
 fn crlf(pos: &mut CursorPos) {
@@ -66,7 +73,7 @@ fn crlf(pos: &mut CursorPos) {
 fn test_insert_utf8_data() {
     let mut buffer = TerminalBufferHolder::new(10, 10, BufferType::Primary);
     let response = buffer
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"asdf")
+        .insert_data(&CursorPos { x: 0, y: 0 }, b"asdf", &Decawm::AutoWrap)
         .unwrap();
 
     assert_eq!(response.written_range, 0..4);
@@ -83,7 +90,7 @@ fn test_insert_utf8_data() {
 
     let bytes_utf8 = "👍".as_bytes();
     let response = buffer
-        .insert_data(&response.new_cursor_pos, bytes_utf8)
+        .insert_data(&response.new_cursor_pos, bytes_utf8, &Decawm::AutoWrap)
         .unwrap();
     assert_eq!(response.written_range, 4..5);
     assert_eq!(response.insertion_range, 4..5);
@@ -149,7 +156,11 @@ fn test_canvas_clear_forwards() {
     let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     // Push enough data to get some in scrollback
     buffer
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"012343456789\n0123456789\n1234")
+        .insert_data(
+            &CursorPos { x: 0, y: 0 },
+            b"012343456789\n0123456789\n1234",
+            &Decawm::AutoWrap,
+        )
         .unwrap();
 
     let expected = vec![
@@ -217,7 +228,11 @@ fn test_canvas_clear_forwards() {
     // 1. Truncating on beginning of line and previous char was not a newline
     let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     buffer
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"012340123401234012340123401234")
+        .insert_data(
+            &CursorPos { x: 0, y: 0 },
+            b"012340123401234012340123401234",
+            &Decawm::AutoWrap,
+        )
         .unwrap();
     buffer.clear_forwards(&CursorPos { x: 0, y: 1 }).unwrap();
 
@@ -257,6 +272,7 @@ fn test_canvas_clear_forwards() {
         .insert_data(
             &CursorPos { x: 0, y: 0 },
             b"01234\n0123401234012340123401234",
+            &Decawm::AutoWrap,
         )
         .unwrap();
 
@@ -266,7 +282,11 @@ fn test_canvas_clear_forwards() {
     // 3. Truncating on a newline
     let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     buffer
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"\n\n\n\n\n\n")
+        .insert_data(
+            &CursorPos { x: 0, y: 0 },
+            b"\n\n\n\n\n\n",
+            &Decawm::AutoWrap,
+        )
         .unwrap();
     buffer.clear_forwards(&CursorPos { x: 0, y: 1 }).unwrap();
 
@@ -284,7 +304,7 @@ fn test_canvas_clear_forwards() {
 fn test_canvas_clear() {
     let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     buffer
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789")
+        .insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789", &Decawm::AutoWrap)
         .unwrap();
     buffer.clear_all();
     assert_eq!(buffer.data(true).visible, &[] as &[TChar]);
@@ -294,7 +314,11 @@ fn test_canvas_clear() {
 fn test_terminal_buffer_overwrite_early_newline() {
     let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     buffer
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"012\n3456789")
+        .insert_data(
+            &CursorPos { x: 0, y: 0 },
+            b"012\n3456789",
+            &Decawm::AutoWrap,
+        )
         .unwrap();
     let expected = vec![
         TChar::new_from_single_char(b'0'),
@@ -315,7 +339,7 @@ fn test_terminal_buffer_overwrite_early_newline() {
     // Cursor pos should be calculated based off wrapping at column 5, but should not result in
     // an extra newline
     buffer
-        .insert_data(&CursorPos { x: 2, y: 1 }, b"test")
+        .insert_data(&CursorPos { x: 2, y: 1 }, b"test", &Decawm::AutoWrap)
         .unwrap();
     let expected = vec![
         TChar::new_from_single_char(b'0'),
@@ -338,7 +362,7 @@ fn test_terminal_buffer_overwrite_early_newline() {
 fn test_terminal_buffer_overwrite_no_newline() {
     let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     buffer
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789")
+        .insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789", &Decawm::AutoWrap)
         .unwrap();
     let expected = vec![
         TChar::new_from_single_char(b'0'),
@@ -358,7 +382,7 @@ fn test_terminal_buffer_overwrite_no_newline() {
     // Cursor pos should be calculated based off wrapping at column 5, but should not result in
     // an extra newline
     buffer
-        .insert_data(&CursorPos { x: 2, y: 1 }, b"test")
+        .insert_data(&CursorPos { x: 2, y: 1 }, b"test", &Decawm::AutoWrap)
         .unwrap();
     let expected = vec![
         TChar::new_from_single_char(b'0'),
@@ -383,7 +407,11 @@ fn test_terminal_buffer_overwrite_late_newline() {
     // neline between lines 1 and 2
     let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     buffer
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"01234\n56789")
+        .insert_data(
+            &CursorPos { x: 0, y: 0 },
+            b"01234\n56789",
+            &Decawm::AutoWrap,
+        )
         .unwrap();
     let expected = vec![
         TChar::new_from_single_char(b'0'),
@@ -402,7 +430,7 @@ fn test_terminal_buffer_overwrite_late_newline() {
     assert_eq!(buffer.data(true).visible, expected);
 
     buffer
-        .insert_data(&CursorPos { x: 2, y: 1 }, b"test")
+        .insert_data(&CursorPos { x: 2, y: 1 }, b"test", &Decawm::AutoWrap)
         .unwrap();
     let expected = vec![
         TChar::new_from_single_char(b'0'),
@@ -426,7 +454,7 @@ fn test_terminal_buffer_overwrite_late_newline() {
 fn test_terminal_buffer_insert_unallocated_data() {
     let mut buffer = TerminalBufferHolder::new(10, 10, BufferType::Primary);
     buffer
-        .insert_data(&CursorPos { x: 4, y: 5 }, b"hello world")
+        .insert_data(&CursorPos { x: 4, y: 5 }, b"hello world", &Decawm::AutoWrap)
         .unwrap();
     let expected = vec![
         TChar::NewLine,
@@ -454,7 +482,7 @@ fn test_terminal_buffer_insert_unallocated_data() {
     assert_eq!(buffer.data(true).visible, expected);
 
     buffer
-        .insert_data(&CursorPos { x: 3, y: 2 }, b"hello world")
+        .insert_data(&CursorPos { x: 3, y: 2 }, b"hello world", &Decawm::AutoWrap)
         .unwrap();
     let expected = vec![
         TChar::NewLine,
@@ -502,18 +530,20 @@ fn test_canvas_scrolling() {
     let initial_cursor_pos = CursorPos { x: 0, y: 0 };
 
     // Simulate real terminal usage where newlines are injected with cursor moves
-    let mut response = canvas.insert_data(&initial_cursor_pos, b"asdf").unwrap();
-    crlf(&mut response.new_cursor_pos);
     let mut response = canvas
-        .insert_data(&response.new_cursor_pos, b"xyzw")
+        .insert_data(&initial_cursor_pos, b"asdf", &Decawm::AutoWrap)
         .unwrap();
     crlf(&mut response.new_cursor_pos);
     let mut response = canvas
-        .insert_data(&response.new_cursor_pos, b"1234")
+        .insert_data(&response.new_cursor_pos, b"xyzw", &Decawm::AutoWrap)
         .unwrap();
     crlf(&mut response.new_cursor_pos);
     let mut response = canvas
-        .insert_data(&response.new_cursor_pos, b"5678")
+        .insert_data(&response.new_cursor_pos, b"1234", &Decawm::AutoWrap)
+        .unwrap();
+    crlf(&mut response.new_cursor_pos);
+    let mut response = canvas
+        .insert_data(&response.new_cursor_pos, b"5678", &Decawm::AutoWrap)
         .unwrap();
     crlf(&mut response.new_cursor_pos);
 
@@ -550,7 +580,11 @@ fn test_canvas_delete_forwards() {
     let mut canvas = TerminalBufferHolder::new(10, 5, BufferType::Primary);
 
     canvas
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"asdf\n123456789012345")
+        .insert_data(
+            &CursorPos { x: 0, y: 0 },
+            b"asdf\n123456789012345",
+            &Decawm::AutoWrap,
+        )
         .unwrap();
 
     // Test normal deletion
@@ -645,7 +679,11 @@ fn test_canvas_delete_forwards() {
 fn test_canvas_insert_spaces() {
     let mut canvas = TerminalBufferHolder::new(10, 5, BufferType::Primary);
     canvas
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"asdf\n123456789012345")
+        .insert_data(
+            &CursorPos { x: 0, y: 0 },
+            b"asdf\n123456789012345",
+            &Decawm::AutoWrap,
+        )
         .unwrap();
 
     // Happy path
@@ -814,7 +852,11 @@ fn test_canvas_insert_spaces() {
 fn test_clear_line_forwards() {
     let mut canvas = TerminalBufferHolder::new(10, 5, BufferType::Primary);
     canvas
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"asdf\n123456789012345")
+        .insert_data(
+            &CursorPos { x: 0, y: 0 },
+            b"asdf\n123456789012345",
+            &Decawm::AutoWrap,
+        )
         .unwrap();
 
     // Nothing do delete
@@ -950,7 +992,11 @@ fn test_insert_lines() {
 
     // Test edge wrapped
     canvas
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789asdf\nxyzw")
+        .insert_data(
+            &CursorPos { x: 0, y: 0 },
+            b"0123456789asdf\nxyzw",
+            &Decawm::AutoWrap,
+        )
         .unwrap();
     let expected = vec![
         TChar::new_from_single_char(b'0'),
@@ -1049,7 +1095,11 @@ fn test_clear_line() {
 
     // Test edge wrapped
     canvas
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789asdf\nxyzw")
+        .insert_data(
+            &CursorPos { x: 0, y: 0 },
+            b"0123456789asdf\nxyzw",
+            &Decawm::AutoWrap,
+        )
         .unwrap();
 
     let expected = vec![
@@ -1143,7 +1193,11 @@ fn clear_line_backwards() {
 
     // Test edge wrapped
     canvas
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789asdf\nxyzw")
+        .insert_data(
+            &CursorPos { x: 0, y: 0 },
+            b"0123456789asdf\nxyzw",
+            &Decawm::AutoWrap,
+        )
         .unwrap();
     let expected = vec![
         TChar::new_from_single_char(b'0'),
@@ -1208,7 +1262,11 @@ fn test_clear_backwards() {
 
     // Test edge wrapped
     canvas
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"0123456789asdf\nxyzw")
+        .insert_data(
+            &CursorPos { x: 0, y: 0 },
+            b"0123456789asdf\nxyzw",
+            &Decawm::AutoWrap,
+        )
         .unwrap();
     let expected = vec![
         TChar::new_from_single_char(b'0'),
@@ -1299,6 +1357,7 @@ fn test_clear_visible() {
         .insert_data(
             &CursorPos { x: 0, y: 0 },
             b"0123456789asdf0123456789asdf0123456789asdf0123456789asdf0123456789asdf\nxyzw",
+            &Decawm::AutoWrap,
         )
         .unwrap();
 
@@ -1374,7 +1433,8 @@ fn test_visible_line_ranges_parsing() {
 
     // no scrollback, new line before width reached
     let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
-    buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+    buf.insert_data(&CursorPos { x: 0, y: 0 }, data, &Decawm::AutoWrap)
+        .unwrap();
 
     let visible_line_ranges = buf.get_visible_line_ranges();
 
@@ -1390,7 +1450,8 @@ fn test_visible_line_ranges_parsing() {
     let mut buf = TerminalBufferHolder::new(15, 4, BufferType::Primary);
 
     let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
-    buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+    buf.insert_data(&CursorPos { x: 0, y: 0 }, data, &Decawm::AutoWrap)
+        .unwrap();
     let visible_line_ranges = buf.get_visible_line_ranges();
 
     assert_eq!(visible_line_ranges.len(), 4);
@@ -1403,7 +1464,8 @@ fn test_visible_line_ranges_parsing() {
     let mut buf = TerminalBufferHolder::new(10, 15, BufferType::Primary);
 
     let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
-    buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+    buf.insert_data(&CursorPos { x: 0, y: 0 }, data, &Decawm::AutoWrap)
+        .unwrap();
     let visible_line_ranges = buf.get_visible_line_ranges();
 
     assert_eq!(visible_line_ranges.len(), 6);
@@ -1417,7 +1479,8 @@ fn test_visible_line_ranges_parsing() {
     // scrollback, new line after width reached
     let mut buf = TerminalBufferHolder::new(15, 4, BufferType::Primary);
     let data = b"0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n";
-    buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+    buf.insert_data(&CursorPos { x: 0, y: 0 }, data, &Decawm::AutoWrap)
+        .unwrap();
     let visible_line_ranges = buf.get_visible_line_ranges();
 
     assert_eq!(visible_line_ranges.len(), 4);
@@ -1429,7 +1492,8 @@ fn test_visible_line_ranges_parsing() {
     // no scrollback, no new lines
     let mut buf = TerminalBufferHolder::new(10, 15, BufferType::Primary);
     let data = b"01234567890123456789012345678901234567890123456789";
-    buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+    buf.insert_data(&CursorPos { x: 0, y: 0 }, data, &Decawm::AutoWrap)
+        .unwrap();
     let visible_line_ranges = buf.get_visible_line_ranges();
 
     assert_eq!(visible_line_ranges.len(), 5);
@@ -1442,7 +1506,8 @@ fn test_visible_line_ranges_parsing() {
     // scrollback, no new lines
     let mut buf = TerminalBufferHolder::new(10, 4, BufferType::Primary);
     let data = b"01234567890123456789012345678901234567890123456789";
-    buf.insert_data(&CursorPos { x: 0, y: 0 }, data).unwrap();
+    buf.insert_data(&CursorPos { x: 0, y: 0 }, data, &Decawm::AutoWrap)
+        .unwrap();
     let visible_line_ranges = buf.get_visible_line_ranges();
 
     assert_eq!(visible_line_ranges.len(), 4);
@@ -1454,7 +1519,11 @@ fn test_visible_line_ranges_parsing() {
     let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     // Push enough data to get some in scrollback
     buffer
-        .insert_data(&CursorPos { x: 0, y: 0 }, b"012343456789\n0123456789\n1234")
+        .insert_data(
+            &CursorPos { x: 0, y: 0 },
+            b"012343456789\n0123456789\n1234",
+            &Decawm::AutoWrap,
+        )
         .unwrap();
     let visible_line_ranges = buffer.get_visible_line_ranges();
 
@@ -1472,7 +1541,9 @@ fn test_line_ranges_from_visible_line_ranges_no_spill() {
     let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     // add some data
     let data = b"1234\n".repeat(4);
-    let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
+    let result = buffer
+        .insert_data(&CursorPos::default(), &data, &Decawm::AutoWrap)
+        .unwrap();
 
     // buffer_line_ranges should have 5 lines. Visible line ranges should also have 5 lines
     assert_eq!(buffer.get_line_ranges().len(), 5);
@@ -1480,7 +1551,9 @@ fn test_line_ranges_from_visible_line_ranges_no_spill() {
     assert_eq!(buffer.get_visible_line_ranges(), buffer.get_line_ranges());
 
     // push data in to scrollback
-    buffer.insert_data(&result.new_cursor_pos, &data).unwrap();
+    buffer
+        .insert_data(&result.new_cursor_pos, &data, &Decawm::AutoWrap)
+        .unwrap();
     println!("{:?}", buffer.get_line_ranges());
     // buffer_line_ranges should have 10 lines. Visible line ranges should have 5 lines
     assert_eq!(buffer.get_line_ranges().len(), 9);
@@ -1511,7 +1584,9 @@ fn test_line_ranges_from_visible_line_ranges_spill() {
     let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     // add some data
     let data = b"1234\n".repeat(5);
-    let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
+    let result = buffer
+        .insert_data(&CursorPos::default(), &data, &Decawm::AutoWrap)
+        .unwrap();
 
     // buffer_line_ranges should have 5 lines. Visible line ranges should also have 5 lines
     assert_eq!(buffer.get_line_ranges().len(), 6);
@@ -1526,7 +1601,9 @@ fn test_line_ranges_from_visible_line_ranges_spill() {
     );
 
     // push data in to scrollback
-    buffer.insert_data(&result.new_cursor_pos, &data).unwrap();
+    buffer
+        .insert_data(&result.new_cursor_pos, &data, &Decawm::AutoWrap)
+        .unwrap();
     // buffer_line_ranges should have 10 lines. Visible line ranges should have 5 lines
     assert_eq!(buffer.get_line_ranges().len(), 11);
     assert_eq!(buffer.get_visible_line_ranges().len(), 5);
@@ -1554,7 +1631,9 @@ fn test_line_ranges_from_visible_line_ranges_spill() {
     // now lets test with buffers that wrap and don't have newlines
     let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     let data = b"12345".repeat(6);
-    let result = buffer.insert_data(&CursorPos::default(), &data).unwrap();
+    let result = buffer
+        .insert_data(&CursorPos::default(), &data, &Decawm::AutoWrap)
+        .unwrap();
 
     assert_eq!(buffer.get_line_ranges().len(), 6);
     assert_eq!(buffer.get_visible_line_ranges().len(), 5);
@@ -1567,7 +1646,9 @@ fn test_line_ranges_from_visible_line_ranges_spill() {
         [0..5, 5..10, 10..15, 15..20, 20..25, 25..30]
     );
 
-    buffer.insert_data(&result.new_cursor_pos, &data).unwrap();
+    buffer
+        .insert_data(&result.new_cursor_pos, &data, &Decawm::AutoWrap)
+        .unwrap();
     assert_eq!(buffer.get_line_ranges().len(), 12);
     assert_eq!(buffer.get_visible_line_ranges().len(), 5);
     assert_eq!(
@@ -1598,7 +1679,9 @@ fn test_weird_fail_case_from_real_world() {
     let mut buffer = TerminalBufferHolder::new(50, 16, BufferType::Primary);
 
     let data = b" ".repeat(479);
-    buffer.insert_data(&CursorPos::default(), &data).unwrap();
+    buffer
+        .insert_data(&CursorPos::default(), &data, &Decawm::AutoWrap)
+        .unwrap();
     buffer.set_visible_line_ranges(
         [
             75..80,
@@ -1695,7 +1778,9 @@ fn test_line_ranges_that_do_overlap_subsequent_range() {
     let mut buffer = TerminalBufferHolder::new(50, 16, BufferType::Primary);
 
     let data = b" ".repeat(478);
-    buffer.insert_data(&CursorPos::default(), &data).unwrap();
+    buffer
+        .insert_data(&CursorPos::default(), &data, &Decawm::AutoWrap)
+        .unwrap();
     buffer.set_visible_line_ranges(
         [
             25..63,
@@ -1773,7 +1858,9 @@ fn test_line_range_insert_with_new_line() {
     let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
 
     let data = b"ZZ\nZZZ\nZZZZ\nZZZZZ";
-    buffer.insert_data(&CursorPos::default(), data).unwrap();
+    buffer
+        .insert_data(&CursorPos::default(), data, &Decawm::AutoWrap)
+        .unwrap();
 
     let expected_ranges = vec![
         0..2,   // "ZZ"
@@ -1787,7 +1874,9 @@ fn test_line_range_insert_with_new_line() {
 
     let cursor_pos = CursorPos { x: 4, y: 0 };
     let data = "AB";
-    buffer.insert_data(&cursor_pos, data.as_bytes()).unwrap();
+    buffer
+        .insert_data(&cursor_pos, data.as_bytes(), &Decawm::AutoWrap)
+        .unwrap();
     info!("buffer: {:?}", buffer.buf);
 
     let updated_expected_ranges = vec![
