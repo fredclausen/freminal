@@ -202,16 +202,16 @@ impl TerminalBufferHolder {
     ) -> Result<TerminalBufferInsertResponse> {
         // loop through all of the characters
         // if the character is utf8, then we need all of the bytes to be written
-        let mut cursor_pos = *cursor_pos;
         if data.is_empty() {
             return Ok(TerminalBufferInsertResponse {
                 written_range: 0..0,
                 insertion_range: 0..0,
-                new_cursor_pos: cursor_pos,
+                new_cursor_pos: *cursor_pos,
             });
         }
 
         let mut converted_buffer = TChar::from_vec(data)?;
+        let mut offset = false;
 
         info!("cursor pos: {:?}", cursor_pos);
         if decawm == &Decawm::NoAutoWrap && cursor_pos.x + converted_buffer.len() >= self.width {
@@ -224,13 +224,18 @@ impl TerminalBufferHolder {
             // MNOPQRS
             // cursor pos = 5
             // expected truncation is MNOPS
-            info!("Truncating");
+
             let last_char = converted_buffer.pop().unwrap_or(TChar::Space); // Unwrap with anything is just to make rust happy. It should never be a None value if we ended up here
             let last_element_index = converted_buffer.len();
             let keep = self.width.saturating_sub(cursor_pos.x).saturating_sub(1);
             let _ = converted_buffer.drain(keep..last_element_index);
             converted_buffer.push(last_char);
-            cursor_pos.x = self.width - converted_buffer.len();
+
+            if cursor_pos.x + converted_buffer.len() >= self.width {
+                info!("offsetting");
+                offset = true;
+            }
+
             // find the amount of characters in the incoming data until we hit the end of the line
             // let keep = self.width.saturating_sub(cursor_pos.x).saturating_sub(1);
             // // the final data is converted_buffer[0..keep] + the last character in the buffer
@@ -251,7 +256,7 @@ impl TerminalBufferHolder {
         let PadBufferForWriteResponse {
             write_idx,
             inserted_padding,
-        } = self.pad_buffer_for_write(&cursor_pos, converted_buffer.len());
+        } = self.pad_buffer_for_write(cursor_pos, converted_buffer.len());
         let write_range = write_idx..write_idx + converted_buffer.len();
 
         self.buf
@@ -259,8 +264,15 @@ impl TerminalBufferHolder {
 
         self.line_ranges_to_visible_line_ranges();
 
-        let new_cursor_pos = self.buf_to_cursor_pos(write_range.end);
-        //info!("buffer lines: {:?}", self.buffer_line_ranges);
+        let new_cursor_pos = if offset {
+            CursorPos {
+                x: self.width.saturating_sub(1),
+                y: cursor_pos.y,
+            }
+        } else {
+            self.buf_to_cursor_pos(write_range.end)
+        };
+
         Ok(TerminalBufferInsertResponse {
             written_range: write_range,
             insertion_range: inserted_padding,

@@ -1,5 +1,4 @@
 use test_log::test;
-use tracing::info;
 
 // Copyright (C) 2024-2025 Fred Clausen
 // Use of this source code is governed by an MIT-style
@@ -20,7 +19,7 @@ use freminal_terminal_emulator::{
 fn test_decawm_basic_no_wrap() {
     let decawm = Decawm::NoAutoWrap;
     let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
-    buffer
+    let response = buffer
         .insert_data(&CursorPos::default(), b"test", &decawm)
         .unwrap();
 
@@ -38,9 +37,15 @@ fn test_decawm_basic_no_wrap() {
         display_vec_tchar_as_string(&buffer.buf),
         display_vec_tchar_as_string(&expected),
     );
+    let expected_cursor = CursorPos { x: 4, y: 0 };
+    assert_eq!(
+        response.new_cursor_pos, expected_cursor,
+        "\nInternal cursor: {}Expected: {}",
+        response.new_cursor_pos, expected_cursor
+    );
 
     let cursor = CursorPos { x: 4, y: 0 };
-    buffer.insert_data(&cursor, b"abcd", &decawm).unwrap();
+    let response = buffer.insert_data(&cursor, b"abcd", &decawm).unwrap();
     let expected = [
         TChar::new_from_single_char(b't'),
         TChar::new_from_single_char(b'e'),
@@ -56,13 +61,19 @@ fn test_decawm_basic_no_wrap() {
         display_vec_tchar_as_string(&buffer.buf),
         display_vec_tchar_as_string(&expected),
     );
+    let expected_cursor = CursorPos { x: 4, y: 0 };
+    assert_eq!(
+        response.new_cursor_pos, expected_cursor,
+        "\nInternal cursor: {}Expected: {}",
+        response.new_cursor_pos, expected_cursor
+    );
 }
 
 #[test]
 fn test_decawm_basic_longer_line_no_wrap() {
     let decawm = Decawm::NoAutoWrap;
     let mut buffer = TerminalBufferHolder::new(7, 7, BufferType::Primary);
-    buffer
+    let response = buffer
         .insert_data(&CursorPos::default(), b"test", &decawm)
         .unwrap();
 
@@ -80,9 +91,15 @@ fn test_decawm_basic_longer_line_no_wrap() {
         display_vec_tchar_as_string(&buffer.buf),
         display_vec_tchar_as_string(&expected),
     );
+    let expected_cursor = CursorPos { x: 4, y: 0 };
+    assert_eq!(
+        response.new_cursor_pos, expected_cursor,
+        "\nInternal cursor: {}Expected: {}",
+        response.new_cursor_pos, expected_cursor
+    );
 
     let cursor = CursorPos { x: 4, y: 0 };
-    buffer.insert_data(&cursor, b"abcd", &decawm).unwrap();
+    let response = buffer.insert_data(&cursor, b"abcd", &decawm).unwrap();
     let expected = [
         TChar::new_from_single_char(b't'),
         TChar::new_from_single_char(b'e'),
@@ -99,5 +116,87 @@ fn test_decawm_basic_longer_line_no_wrap() {
         "\nInternal buffer: {}Expected: {}",
         display_vec_tchar_as_string(&buffer.buf),
         display_vec_tchar_as_string(&expected),
+    );
+    let expected_cursor = CursorPos { x: 6, y: 0 };
+    assert_eq!(
+        response.new_cursor_pos, expected_cursor,
+        "\nInternal cursor: {}Expected: {}",
+        response.new_cursor_pos, expected_cursor
+    );
+}
+
+#[test]
+fn test_decawm_basic_wrap_insert_single_end_of_line() {
+    let decawm = Decawm::NoAutoWrap;
+    let mut buffer = TerminalBufferHolder::new(7, 7, BufferType::Primary);
+    let response = buffer
+        .insert_data(&CursorPos::default(), b"test", &decawm)
+        .unwrap();
+
+    let expected = [
+        TChar::new_from_single_char(b't'),
+        TChar::new_from_single_char(b'e'),
+        TChar::new_from_single_char(b's'),
+        TChar::new_from_single_char(b't'),
+        TChar::NewLine,
+    ];
+    assert_eq!(
+        buffer.buf,
+        expected,
+        "\nInternal buffer: {}Expected: {}",
+        display_vec_tchar_as_string(&buffer.buf),
+        display_vec_tchar_as_string(&expected),
+    );
+    let expected_cursor = CursorPos { x: 4, y: 0 };
+    assert_eq!(
+        response.new_cursor_pos, expected_cursor,
+        "\nInternal cursor: {}Expected: {}",
+        response.new_cursor_pos, expected_cursor
+    );
+    let cursor = CursorPos { x: 4, y: 0 };
+    let response = buffer.insert_data(&cursor, b"a", &decawm).unwrap();
+    let expected = [
+        TChar::new_from_single_char(b't'),
+        TChar::new_from_single_char(b'e'),
+        TChar::new_from_single_char(b's'),
+        TChar::new_from_single_char(b't'),
+        TChar::new_from_single_char(b'a'),
+        TChar::NewLine,
+    ];
+    assert_eq!(
+        buffer.buf,
+        expected,
+        "\nInternal buffer: {}Expected: {}",
+        display_vec_tchar_as_string(&buffer.buf),
+        display_vec_tchar_as_string(&expected),
+    );
+    let expected_cursor = CursorPos { x: 5, y: 0 };
+    assert_eq!(
+        response.new_cursor_pos, expected_cursor,
+        "\nInternal cursor: {}Expected: {}",
+        response.new_cursor_pos, expected_cursor
+    );
+
+    let cursor = CursorPos { x: 5, y: 0 };
+    let response = buffer.insert_data(&cursor, b"b", &decawm).unwrap();
+    let expected = [
+        TChar::new_from_single_char(b't'),
+        TChar::new_from_single_char(b'e'),
+        TChar::new_from_single_char(b's'),
+        TChar::new_from_single_char(b't'),
+        TChar::new_from_single_char(b'b'),
+        TChar::NewLine,
+    ];
+    assert_eq!(
+        buffer.buf,
+        expected,
+        "\nInternal buffer: {}Expected: {}",
+        display_vec_tchar_as_string(&buffer.buf),
+        display_vec_tchar_as_string(&expected),
+    );
+    assert_eq!(
+        response.new_cursor_pos, expected_cursor,
+        "\nInternal cursor: {}Expected: {}",
+        response.new_cursor_pos, expected_cursor
     );
 }

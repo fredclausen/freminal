@@ -3,6 +3,8 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+use core::fmt;
+
 use freminal_common::colors::TerminalColor;
 
 use crate::ansi_components::{modes::decawm::Decawm, osc::Url};
@@ -176,4 +178,10 @@ pub struct CursorPos {
     pub x: usize,
     pub y: usize,
     // pub x_as_characters: usize,
+}
+
+impl fmt::Display for CursorPos {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "CursorPos {{ x: {}, y: {} }}", self.x, self.y)
+    }
 }
