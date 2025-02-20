@@ -232,7 +232,7 @@ impl TerminalBufferHolder {
             converted_buffer.push(last_char);
 
             if cursor_pos.x + converted_buffer.len() >= self.width {
-                info!("offsetting");
+                info!("offsettingg");
                 offset = true;
             }
 

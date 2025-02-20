@@ -8,6 +8,7 @@ use criterion::criterion_main;
 use criterion::BenchmarkId;
 use criterion::Criterion;
 
+use freminal_terminal_emulator::ansi_components::modes::decawm::Decawm;
 use freminal_terminal_emulator::state::internal::Buffer;
 use freminal_terminal_emulator::state::internal::BufferType;
 use std::io::Read;
@@ -35,7 +36,7 @@ fn bench_display_vec_tchar_large_chunk(bench: &mut Criterion) {
 
             let response = buf
                 .terminal_buffer
-                .insert_data(&buf.cursor_state.pos, data)
+                .insert_data(&buf.cursor_state.pos, data, &Decawm::AutoWrap)
                 .unwrap(); // insert data into the buffer
 
             buf.format_tracker
@@ -63,7 +64,7 @@ fn bench_display_vec_tchar_chunked(bench: &mut Criterion) {
             for chunk in data {
                 let response = buf
                     .terminal_buffer
-                    .insert_data(&buf.cursor_state.pos, chunk)
+                    .insert_data(&buf.cursor_state.pos, chunk, &Decawm::AutoWrap)
                     .unwrap(); // insert data into the buffer
 
                 buf.format_tracker

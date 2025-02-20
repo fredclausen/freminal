@@ -3,18 +3,36 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+// build.rs
+extern crate vergen;
+use vergen::*;
+
 use std::{fs::OpenOptions, io::BufWriter, path::Path, process::Command};
 
-fn main() {
+// https://github.com/sagiegurari/cargo-make
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Building....");
+    let build = BuildBuilder::all_build()?;
+    let cargo = CargoBuilder::all_cargo()?;
+    let rustc = RustcBuilder::all_rustc()?;
+    let si = SysinfoBuilder::all_sysinfo()?;
+
+    Emitter::default()
+        .add_instructions(&build)?
+        .add_instructions(&cargo)?
+        .add_instructions(&rustc)?
+        .add_instructions(&si)?
+        .emit()?;
+
     let out_dir = std::env::var("OUT_DIR").expect("no out dir");
     let out_dir = Path::new(&out_dir);
     let terminfo_out_dir = out_dir.join("terminfo");
     let terminfo_definition = "../res/freminal.ti";
     println!("OUT_DIR: {:?}", out_dir);
+    println!("cargo:rerun-if-changed=*.rs");
     println!("cargo:rerun-if-changed={terminfo_definition}");
+    println!("cargo:rerun-if-changed=*.toml");
 
-    #[cfg(target_family = "unix")]
     {
         let mut child = Command::new("tic")
             .arg("-o")
@@ -74,4 +92,5 @@ fn main() {
     tar_builder
         .finish()
         .expect("Failed to write terminfo tarball");
+    Ok(())
 }

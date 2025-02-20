@@ -67,7 +67,11 @@ pub fn run_terminal(
     cmd.env("COLORTERM", "truecolor");
 
     // get the version of freminal
-    let version = env!("CARGO_PKG_VERSION");
+    let version = format!(
+        "{}-{}",
+        env!("CARGO_PKG_VERSION"),
+        env!("VERGEN_BUILD_TIMESTAMP")
+    );
     cmd.env("TERM_PROGRAM", "freminal");
     cmd.env("TERM_PROGRAM_VERSION", version);
     cmd.env("__CFBundleIdentifier", "com.fredclausen.freminal");

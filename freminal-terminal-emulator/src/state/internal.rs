@@ -1230,7 +1230,11 @@ impl TerminalState {
     }
 
     pub fn report_device_name_and_version(&mut self) {
-        let version = env!("CARGO_PKG_VERSION");
+        let version = format!(
+            "{}-{}",
+            env!("CARGO_PKG_VERSION"),
+            env!("VERGEN_BUILD_TIMESTAMP")
+        );
         let output = collect_text(&format!("\x1bP>|Freminal {version}\x1b\\"));
         for input in output.iter() {
             match self.write(input) {

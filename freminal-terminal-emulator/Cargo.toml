@@ -24,6 +24,7 @@ conv.workspace = true
 tempfile.workspace = true
 tar.workspace = true
 sys-locale.workspace = true
+vergen.workspace = true
 
 # dev dependencies
 [dev-dependencies]
@@ -32,6 +33,7 @@ test-log.workspace = true
 
 [build-dependencies]
 tar.workspace = true
+vergen.workspace = true
 
 [[bench]]
 name = "buffer_benches"
