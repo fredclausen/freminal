@@ -1356,8 +1356,9 @@ impl TerminalState {
             if let TerminalOutput::Data(data) = &segment {
                 debug!(
                     "Incoming segment (data): {}",
-                    str::from_utf8(data)
-                        .unwrap_or("Failed to parse data for display as string: {data:?}")
+                    str::from_utf8(data).unwrap_or(&format!(
+                        "Failed to parse data for display as string: {data:?}"
+                    ))
                 );
             } else {
                 debug!("Incoming segment: {segment}");
