@@ -128,7 +128,7 @@ fn test_decawm_basic_longer_line_no_wrap() {
 #[test]
 fn test_decawm_basic_wrap_insert_single_end_of_line() {
     let decawm = Decawm::NoAutoWrap;
-    let mut buffer = TerminalBufferHolder::new(7, 7, BufferType::Primary);
+    let mut buffer = TerminalBufferHolder::new(5, 5, BufferType::Primary);
     let response = buffer
         .insert_data(&CursorPos::default(), b"test", &decawm)
         .unwrap();
@@ -170,14 +170,14 @@ fn test_decawm_basic_wrap_insert_single_end_of_line() {
         display_vec_tchar_as_string(&buffer.buf),
         display_vec_tchar_as_string(&expected),
     );
-    let expected_cursor = CursorPos { x: 5, y: 0 };
+    let expected_cursor = CursorPos { x: 4, y: 0 };
     assert_eq!(
         response.new_cursor_pos, expected_cursor,
         "\nInternal cursor: {}Expected: {}",
         response.new_cursor_pos, expected_cursor
     );
 
-    let cursor = CursorPos { x: 5, y: 0 };
+    let cursor = CursorPos { x: 4, y: 0 };
     let response = buffer.insert_data(&cursor, b"b", &decawm).unwrap();
     let expected = [
         TChar::new_from_single_char(b't'),

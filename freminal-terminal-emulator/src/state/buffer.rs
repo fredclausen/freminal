@@ -214,7 +214,13 @@ impl TerminalBufferHolder {
         let mut offset = false;
 
         info!("cursor pos: {:?}", cursor_pos);
-        if decawm == &Decawm::NoAutoWrap && cursor_pos.x + converted_buffer.len() >= self.width {
+        if decawm == &Decawm::NoAutoWrap && cursor_pos.x + converted_buffer.len() > self.width {
+            info!(
+                "Truncating. pos x {} buf len {} width {}",
+                cursor_pos.x,
+                converted_buffer.len(),
+                self.width
+            );
             // if the cursor pos + the length of the data is greater than self.width, we need to truncate the incoming data
 
             // example
@@ -232,7 +238,7 @@ impl TerminalBufferHolder {
             converted_buffer.push(last_char);
 
             if cursor_pos.x + converted_buffer.len() >= self.width {
-                info!("offsettingg");
+                info!("Offsetting cursor position");
                 offset = true;
             }
 
@@ -272,6 +278,12 @@ impl TerminalBufferHolder {
         } else {
             self.buf_to_cursor_pos(write_range.end)
         };
+
+        info!(
+            "Sending up new cursor pos after adding ({}): {:?}",
+            converted_buffer.len(),
+            new_cursor_pos
+        );
 
         Ok(TerminalBufferInsertResponse {
             written_range: write_range,
