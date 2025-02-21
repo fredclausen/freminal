@@ -213,14 +213,7 @@ impl TerminalBufferHolder {
         let mut converted_buffer = TChar::from_vec(data)?;
         let mut offset = false;
 
-        info!("cursor pos: {:?}", cursor_pos);
-        if decawm == &Decawm::NoAutoWrap && cursor_pos.x + converted_buffer.len() > self.width {
-            info!(
-                "Truncating. pos x {} buf len {} width {}",
-                cursor_pos.x,
-                converted_buffer.len(),
-                self.width
-            );
+        if decawm == &Decawm::NoAutoWrap && cursor_pos.x + converted_buffer.len() >= self.width {
             // if the cursor pos + the length of the data is greater than self.width, we need to truncate the incoming data
 
             // example
@@ -238,25 +231,8 @@ impl TerminalBufferHolder {
             converted_buffer.push(last_char);
 
             if cursor_pos.x + converted_buffer.len() >= self.width {
-                info!("Offsetting cursor position");
                 offset = true;
             }
-
-            // find the amount of characters in the incoming data until we hit the end of the line
-            // let keep = self.width.saturating_sub(cursor_pos.x).saturating_sub(1);
-            // // the final data is converted_buffer[0..keep] + the last character in the buffer
-            // let last = converted_buffer.last().unwrap_or(&TChar::Space).clone();
-            // info!(
-            //     "Keep: {}, length: {}, cursorposx: {}",
-            //     keep,
-            //     converted_buffer.len(),
-            //     cursor_pos.x
-            // );
-            // let drained: Vec<_> = converted_buffer
-            //     .drain(0..converted_buffer.len().saturating_sub(keep))
-            //     .collect();
-            // info!("Drained: {:?}", drained);
-            // converted_buffer.push(last);
         }
 
         let PadBufferForWriteResponse {
@@ -278,12 +254,6 @@ impl TerminalBufferHolder {
         } else {
             self.buf_to_cursor_pos(write_range.end)
         };
-
-        info!(
-            "Sending up new cursor pos after adding ({}): {:?}",
-            converted_buffer.len(),
-            new_cursor_pos
-        );
 
         Ok(TerminalBufferInsertResponse {
             written_range: write_range,

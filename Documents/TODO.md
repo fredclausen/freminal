@@ -45,7 +45,7 @@ The below list is not a complete list of all completed tasks. It's a reflection 
   - [ ] Pass test 22
   - [x] Pass test 23
   - [x] Pass test 24
-  - [ ] Pass test 25
+  - [x] Pass test 25
 - [ ] Complete [Supported Control Codes](SUPPORTED_CONTROL_CODES.md)
 - [ ] Adjust mouse mode to include all active mouse modes
 - [ ] GitHub CI action to build/publish executables

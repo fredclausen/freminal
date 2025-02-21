@@ -42,7 +42,7 @@ fn test_internal_terminal_state_new() {
         mouse_position: None,
         window_focused: true,
         window_commands: vec![],
-        saved_cursor_pos: None,
+        saved_cursor: None,
     };
 
     assert_eq!(terminal_state, expected);

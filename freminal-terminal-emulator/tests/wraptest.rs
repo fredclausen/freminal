@@ -650,26 +650,22 @@ fn test_decrc_restores_decawm_on() {
 }
 
 // TEST TWENTY FIVE
-// This fails because we have a bug. Marking ignored for now
-#[ignore]
 #[test]
 fn test_decrc_restores_decawm_off() {
     let (mut terminal_state, rx, width) = setup();
-    //   /* Check whether DECRC (Restore Cursor) restores DECAWM=off. */
+    /* Check whether DECRC (Restore Cursor) restores DECAWM=off. */
     //   cup(1, 1);
     let cup_str = "\x1b[1;1H";
     let cup = cup_str.as_bytes();
     terminal_state.handle_incoming_data(cup);
     //   decawm(0);
-    let data = b"\x1b7";
-    terminal_state.handle_incoming_data(data);
+    terminal_state.handle_incoming_data(b"\x1b[?7l");
     //   wr("\33" "7");
-    let data = b"\x1b7";
-    terminal_state.handle_incoming_data(data);
+    terminal_state.handle_incoming_data(b"\x1b7");
     //   decawm(1);
+    terminal_state.handle_incoming_data(b"\x1b[?7h");
     //   wr("\33" "8");
-    let data = b"\x1b[?7l\x1b8";
-    terminal_state.handle_incoming_data(data);
+    terminal_state.handle_incoming_data(b"\x1b8");
     //   cup(1, width - 1);
     //   wr("ABC");
     let cup_str = format!("\x1b[1;{}HABC", width - 1);

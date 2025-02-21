@@ -44,7 +44,7 @@ use super::{
     term_char::TChar,
 };
 
-pub const TERMINAL_WIDTH: usize = 50;
+pub const TERMINAL_WIDTH: usize = 999;
 pub const TERMINAL_HEIGHT: usize = 16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -115,7 +115,7 @@ pub struct TerminalState {
     pub mouse_position: Option<egui::Pos2>,
     pub window_focused: bool,
     pub window_commands: Vec<WindowManipulation>,
-    pub saved_cursor_pos: Option<CursorPos>,
+    pub saved_cursor: Option<CursorState>,
 }
 
 impl Default for TerminalState {
@@ -156,7 +156,7 @@ impl TerminalState {
             mouse_position: None,
             window_focused: true,
             window_commands: Vec::new(),
-            saved_cursor_pos: None,
+            saved_cursor: None,
         }
     }
 
@@ -836,7 +836,6 @@ impl TerminalState {
                 self.report_mode(&to_write.report(None));
             }
             Mode::Decawm(decawm) => {
-                info!("Received DECAWM: {}", decawm);
                 self.get_current_buffer().cursor_state.line_wrap_mode = decawm.clone();
             }
             Mode::Dectem(Dectcem::Query) => {
@@ -1407,11 +1406,11 @@ impl TerminalState {
                 TerminalOutput::RequestDeviceAttributes => self.report_da(),
                 TerminalOutput::ScreenAlignmentTest => self.screen_alignment_test(),
                 TerminalOutput::SaveCursor => {
-                    self.saved_cursor_pos = Some(self.get_current_buffer().cursor_state.pos);
+                    self.saved_cursor = Some(self.get_current_buffer().cursor_state.clone());
                 }
                 TerminalOutput::RestoreCursor => {
-                    if let Some(saved_cursor_pos) = self.saved_cursor_pos {
-                        self.get_current_buffer().cursor_state.pos = saved_cursor_pos;
+                    if let Some(saved_cursor) = &self.saved_cursor {
+                        self.get_current_buffer().cursor_state = saved_cursor.clone();
                     }
                 }
                 TerminalOutput::RequestDeviceNameandVersion => {

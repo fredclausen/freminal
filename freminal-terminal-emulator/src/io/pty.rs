@@ -49,7 +49,7 @@ pub fn run_terminal(
 
     let pair = match pty_system.openpty(PtySize {
         rows: 24,
-        cols: 80,
+        cols: 999,
         pixel_width: 0,
         pixel_height: 0,
     }) {
