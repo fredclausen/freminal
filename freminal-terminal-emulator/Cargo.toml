@@ -32,7 +32,6 @@ criterion.workspace = true
 test-log.workspace = true
 
 [build-dependencies]
-tar.workspace = true
 vergen.workspace = true
 
 [[bench]]
