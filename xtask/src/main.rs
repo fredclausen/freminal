@@ -81,6 +81,14 @@ enum Command {
     #[command(visible_alias = "cov")]
     Coverage,
 
+    /// Check dependencies
+    #[command(visible_alias = "cd")]
+    Deny,
+
+    // Check unused dependencies
+    #[command(visible_alias = "m")]
+    Machete,
+
     /// Lint formatting, typos, clippy, and docs
     #[command(visible_alias = "l")]
     Lint,
@@ -143,6 +151,8 @@ impl Command {
             Self::CI => ci(),
             Self::Build => build(),
             Self::Check => check(),
+            Self::Deny => deny(),
+            Self::Machete => machete(),
             Self::CheckReadme => check_readme(),
             Self::Coverage => coverage(),
             Self::Lint => lint(),
@@ -164,8 +174,19 @@ impl Command {
 /// Run CI checks (lint, build, test)
 fn ci() -> Result<()> {
     lint()?;
+    deny()?;
+    machete()?;
     build()?;
     test()?;
+    Ok(())
+}
+
+fn deny() -> Result<()> {
+    run_cargo(vec!["deny", "check"])
+}
+
+fn machete() -> Result<()> {
+    cmd!("cargo-machete").run_with_trace()?;
     Ok(())
 }
 
