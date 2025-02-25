@@ -8,6 +8,7 @@ use std::{io::Write, path::Path};
 use super::{FreminalTermInputOutput, PtyRead, PtyWrite};
 use anyhow::Result;
 use crossbeam_channel::{Receiver, Sender};
+use freminal_common::terminfo::TERMINFO;
 use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use sys_locale::get_locale;
 use tempfile::TempDir;
@@ -16,8 +17,6 @@ use thiserror::Error;
 pub struct FreminalPtyInputOutput {
     _termcaps: TempDir,
 }
-
-const TERMINFO: &[u8] = include_bytes!(std::concat!(std::env!("OUT_DIR"), "/terminfo.tar"));
 
 fn extract_terminfo() -> Result<TempDir, ExtractTerminfoError> {
     let mut terminfo_tarball = tar::Archive::new(TERMINFO);

@@ -257,7 +257,8 @@ fn fix_format() -> Result<()> {
 
 /// Lint markdown files using [markdownlint-cli2](https://github.com/DavidAnson/markdownlint-cli2)
 fn lint_markdown() -> Result<()> {
-    cmd!("markdownlint-cli2", "**/*.md", "!target").run_with_trace()?;
+    cmd!("markdownlint-cli2", "**/*.md", "!target", "!**/target").run_with_trace()?;
+
     Ok(())
 }
 

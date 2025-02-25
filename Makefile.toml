@@ -3,6 +3,7 @@ CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = ["xtask"]
 
 [tasks.format]
+condition = { profiles = ["development"] }
 install_crate = "rustfmt"
 command = "cargo"
 args = ["fmt", "--", "--emit=files"]
@@ -11,6 +12,16 @@ args = ["fmt", "--", "--emit=files"]
 command = "cargo"
 args = ["build"]
 dependencies = ["format"]
+
+[tasks.br]
+workspace = false
+command = "cargo"
+args = ["build", "--release"]
+
+[tasks.rr]
+workspace = false
+command = "cargo"
+args = ["run", "--release"]
 
 [tasks.test]
 command = "cargo"
@@ -22,9 +33,56 @@ command = "cargo"
 args = ["bench"]
 dependencies = ["build"]
 
-# TODO: Define install deps for all the things xtask needs
 [tasks.x]
 command = "cargo"
 args = ["xtask", "ci"]
-dependencies = ["build"]
-# workspace = false
+dependencies = ["install_typos", "install_markdown", "build"]
+workspace = false
+
+[tasks.install_typos]
+install_script = '''
+# if typos is executable, we're good
+
+if ! command -v typos &> /dev/null
+then
+    # if we have brew, install via brew
+    if command -v brew &> /dev/null
+    then
+        echo "Installing typos via brew"
+        brew install typos-cli
+    elif command -v cargo &> /dev/null
+    then
+        echo "Installing typos via npm"
+        cargo install typos-cli
+    else
+        echo "No package manager found to install typos"
+        exit 1
+    fi
+else
+    echo "typos is already installed"
+fi
+'''
+
+[tasks.install_markdown]
+install_script = '''
+# if markdownlint-cli2 is executable, we're good
+
+if ! command -v markdownlint-cli2 &> /dev/null
+then
+    # if we have brew, install via brew
+    if command -v brew &> /dev/null
+    then
+        echo "Installing markdownlint-cli2 via brew"
+        brew install markdownlint-cli2
+    elif command -v npm &> /dev/null
+    then
+        echo "Installing markdownlint-cli2 via npm"
+        npm install -g markdownlint-cli2
+    else
+        echo "No package manager found to install markdownlint-cli2"
+        exit 1
+    fi
+else
+    echo "markdownlint-cli2 is already installed"
+fi
+'''
