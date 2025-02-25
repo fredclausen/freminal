@@ -2,7 +2,7 @@
 
 ## All Versions
 
-- [ ] freminal-common to 100% testing Code Coverage\*
+- [x] freminal-common to 100% testing Code Coverage\*
 - [ ] freminal-terminal-emulator to 100% testing Code Coverage\*
 - [x] Remove custom portable-pty/filedescriptor from the freminal repo and go back to using the one from crates.io\*\*
 
