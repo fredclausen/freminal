@@ -17,7 +17,7 @@ Initial release version. It will be functional, but certainly not feature comple
 The below list is not a complete list of all completed tasks. It's a reflection of all the tasks that I can think of that are not completed when I created this document.
 
 - [ ] Test suite 100% coverage on `freminal-terminal-emulator/src/ansi_components`
-- [ ] Move to [cargo-make](https://github.com/sagiegurari/cargo-make)
+- [x] Move to [cargo-make](https://github.com/sagiegurari/cargo-make)
 - [ ] Pass validation of [vttest](http://invisible-island.net/vttest/)
 - [ ] Pass validation of [wraptest](https://github.com/mattiase/wraptest)
   - [x] Re-write all wrap tests in to rust
