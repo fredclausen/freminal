@@ -9,7 +9,7 @@ use crate::ansi_components::mode::SetMode;
 
 use super::ReportMode;
 
-/// Show cursor (DECTCEM) ?25
+/// Show cursor Reverse Wrap Around ?45
 #[derive(Debug, Eq, PartialEq, Default, Clone)]
 pub enum ReverseWrapAround {
     #[default]

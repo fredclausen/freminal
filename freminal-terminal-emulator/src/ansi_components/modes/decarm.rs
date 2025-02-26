@@ -9,7 +9,7 @@ use crate::ansi_components::mode::SetMode;
 
 use super::ReportMode;
 
-/// Show cursor (DECTCEM) ?25
+/// Show cursor (DECTCEM) ?8
 #[derive(Debug, Eq, PartialEq, Default, Clone)]
 pub enum Decarm {
     #[default]

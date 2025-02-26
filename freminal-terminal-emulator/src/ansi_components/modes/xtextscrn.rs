@@ -9,7 +9,7 @@ use crate::ansi_components::mode::SetMode;
 
 use super::ReportMode;
 
-/// Alternate Screen (`XT_EXTSCRN`)
+/// Alternate Screen (`XT_EXTSCRN`) ?1049
 #[derive(Debug, Eq, PartialEq, Default)]
 pub enum XtExtscrn {
     /// Primary screen

@@ -9,7 +9,7 @@ use crate::ansi_components::mode::SetMode;
 
 use super::ReportMode;
 
-/// Line Feed (LNM) ?20
+/// Line Feed (LNM) 20
 #[derive(Debug, Eq, PartialEq, Default, Clone)]
 pub enum Lnm {
     NewLine,

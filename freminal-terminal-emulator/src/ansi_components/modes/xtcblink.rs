@@ -13,7 +13,7 @@ use super::ReportMode;
 // Most terminals seem to either not do this, or give the user the option to disable it.
 // For now, we'll track it and decide later.
 
-/// Alternate Screen (`XT_EXTSCRN`)
+/// Alternate Screen (`XT_EXTSCRN`) ?12
 #[derive(Debug, Eq, PartialEq, Default, Clone)]
 pub enum XtCBlink {
     /// Reset mode. Default.
