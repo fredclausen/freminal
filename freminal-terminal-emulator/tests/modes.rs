@@ -7,6 +7,7 @@ use freminal_terminal_emulator::ansi_components::{
     mode::{Mode, SetMode},
     modes::{
         allow_column_mode_switch::AllowColumnModeSwitch,
+        decarm::Decarm,
         decawm::Decawm,
         decckm::Decckm,
         dectcem::Dectcem,
@@ -476,6 +477,22 @@ fn test_mode_none() {
     assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?7;2$y");
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?7;0$y");
     assert_eq!(mode.to_string(), "Autowrap Mode (DECAWM) Enabled");
+
+    let params = b"?8";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::Decarm(Decarm::RepeatKey));
+    assert_eq!(mode.report(None), "\x1b[?8;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?8;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?8;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?8;0$y");
+    assert_eq!(mode.to_string(), "Repeat Key (DECARM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::Decarm(Decarm::NoRepeatKey));
+    assert_eq!(mode.report(None), "\x1b[?8;2$y");
+    assert_eq!(mode.to_string(), "No Repeat Key (DECARM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::Decarm(Decarm::Query));
+    assert_eq!(mode.report(None), "\x1b[?8;0$y");
 
     let params = b"?9";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
