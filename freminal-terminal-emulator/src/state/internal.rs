@@ -588,13 +588,20 @@ impl TerminalState {
 
     pub(crate) fn backspace(&mut self) {
         let current_buffer = self.get_current_buffer();
+        debug!("Backspace at {}", current_buffer.cursor_state.pos);
 
         if current_buffer.cursor_state.pos.x >= 1 {
-            current_buffer.cursor_state.pos.x -= 1;
+            if current_buffer.cursor_state.pos.x == current_buffer.terminal_buffer.width {
+                current_buffer.cursor_state.pos.x = current_buffer.terminal_buffer.width - 2;
+            } else {
+                current_buffer.cursor_state.pos.x -= 1;
+            }
         } else {
             // FIXME: this is not correct, we should move to the end of the previous line
             warn!("FIXME: Backspace at the beginning of the line. Not wrapping");
         }
+
+        debug!("Backspace moved to {}", current_buffer.cursor_state.pos);
     }
 
     pub(crate) fn insert_lines(&mut self, num_lines: usize) {

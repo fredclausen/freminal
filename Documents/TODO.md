@@ -25,7 +25,7 @@ The below list is not a complete list of all completed tasks. It's a reflection 
   - [x] Pass test 2
   - [x] Pass test 3
   - [x] Pass test 4
-  - [ ] Pass test 5
+  - [x] Pass test 5
   - [x] Pass test 6
   - [ ] Pass test 7
   - [ ] Pass test 8

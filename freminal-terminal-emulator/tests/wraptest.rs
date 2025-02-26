@@ -165,8 +165,6 @@ fn test_cr_works_after_writing_last_column() {
 }
 
 // TEST FIVE
-// This fails because we have a bug. Marking ignored for now
-#[ignore]
 #[test]
 fn test_bs_works_after_writing_last_column() {
     let (mut terminal_state, rx, width) = setup();
