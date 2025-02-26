@@ -17,6 +17,7 @@ use freminal_terminal_emulator::ansi_components::{
         dectcem::Dectcem,
         lnm::Lnm,
         mouse::{MouseEncoding, MouseTrack},
+        reverse_wrap_around::ReverseWrapAround,
         rl_bracket::RlBracket,
         sync_updates::SynchronizedUpdates,
         unknown::UnknownMode,
@@ -651,6 +652,23 @@ fn test_mode_none() {
     );
     assert_eq!(mode.report(None), "\x1b[?40;0$y");
     assert_eq!(mode.to_string(), "Query");
+
+    let params = b"?45";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::ReverseWrapAround(ReverseWrapAround::WrapAround));
+    assert_eq!(mode.report(None), "\x1b[?45;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?45;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?45;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?45;0$y");
+    assert_eq!(mode.to_string(), "Wrap Around");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::ReverseWrapAround(ReverseWrapAround::DontWrap));
+    assert_eq!(mode.report(None), "\x1b[?45;2$y");
+    assert_eq!(mode.to_string(), "No Wrap Around");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::ReverseWrapAround(ReverseWrapAround::Query));
+    assert_eq!(mode.report(None), "\x1b[?45;0$y");
+    assert_eq!(mode.to_string(), "Query Wrap Around");
 
     let params = b"?1000";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
