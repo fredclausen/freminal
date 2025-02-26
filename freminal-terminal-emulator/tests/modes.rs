@@ -13,6 +13,7 @@ use freminal_terminal_emulator::ansi_components::{
         deccolm::Deccolm,
         decom::Decom,
         decsclm::Decsclm,
+        decscnm::Decscnm,
         dectcem::Dectcem,
         mouse::{MouseEncoding, MouseTrack},
         rl_bracket::RlBracket,
@@ -505,6 +506,26 @@ fn test_mode_none() {
     assert_eq!(mode, Mode::Decsclm(Decsclm::Query));
     assert_eq!(mode.report(None), "\x1b[?4;0$y");
     assert_eq!(mode.to_string(), "Query Scroll (DECSCLM)");
+
+    let params = b"?5";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::Decscnm(Decscnm::ReverseDisplay));
+    assert_eq!(mode.report(None), "\x1b[?5;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?5;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?5;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?5;0$y");
+    assert_eq!(mode.to_string(), "Reverse Display");
+    assert!(!Decscnm::ReverseDisplay.is_normal_display());
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::Decscnm(Decscnm::NormalDisplay));
+    assert_eq!(mode.report(None), "\x1b[?5;2$y");
+    assert_eq!(mode.to_string(), "Normal Display");
+    assert!(Decscnm::NormalDisplay.is_normal_display());
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::Decscnm(Decscnm::Query));
+    assert_eq!(mode.report(None), "\x1b[?5;0$y");
+    assert_eq!(mode.to_string(), "Query");
+    assert!(!Decscnm::Query.is_normal_display());
 
     let params = b"?6";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
