@@ -15,6 +15,7 @@ use freminal_terminal_emulator::ansi_components::{
         decsclm::Decsclm,
         decscnm::Decscnm,
         dectcem::Dectcem,
+        lnm::Lnm,
         mouse::{MouseEncoding, MouseTrack},
         rl_bracket::RlBracket,
         sync_updates::SynchronizedUpdates,
@@ -595,6 +596,22 @@ fn test_mode_none() {
     assert_eq!(mode, Mode::XtCBlink(XtCBlink::Steady));
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
     assert_eq!(mode, Mode::XtCBlink(XtCBlink::Query));
+
+    let params = b"20";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::LineFeedMode(Lnm::NewLine));
+    assert_eq!(mode.report(None), "\x1b[?20;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?20;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?20;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?20;0$y");
+    assert_eq!(mode.to_string(), "New Line Mode (LNM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::LineFeedMode(Lnm::LineFeed));
+    assert_eq!(mode.report(None), "\x1b[?20;2$y");
+    assert_eq!(mode.to_string(), "Line Feed Mode (LNM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::LineFeedMode(Lnm::Query));
+    assert_eq!(mode.report(None), "\x1b[?20;0$y");
 
     let params = b"?25";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
