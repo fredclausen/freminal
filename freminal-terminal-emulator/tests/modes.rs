@@ -549,11 +549,15 @@ fn test_mode_none() {
         mode,
         Mode::AllowColumnModeSwitch(AllowColumnModeSwitch::NoAllowColumnModeSwitch)
     );
+    assert_eq!(mode.report(None), "\x1b[?40;2$y");
+    assert_eq!(mode.to_string(), "NoAllowColumnModeSwitch");
     let mode = Mode::terminal_mode_from_params(params.as_bytes(), &SetMode::DecQuery);
     assert_eq!(
         mode,
         Mode::AllowColumnModeSwitch(AllowColumnModeSwitch::Query)
     );
+    assert_eq!(mode.report(None), "\x1b[?40;0$y");
+    assert_eq!(mode.to_string(), "Query");
 
     let params = b"?1000";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
