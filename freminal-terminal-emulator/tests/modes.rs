@@ -12,6 +12,7 @@ use freminal_terminal_emulator::ansi_components::{
         decckm::Decckm,
         deccolm::Deccolm,
         decom::Decom,
+        decsclm::Decsclm,
         dectcem::Dectcem,
         mouse::{MouseEncoding, MouseTrack},
         rl_bracket::RlBracket,
@@ -487,6 +488,23 @@ fn test_mode_none() {
     assert_eq!(mode, Mode::Deccolm(Deccolm::Query));
     assert_eq!(mode.report(None), "\x1b[?3;0$y");
     assert_eq!(mode.to_string(), "Query Column Mode (DECCOLM)");
+
+    let params = b"?4";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::Decsclm(Decsclm::SmoothScroll));
+    assert_eq!(mode.report(None), "\x1b[?4;0$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?4;0$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?4;0$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?4;0$y");
+    assert_eq!(mode.to_string(), "Smooth Scroll (DECSCLM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::Decsclm(Decsclm::FastScroll));
+    assert_eq!(mode.report(None), "\x1b[?4;0$y");
+    assert_eq!(mode.to_string(), "Fast Scroll (DECSCLM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::Decsclm(Decsclm::Query));
+    assert_eq!(mode.report(None), "\x1b[?4;0$y");
+    assert_eq!(mode.to_string(), "Query Scroll (DECSCLM)");
 
     let params = b"?6";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
