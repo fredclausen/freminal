@@ -11,6 +11,7 @@ use freminal_terminal_emulator::ansi_components::{
         decawm::Decawm,
         decckm::Decckm,
         deccolm::Deccolm,
+        decom::Decom,
         dectcem::Dectcem,
         mouse::{MouseEncoding, MouseTrack},
         rl_bracket::RlBracket,
@@ -486,6 +487,23 @@ fn test_mode_none() {
     assert_eq!(mode, Mode::Deccolm(Deccolm::Query));
     assert_eq!(mode.report(None), "\x1b[?3;0$y");
     assert_eq!(mode.to_string(), "Query Column Mode (DECCOLM)");
+
+    let params = b"?6";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::Decom(Decom::OriginMode));
+    assert_eq!(mode.report(None), "\x1b[?6;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?6;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?6;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?6;0$y");
+    assert_eq!(mode.to_string(), "Origin Mode");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::Decom(Decom::NormalCursor));
+    assert_eq!(mode.report(None), "\x1b[?6;2$y");
+    assert_eq!(mode.to_string(), "Normal Cursor");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::Decom(Decom::Query));
+    assert_eq!(mode.report(None), "\x1b[?6;0$y");
+    assert_eq!(mode.to_string(), "Query");
 
     let params = b"?7";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
