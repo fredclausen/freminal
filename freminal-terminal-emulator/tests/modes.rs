@@ -6,6 +6,7 @@
 use freminal_terminal_emulator::ansi_components::{
     mode::{Mode, SetMode},
     modes::{
+        allow_column_mode_switch::AllowColumnModeSwitch,
         decawm::Decawm,
         decckm::Decckm,
         dectcem::Dectcem,
@@ -514,6 +515,28 @@ fn test_mode_none() {
     assert_eq!(mode, Mode::Dectem(Dectcem::Hide));
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
     assert_eq!(mode, Mode::Dectem(Dectcem::Query));
+
+    let params = "?40";
+    let mode = Mode::terminal_mode_from_params(params.as_bytes(), &SetMode::DecSet);
+    assert_eq!(
+        mode,
+        Mode::AllowColumnModeSwitch(AllowColumnModeSwitch::AllowColumnModeSwitch)
+    );
+    assert_eq!(mode.report(None), "\x1b[?40;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?40;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?40;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?40;0$y");
+    assert_eq!(mode.to_string(), "AllowColumnModeSwitch");
+    let mode = Mode::terminal_mode_from_params(params.as_bytes(), &SetMode::DecRst);
+    assert_eq!(
+        mode,
+        Mode::AllowColumnModeSwitch(AllowColumnModeSwitch::NoAllowColumnModeSwitch)
+    );
+    let mode = Mode::terminal_mode_from_params(params.as_bytes(), &SetMode::DecQuery);
+    assert_eq!(
+        mode,
+        Mode::AllowColumnModeSwitch(AllowColumnModeSwitch::Query)
+    );
 
     let params = b"?1000";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
