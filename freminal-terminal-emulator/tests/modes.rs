@@ -613,6 +613,7 @@ fn test_mode_none() {
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
     assert_eq!(mode, Mode::LineFeedMode(Lnm::Query));
     assert_eq!(mode.report(None), "\x1b[?20;0$y");
+    assert_eq!(mode.to_string(), "Query Line Mode (LNM)");
 
     let params = b"?25";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
