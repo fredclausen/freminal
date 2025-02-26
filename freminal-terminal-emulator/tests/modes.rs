@@ -6,10 +6,18 @@
 use freminal_terminal_emulator::ansi_components::{
     mode::{Mode, SetMode},
     modes::{
+        allow_column_mode_switch::AllowColumnModeSwitch,
+        decarm::Decarm,
         decawm::Decawm,
         decckm::Decckm,
+        deccolm::Deccolm,
+        decom::Decom,
+        decsclm::Decsclm,
+        decscnm::Decscnm,
         dectcem::Dectcem,
+        lnm::Lnm,
         mouse::{MouseEncoding, MouseTrack},
+        reverse_wrap_around::ReverseWrapAround,
         rl_bracket::RlBracket,
         sync_updates::SynchronizedUpdates,
         unknown::UnknownMode,
@@ -467,6 +475,77 @@ fn test_mode_none() {
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1;0$y");
     assert_eq!(mode.to_string(), "Cursor Key Mode (DECCKM) Application");
 
+    let params = b"?3";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::Deccolm(Deccolm::Column132));
+    assert_eq!(mode.report(None), "\x1b[?3;0$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?3;0$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?3;0$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?3;0$y");
+    assert_eq!(mode.to_string(), "132 Column Mode (DECCOLM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::Deccolm(Deccolm::Column80));
+    assert_eq!(mode.report(None), "\x1b[?3;0$y");
+    assert_eq!(mode.to_string(), "80 Column Mode (DECCOLM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::Deccolm(Deccolm::Query));
+    assert_eq!(mode.report(None), "\x1b[?3;0$y");
+    assert_eq!(mode.to_string(), "Query Column Mode (DECCOLM)");
+
+    let params = b"?4";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::Decsclm(Decsclm::SmoothScroll));
+    assert_eq!(mode.report(None), "\x1b[?4;0$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?4;0$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?4;0$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?4;0$y");
+    assert_eq!(mode.to_string(), "Smooth Scroll (DECSCLM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::Decsclm(Decsclm::FastScroll));
+    assert_eq!(mode.report(None), "\x1b[?4;0$y");
+    assert_eq!(mode.to_string(), "Fast Scroll (DECSCLM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::Decsclm(Decsclm::Query));
+    assert_eq!(mode.report(None), "\x1b[?4;0$y");
+    assert_eq!(mode.to_string(), "Query Scroll (DECSCLM)");
+
+    let params = b"?5";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::Decscnm(Decscnm::ReverseDisplay));
+    assert_eq!(mode.report(None), "\x1b[?5;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?5;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?5;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?5;0$y");
+    assert_eq!(mode.to_string(), "Reverse Display");
+    assert!(!Decscnm::ReverseDisplay.is_normal_display());
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::Decscnm(Decscnm::NormalDisplay));
+    assert_eq!(mode.report(None), "\x1b[?5;2$y");
+    assert_eq!(mode.to_string(), "Normal Display");
+    assert!(Decscnm::NormalDisplay.is_normal_display());
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::Decscnm(Decscnm::Query));
+    assert_eq!(mode.report(None), "\x1b[?5;0$y");
+    assert_eq!(mode.to_string(), "Query");
+    assert!(!Decscnm::Query.is_normal_display());
+
+    let params = b"?6";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::Decom(Decom::OriginMode));
+    assert_eq!(mode.report(None), "\x1b[?6;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?6;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?6;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?6;0$y");
+    assert_eq!(mode.to_string(), "Origin Mode");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::Decom(Decom::NormalCursor));
+    assert_eq!(mode.report(None), "\x1b[?6;2$y");
+    assert_eq!(mode.to_string(), "Normal Cursor");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::Decom(Decom::Query));
+    assert_eq!(mode.report(None), "\x1b[?6;0$y");
+    assert_eq!(mode.to_string(), "Query");
+
     let params = b"?7";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
     assert_eq!(mode, Mode::Decawm(Decawm::AutoWrap));
@@ -475,6 +554,23 @@ fn test_mode_none() {
     assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?7;2$y");
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?7;0$y");
     assert_eq!(mode.to_string(), "Autowrap Mode (DECAWM) Enabled");
+
+    let params = b"?8";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::Decarm(Decarm::RepeatKey));
+    assert_eq!(mode.report(None), "\x1b[?8;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?8;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?8;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?8;0$y");
+    assert_eq!(mode.to_string(), "Repeat Key (DECARM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::Decarm(Decarm::NoRepeatKey));
+    assert_eq!(mode.report(None), "\x1b[?8;2$y");
+    assert_eq!(mode.to_string(), "No Repeat Key (DECARM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::Decarm(Decarm::Query));
+    assert_eq!(mode.report(None), "\x1b[?8;0$y");
+    assert_eq!(mode.to_string(), "Query Repeat Key (DECARM)");
 
     let params = b"?9";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
@@ -502,6 +598,23 @@ fn test_mode_none() {
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
     assert_eq!(mode, Mode::XtCBlink(XtCBlink::Query));
 
+    let params = b"20";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::LineFeedMode(Lnm::NewLine));
+    assert_eq!(mode.report(None), "\x1b[?20;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?20;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?20;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?20;0$y");
+    assert_eq!(mode.to_string(), "New Line Mode (LNM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::LineFeedMode(Lnm::LineFeed));
+    assert_eq!(mode.report(None), "\x1b[?20;2$y");
+    assert_eq!(mode.to_string(), "Line Feed Mode (LNM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::LineFeedMode(Lnm::Query));
+    assert_eq!(mode.report(None), "\x1b[?20;0$y");
+    assert_eq!(mode.to_string(), "Query Line Mode (LNM)");
+
     let params = b"?25";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
     assert_eq!(mode, Mode::Dectem(Dectcem::Show));
@@ -514,6 +627,49 @@ fn test_mode_none() {
     assert_eq!(mode, Mode::Dectem(Dectcem::Hide));
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
     assert_eq!(mode, Mode::Dectem(Dectcem::Query));
+
+    let params = "?40";
+    let mode = Mode::terminal_mode_from_params(params.as_bytes(), &SetMode::DecSet);
+    assert_eq!(
+        mode,
+        Mode::AllowColumnModeSwitch(AllowColumnModeSwitch::AllowColumnModeSwitch)
+    );
+    assert_eq!(mode.report(None), "\x1b[?40;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?40;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?40;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?40;0$y");
+    assert_eq!(mode.to_string(), "AllowColumnModeSwitch");
+    let mode = Mode::terminal_mode_from_params(params.as_bytes(), &SetMode::DecRst);
+    assert_eq!(
+        mode,
+        Mode::AllowColumnModeSwitch(AllowColumnModeSwitch::NoAllowColumnModeSwitch)
+    );
+    assert_eq!(mode.report(None), "\x1b[?40;2$y");
+    assert_eq!(mode.to_string(), "NoAllowColumnModeSwitch");
+    let mode = Mode::terminal_mode_from_params(params.as_bytes(), &SetMode::DecQuery);
+    assert_eq!(
+        mode,
+        Mode::AllowColumnModeSwitch(AllowColumnModeSwitch::Query)
+    );
+    assert_eq!(mode.report(None), "\x1b[?40;0$y");
+    assert_eq!(mode.to_string(), "Query");
+
+    let params = b"?45";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::ReverseWrapAround(ReverseWrapAround::WrapAround));
+    assert_eq!(mode.report(None), "\x1b[?45;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?45;1$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?45;2$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?45;0$y");
+    assert_eq!(mode.to_string(), "Wrap Around");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::ReverseWrapAround(ReverseWrapAround::DontWrap));
+    assert_eq!(mode.report(None), "\x1b[?45;2$y");
+    assert_eq!(mode.to_string(), "No Wrap Around");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::ReverseWrapAround(ReverseWrapAround::Query));
+    assert_eq!(mode.report(None), "\x1b[?45;0$y");
+    assert_eq!(mode.to_string(), "Query Wrap Around");
 
     let params = b"?1000";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);

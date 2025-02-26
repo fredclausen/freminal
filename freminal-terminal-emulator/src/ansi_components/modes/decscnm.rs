@@ -24,7 +24,7 @@ impl ReportMode for Decscnm {
             || match self {
                 Self::NormalDisplay => "\x1b[?5;2$y".to_string(),
                 Self::ReverseDisplay => "\x1b[?5;1$y".to_string(),
-                Self::Query => "\x1b[?25;0$y".to_string(),
+                Self::Query => "\x1b[?5;0$y".to_string(),
             },
             |override_mode| match override_mode {
                 SetMode::DecSet => "\x1b[?5;1$y".to_string(),
