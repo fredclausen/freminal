@@ -493,6 +493,7 @@ fn test_mode_none() {
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
     assert_eq!(mode, Mode::Decarm(Decarm::Query));
     assert_eq!(mode.report(None), "\x1b[?8;0$y");
+    assert_eq!(mode.to_string(), "Query Repeat Key (DECARM)");
 
     let params = b"?9";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
