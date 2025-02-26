@@ -10,6 +10,7 @@ use freminal_terminal_emulator::ansi_components::{
         decarm::Decarm,
         decawm::Decawm,
         decckm::Decckm,
+        deccolm::Deccolm,
         dectcem::Dectcem,
         mouse::{MouseEncoding, MouseTrack},
         rl_bracket::RlBracket,
@@ -468,6 +469,23 @@ fn test_mode_none() {
     assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?1;2$y");
     assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?1;0$y");
     assert_eq!(mode.to_string(), "Cursor Key Mode (DECCKM) Application");
+
+    let params = b"?3";
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
+    assert_eq!(mode, Mode::Deccolm(Deccolm::Column132));
+    assert_eq!(mode.report(None), "\x1b[?3;0$y");
+    assert_eq!(mode.report(Some(SetMode::DecSet)), "\x1b[?3;0$y");
+    assert_eq!(mode.report(Some(SetMode::DecRst)), "\x1b[?3;0$y");
+    assert_eq!(mode.report(Some(SetMode::DecQuery)), "\x1b[?3;0$y");
+    assert_eq!(mode.to_string(), "132 Column Mode (DECCOLM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecRst);
+    assert_eq!(mode, Mode::Deccolm(Deccolm::Column80));
+    assert_eq!(mode.report(None), "\x1b[?3;0$y");
+    assert_eq!(mode.to_string(), "80 Column Mode (DECCOLM)");
+    let mode = Mode::terminal_mode_from_params(params, &SetMode::DecQuery);
+    assert_eq!(mode, Mode::Deccolm(Deccolm::Query));
+    assert_eq!(mode.report(None), "\x1b[?3;0$y");
+    assert_eq!(mode.to_string(), "Query Column Mode (DECCOLM)");
 
     let params = b"?7";
     let mode = Mode::terminal_mode_from_params(params, &SetMode::DecSet);
