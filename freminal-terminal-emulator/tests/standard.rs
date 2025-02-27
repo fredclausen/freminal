@@ -6,7 +6,7 @@ use test_log::test;
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 #[cfg(test)]
-use freminal_terminal_emulator::ansi_components::standard::StandardParser;
+use freminal_terminal_emulator::ansi_components::standard::{is_standard_param, StandardParser};
 
 #[test]
 fn test_parser_default() {
@@ -44,4 +44,13 @@ fn test_err_push_finished() {
         result.unwrap_err().to_string(),
         "Parsed pushed to once finished"
     );
+}
+
+#[test]
+fn test_is_standard_param() {
+    let param = b'0';
+    assert!(is_standard_param(param));
+
+    let param = b'z';
+    assert!(!is_standard_param(param));
 }
