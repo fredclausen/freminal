@@ -40,4 +40,8 @@ fn test_err_push_finished() {
 
     let result = parser.standard_parser_inner(b'8', &mut output);
     assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err().to_string(),
+        "Parsed pushed to once finished"
+    );
 }
