@@ -20,17 +20,11 @@
           pkgs = import nixpkgs {
             inherit system overlays;
           };
-          rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-          # new! 👇
-          nativeBuildInputs = with pkgs; [ rustToolchain pkg-config ];
-          # also new! 👇
-          buildInputs = with pkgs; [ openssl ];
         in
         with pkgs;
         {
           devShells.default = mkShell {
-            # 👇 and now we can just inherit them
-            inherit buildInputs nativeBuildInputs;
+            buildInputs = [ rust-bin.stable.latest.default ];
           };
         }
       );
