@@ -15,7 +15,7 @@
             inherit system overlays;
           };
           # new! 👇
-          nativeBuildInputs = with pkgs; [ rust-bin.stable.latest.default ];
+          # nativeBuildInputs = with pkgs; [ rust-bin.stable.latest.default ];
           # also new! 👇
           buildInputs = with pkgs; [ cargo-make typos markdownlint-cli2 cargo-deny cargo-machete cargo-profiler samply cargo-tauri ];
         in
