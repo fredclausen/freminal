@@ -3,13 +3,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
     flake-utils.url = "github:numtide/flake-utils";
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        flake-utils.follows = "flake-utils";
-      };
-    };
+    rust-overlay.url = "github:oxalica/rust-overlay";
   };
 
   outputs = { self, nixpkgs, flake-utils, rust-overlay }:
@@ -20,11 +14,18 @@
           pkgs = import nixpkgs {
             inherit system overlays;
           };
+          # 👇 new! note that it refers to the path ./rust-toolchain.toml
+          # rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+          # # new! 👇
+          # nativeBuildInputs = with pkgs; [ rustToolchain ];
+          # also new! 👇
+          buildInputs = with pkgs; [ cargo-make cargo-deny cargo-machete cargo-profiler samply cargo-tauri ];
         in
         with pkgs;
         {
           devShells.default = mkShell {
-            buildInputs = [ rust-bin.stable.latest.default ];
+            # 👇 and now we can just inherit them
+            inherit buildInputs;
           };
         }
       );
