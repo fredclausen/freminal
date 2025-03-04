@@ -14,10 +14,8 @@
           pkgs = import nixpkgs {
             inherit system overlays;
           };
-          # 👇 new! note that it refers to the path ./rust-toolchain.toml
-          rustToolchain = rust-bin.stable.latest.default;
           # new! 👇
-          nativeBuildInputs = with pkgs; [ rustToolchain ];
+          nativeBuildInputs = with pkgs; [ rust-bin.stable.latest.default ];
           # also new! 👇
           buildInputs = with pkgs; [ cargo-make typos markdownlint-cli2 cargo-deny cargo-machete cargo-profiler samply cargo-tauri ];
         in
