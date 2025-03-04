@@ -1,4 +1,3 @@
-{
 { pkgs ? import  {} }:
   let
     libPath = with pkgs; lib.makeLibraryPath [
@@ -19,4 +18,3 @@
       LD_LIBRARY_PATH = libPath;
     };
   }
-}
