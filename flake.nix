@@ -14,11 +14,16 @@
           pkgs = import nixpkgs {
             inherit system overlays;
           };
+          libPath = with pkgs; lib.makeLibraryPath [
+            libGL
+            libxkbcommon
+            wayland
+          ];
           rustToolchain = pkgs.rust-bin.stable.latest.default;
           # new! 👇
           nativeBuildInputs = with pkgs; [ rustToolchain ];
           # also new! 👇
-          buildInputs = with pkgs; [ cargo-make cargo-deny cargo-machete cargo-profiler samply cargo-tauri libxkbcommon libGL wayland ];
+          buildInputs = with pkgs; [ cargo-make cargo-deny cargo-machete cargo-profiler samply cargo-tauri ];
           RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
           LD_LIBRARY_PATH = libPath;
         in
