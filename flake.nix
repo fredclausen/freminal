@@ -23,7 +23,7 @@
         {
           devShells.default = mkShell {
             # 👇 and now we can just inherit them
-            inherit buildInputs nativeBuildInputs;
+            inherit nativeBuildInputs;
           };
         }
       );
