@@ -15,7 +15,7 @@
             inherit system overlays;
           };
           # 👇 new! note that it refers to the path ./rust-toolchain.toml
-          rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+          rustToolchain = rust-bin.stable.latest.default;
           # new! 👇
           nativeBuildInputs = with pkgs; [ rustToolchain ];
           # also new! 👇
