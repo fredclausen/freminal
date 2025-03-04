@@ -14,10 +14,9 @@
           pkgs = import nixpkgs {
             inherit system overlays;
           };
-          # 👇 new! note that it refers to the path ./rust-toolchain.toml
-          # rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-          # # new! 👇
-          # nativeBuildInputs = with pkgs; [ rustToolchain ];
+          rustToolchain = pkgs.rust-bin.stable.latest.default;
+          # new! 👇
+          nativeBuildInputs = with pkgs; [ rustToolchain ];
           # also new! 👇
           buildInputs = with pkgs; [ cargo-make cargo-deny cargo-machete cargo-profiler samply cargo-tauri ];
         in
@@ -25,7 +24,7 @@
         {
           devShells.default = mkShell {
             # 👇 and now we can just inherit them
-            inherit buildInputs;
+            inherit buildInputs nativeBuildInputs;
           };
         }
       );
