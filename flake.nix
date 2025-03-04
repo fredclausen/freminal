@@ -18,13 +18,15 @@
           # new! 👇
           nativeBuildInputs = with pkgs; [ rustToolchain ];
           # also new! 👇
-          buildInputs = with pkgs; [ cargo-make cargo-deny cargo-machete cargo-profiler samply cargo-tauri ];
+          buildInputs = with pkgs; [ cargo-make cargo-deny cargo-machete cargo-profiler samply cargo-tauri libxkbcommon libGL wayland ];
+          RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
+          LD_LIBRARY_PATH = libPath;
         in
         with pkgs;
         {
           devShells.default = mkShell {
             # 👇 and now we can just inherit them
-            inherit buildInputs nativeBuildInputs;
+            inherit buildInputs nativeBuildInputs RUST_SRC_PATH LD_LIBRARY_PATH;
           };
         }
       );
