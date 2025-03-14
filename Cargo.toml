@@ -19,9 +19,9 @@ version = "0.1.0"
 ignored = ["vergen"]
 
 [workspace.dependencies]
-anyhow = "1.0.96"
-cargo_metadata = "0.19.1"
-clap = { version = "4.5.31", features = ["derive"] }
+anyhow = "1.0.97"
+cargo_metadata = "0.19.2"
+clap = { version = "4.5.32", features = ["derive"] }
 clap-cargo = { version = "0.15.2", features = ["cargo_metadata"] }
 clap-verbosity-flag = "3.0.2"
 color-eyre = "0.6.3"
@@ -29,14 +29,14 @@ conv = "0.3.3"
 criterion = "0.5.1"
 crossbeam-channel = "0.5.14"
 duct = "0.13.7"
-eframe = { version = "0.31.0", default-features = false, features = [
+eframe = { version = "0.31.1", default-features = false, features = [
   "default_fonts",
   "glow",
   "persistence",
   "wayland",
   "x11",
 ] }
-egui = { version = "0.31.0", default-features = false, features = [
+egui = { version = "0.31.1", default-features = false, features = [
   "default_fonts",
   "persistence",
   "log",
@@ -45,7 +45,7 @@ parking_lot = "0.12.3"
 portable-pty = "0.9.0"
 sys-locale = "0.3.2"
 tar = "0.4.44"
-thiserror = "2.0.11"
+thiserror = "2.0.12"
 tracing = "0.1.41"
 tracing-appender = "0.2.3"
 tracing-log = "0.2.0"
@@ -55,5 +55,5 @@ tracing-subscriber = { version = "0.3.19", features = [
 ] }
 unicode-segmentation = "1.12.0"
 test-log = { version = "0.2.17", features = ["trace"] }
-tempfile = "3.17.1"
+tempfile = "3.19.0"
 vergen = { version = "9.0.4", features = ["build", "cargo", "rustc", "si"] }
