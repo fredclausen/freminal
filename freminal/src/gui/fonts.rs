@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use eframe::egui::{self, Color32, FontData, FontDefinitions, FontFamily, FontId};
+use eframe::egui::{self, FontData, FontDefinitions, FontFamily, FontId};
 
 use freminal_terminal_emulator::state::fonts::{FontDecorations, FontWeight};
 
@@ -121,38 +121,40 @@ pub fn get_char_size(ctx: &egui::Context, font_size: f32) -> (f32, f32) {
         family: FontFamily::Name(REGULAR_FONT_NAME.into()),
     };
 
+    let width = ctx.fonts(|fonts| fonts.glyph_width(&font_id, ' '));
+    let height = ctx.fonts(|fonts| fonts.row_height(&font_id));
+
     // NOTE: Using glyph width and row height do not give accurate results. Even using the mesh
     // bounds of a single character is not reasonable. Instead we layout 16 rows and 16 cols and
     // divide by 16. This seems to work better at all font scales
-    ctx.fonts(move |fonts| {
-        let rect = fonts
-            .layout(
-                "asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf\n\
-                 asdfasdfasdfasdf"
-                    .to_string(),
-                font_id,
-                Color32::WHITE,
-                f32::INFINITY,
-            )
-            .rect;
+    // ctx.fonts(move |fonts| {
+    //     let rect = fonts
+    //         .layout(
+    //             "asdfasdfasdfasdf\n\
+    //              asdfasdfasdfasdf\n\
+    //              asdfasdfasdfasdf\n\
+    //              asdfasdfasdfasdf\n\
+    //              asdfasdfasdfasdf\n\
+    //              asdfasdfasdfasdf\n\
+    //              asdfasdfasdfasdf\n\
+    //              asdfasdfasdfasdf\n\
+    //              asdfasdfasdfasdf\n\
+    //              asdfasdfasdfasdf\n\
+    //              asdfasdfasdfasdf\n\
+    //              asdfasdfasdfasdf\n\
+    //              asdfasdfasdfasdf\n\
+    //              asdfasdfasdfasdf\n\
+    //              asdfasdfasdfasdf\n\
+    //              asdfasdfasdfasdf"
+    //                 .to_string(),
+    //             font_id,
+    //             Color32::WHITE,
+    //             f32::INFINITY,
+    //         )
+    //         .rect;
 
-        let width = rect.width() / 16.0;
-        let height = rect.height() / 16.0;
+    //     let width = rect.width() / 16.0;
+    //     let height = rect.height() / 16.0;
 
-        (width, height)
-    })
+    (width, height)
 }
