@@ -640,6 +640,7 @@ fn process_tags(
     let default_color = textformat.color;
     let default_background = textformat.background;
     let terminal_fonts = TerminalFont::new();
+    textformat.valign = egui::Align::Center;
 
     let mut range;
     let mut color;
