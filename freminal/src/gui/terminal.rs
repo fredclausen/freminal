@@ -641,11 +641,16 @@ fn process_tags(
     let default_background = textformat.background;
     let terminal_fonts = TerminalFont::new();
 
+    let mut range;
+    let mut color;
+    let mut background_color;
+    let mut underline_color;
+
     for tag in adjusted_format_data {
-        let mut range = tag.start..tag.end;
-        let color = tag.colors.get_color();
-        let background_color = tag.colors.get_background_color();
-        let underline_color = tag.colors.get_underline_color();
+        range = tag.start..tag.end;
+        color = tag.colors.get_color();
+        background_color = tag.colors.get_background_color();
+        underline_color = tag.colors.get_underline_color();
 
         if range.end == usize::MAX {
             range.end = data_len;

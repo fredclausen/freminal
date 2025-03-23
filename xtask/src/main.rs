@@ -257,6 +257,12 @@ fn fix_clippy() -> Result<()> {
 
 /// Check that docs build without errors using flags for docs.rs
 fn lint_docs() -> Result<()> {
+    // ensure docs-rs is installed, if not, just return Ok(())
+    if cmd!("docs-rs").run().is_err() {
+        tracing::warn!("docs-rs is not installed, skipping lint_docs.");
+        return Ok(());
+    }
+
     let meta = MetadataCommand::new()
         .exec()
         .wrap_err("failed to get cargo metadata")?;

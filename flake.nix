@@ -23,7 +23,7 @@
           # new! 👇
           nativeBuildInputs = with pkgs; [ rustToolchain ];
           # also new! 👇
-          buildInputs = with pkgs; [ cargo-make cargo-deny cargo-machete cargo-profiler samply cargo-tauri ];
+          buildInputs = with pkgs; [ cargo-make cargo-deny cargo-machete cargo-profiler samply cargo-tauri typos ];
           RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
           LD_LIBRARY_PATH = libPath;
         in
@@ -36,3 +36,5 @@
         }
       );
 }
+
+# https://www.reddit.com/r/rust/comments/mmbfnj/nixifying_a_rust_project/
