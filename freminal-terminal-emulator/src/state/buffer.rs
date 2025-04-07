@@ -160,6 +160,8 @@ impl TerminalBufferHolder {
         }
     }
 
+    // FIXME: I think this is a clippy bug, or I'm stupid. It wants this to be a const fn, but it fails because of a deref error?
+    #[allow(clippy::missing_const_for_fn)]
     #[must_use]
     pub fn get_visible_line_ranges(&self) -> &[Range<usize>] {
         &self.visible_line_ranges
@@ -169,6 +171,8 @@ impl TerminalBufferHolder {
         self.visible_line_ranges = visible_line_ranges;
     }
 
+    // FIXME: I think this is a clippy bug, or I'm stupid. It wants this to be a const fn, but it fails because of a deref error?
+    #[allow(clippy::missing_const_for_fn)]
     #[must_use]
     pub fn get_line_ranges(&self) -> &[Range<usize>] {
         &self.buffer_line_ranges
@@ -284,7 +288,7 @@ impl TerminalBufferHolder {
             self.buf[buf_pos..buf_pos + num_overwritten].fill(TChar::Space);
             self.buf.splice(
                 buf_pos..buf_pos,
-                std::iter::repeat(TChar::Space).take(num_inserted),
+                std::iter::repeat_n(TChar::Space, num_inserted),
             );
 
             let used_spaces = num_inserted + num_overwritten;
@@ -351,7 +355,7 @@ impl TerminalBufferHolder {
 
         self.buf.splice(
             insertion_pos..insertion_pos,
-            std::iter::repeat(TChar::NewLine).take(num_lines),
+            std::iter::repeat_n(TChar::NewLine, num_lines),
         );
 
         self.line_ranges_to_visible_line_ranges();
@@ -384,10 +388,10 @@ impl TerminalBufferHolder {
 
         for i in clear_range.clone() {
             match self.buf.get(i) {
-                Some(TChar::NewLine | TChar::Space) => continue,
+                Some(TChar::NewLine | TChar::Space) => (),
                 Some(_) => self.buf[i] = TChar::Space,
                 None => break,
-            };
+            }
         }
 
         self.line_ranges_to_visible_line_ranges();
@@ -405,10 +409,10 @@ impl TerminalBufferHolder {
 
         for i in buf_pos..self.buf.len() {
             match self.buf.get(i) {
-                Some(TChar::NewLine) => continue,
+                Some(TChar::NewLine) => (),
                 Some(_) => self.buf[i] = TChar::Space,
                 None => break,
-            };
+            }
         }
         self.line_ranges_to_visible_line_ranges();
         Some(buf_pos..self.buf.len())
@@ -422,10 +426,10 @@ impl TerminalBufferHolder {
 
         for i in del_range.clone() {
             match self.buf.get(i) {
-                Some(TChar::NewLine) => continue,
+                Some(TChar::NewLine) => (),
                 Some(_) => self.buf[i] = TChar::Space,
                 None => break,
-            };
+            }
         }
 
         self.line_ranges_to_visible_line_ranges();
@@ -440,10 +444,10 @@ impl TerminalBufferHolder {
 
         for i in del_range.clone() {
             match self.buf.get(i) {
-                Some(TChar::NewLine) => continue,
+                Some(TChar::NewLine) => (),
                 Some(_) => self.buf[i] = TChar::Space,
                 None => break,
-            };
+            }
         }
 
         self.line_ranges_to_visible_line_ranges();
@@ -458,10 +462,10 @@ impl TerminalBufferHolder {
 
         for i in del_range.clone() {
             match self.buf.get(i) {
-                Some(TChar::NewLine) => continue,
+                Some(TChar::NewLine) => (),
                 Some(_) => self.buf[i] = TChar::Space,
                 None => break,
-            };
+            }
         }
         self.line_ranges_to_visible_line_ranges();
 
@@ -726,6 +730,8 @@ impl TerminalBufferHolder {
         Some(0..keep_buf_pos)
     }
 
+    // FIXME: I think this is a clippy bug, or I'm stupid. It wants this to be a const fn, but it fails because of a deref error?
+    #[allow(clippy::missing_const_for_fn)]
     #[must_use]
     pub fn get_raw_buffer(&self) -> &[TChar] {
         &self.buf
@@ -1176,7 +1182,7 @@ impl TerminalBufferHolder {
         if buf_pos < new_cursor_line.start {
             info!("Old cursor position no longer on screen");
             return CursorPos::default();
-        };
+        }
 
         let new_cursor_x = buf_pos - new_cursor_line.start;
 

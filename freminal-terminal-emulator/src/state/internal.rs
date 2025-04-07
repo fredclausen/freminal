@@ -619,7 +619,8 @@ impl TerminalState {
                 error!("Failed to delete range: {e}");
                 return;
             }
-        };
+        }
+
         current_buffer
             .format_tracker
             .push_range_adjustment(response.inserted_range);
@@ -1480,7 +1481,7 @@ impl TerminalState {
             TerminalInputPayload::Many(to_write) => {
                 self.write_tx.send(PtyWrite::Write(to_write.to_vec()))?;
             }
-        };
+        }
 
         Ok(())
     }

@@ -400,7 +400,7 @@ impl FreminalAnsiParser {
                                 );
                             }
                         }
-                        Ok(None) => continue,
+                        Ok(None) => (),
                         Err(e) => {
                             error!("Parser Error: {e}");
                             error!(
@@ -413,8 +413,8 @@ impl FreminalAnsiParser {
                 ParserInner::Csi(parser) => {
                     output_string_sequence.push(*b as char);
                     match parser.ansiparser_inner_csi(*b, &mut output) {
-                        Ok(value) => match value {
-                            Some(return_value) => {
+                        Ok(value) => {
+                            if let Some(return_value) = value {
                                 self.inner = return_value;
 
                                 // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
@@ -426,8 +426,7 @@ impl FreminalAnsiParser {
                                     );
                                 }
                             }
-                            None => continue,
-                        },
+                        }
                         Err(e) => {
                             error!("Parser Error: {e}");
                             error!("CSI Sequence that threw an error: {output_string_sequence}");
@@ -449,7 +448,7 @@ impl FreminalAnsiParser {
                                 );
                             }
                         }
-                        Ok(None) => continue,
+                        Ok(None) => (),
                         Err(e) => {
                             error!("Parser Error: {e}");
                             error!("OSC Sequence that threw an error: {output_string_sequence}");

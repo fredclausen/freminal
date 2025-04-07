@@ -7,6 +7,7 @@ use core::fmt;
 
 use crate::error::ParserFailures;
 use anyhow::Result;
+use std::fmt::Write;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Clone, Eq)]
@@ -119,7 +120,7 @@ impl TChar {
 #[must_use]
 pub fn display_vec_tchar_as_string(v: &[TChar]) -> String {
     v.iter().fold(String::new(), |mut acc, c| {
-        acc.push_str(&format!("{c}"));
+        write!(&mut acc, "{c}").unwrap();
         acc
     })
 }

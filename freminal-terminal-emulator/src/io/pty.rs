@@ -189,7 +189,6 @@ pub fn run_terminal(
                         Ok(()) => {}
                         Err(e) => {
                             error!("Failed to write to pty: {e}");
-                            continue;
                         }
                     },
                     PtyWrite::Resize(size) => {
@@ -207,7 +206,6 @@ pub fn run_terminal(
                             Ok(()) => {}
                             Err(e) => {
                                 error!("Failed to resize pty: {e}");
-                                continue;
                             }
                         }
                     }

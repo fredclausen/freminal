@@ -346,7 +346,7 @@ impl AnsiOscParser {
                 } else {
                     warn!("Invalid OSC params: {:?}", self.params);
                     output.push(TerminalOutput::Invalid);
-                };
+                }
 
                 Ok(Some(ParserInner::Empty))
             }
