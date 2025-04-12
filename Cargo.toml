@@ -21,7 +21,7 @@ ignored = ["vergen"]
 [workspace.dependencies]
 anyhow = "1.0.97"
 cargo_metadata = "0.19.2"
-clap = { version = "4.5.35", features = ["derive"] }
+clap = { version = "4.5.36", features = ["derive"] }
 clap-cargo = { version = "0.15.2", features = ["cargo_metadata"] }
 clap-verbosity-flag = "3.0.2"
 color-eyre = "0.6.3"
