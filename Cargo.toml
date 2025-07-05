@@ -54,6 +54,6 @@ tracing-subscriber = { version = "0.3.19", features = [
   "parking_lot",
 ] }
 unicode-segmentation = "1.12.0"
-test-log = { version = "0.2.17", features = ["trace"] }
+test-log = { version = "0.2.18", features = ["trace"] }
 tempfile = "3.20.0"
 vergen = { version = "9.0.6", features = ["build", "cargo", "rustc", "si"] }
