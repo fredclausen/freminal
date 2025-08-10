@@ -20,23 +20,23 @@ ignored = ["vergen"]
 
 [workspace.dependencies]
 anyhow = "1.0.98"
-cargo_metadata = "0.20.0"
+cargo_metadata = "0.21.0"
 clap = { version = "4.5.43", features = ["derive"] }
-clap-cargo = { version = "0.15.2", features = ["cargo_metadata"] }
+clap-cargo = { version = "0.16.0", features = ["cargo_metadata"] }
 clap-verbosity-flag = "3.0.3"
 color-eyre = "0.6.5"
 conv = "0.3.3"
-criterion = "0.6.0"
+criterion = "0.7.0"
 crossbeam-channel = "0.5.15"
 duct = "1.1.0"
-eframe = { version = "0.31.1", default-features = false, features = [
+eframe = { version = "0.32.0", default-features = false, features = [
   "default_fonts",
   "glow",
   "persistence",
   "wayland",
   "x11",
 ] }
-egui = { version = "0.31.1", default-features = false, features = [
+egui = { version = "0.32.0", default-features = false, features = [
   "default_fonts",
   "persistence",
   "log",
