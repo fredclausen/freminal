@@ -120,7 +120,9 @@ impl TChar {
 #[must_use]
 pub fn display_vec_tchar_as_string(v: &[TChar]) -> String {
     v.iter().fold(String::new(), |mut acc, c| {
-        write!(&mut acc, "{c}").unwrap();
+        if let Err(e) = write!(&mut acc, "{c}") {
+            error!("Failed to write TChar to string: {e}");
+        }
         acc
     })
 }

@@ -319,7 +319,6 @@ impl AnsiOscParser {
                             )));
                         }
                         OscTarget::Ftcs => {
-                            warn!("Ftcs is not supported");
                             output.push(TerminalOutput::OscResponse(AnsiOscType::Ftcs(
                                 osc_internal_type.to_string(),
                             )));
