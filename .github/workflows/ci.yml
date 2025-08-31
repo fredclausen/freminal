@@ -57,7 +57,7 @@ jobs:
       - uses: actions/checkout@v5.0.0
       - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2.8.0
-      - uses: bnjbvr/cargo-machete@v0.8.0
+      - uses: bnjbvr/cargo-machete@v0.9.1
 
   # Run cargo clippy.
   lint-clippy:
