@@ -36,7 +36,7 @@ eframe = { version = "0.32.1", default-features = false, features = [
   "wayland",
   "x11",
 ] }
-egui = { version = "0.32.1", default-features = false, features = [
+egui = { version = "0.32.2", default-features = false, features = [
   "default_fonts",
   "persistence",
   "log",
