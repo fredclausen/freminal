@@ -5,7 +5,7 @@
 #![allow(clippy::module_name_repetitions)]
 use std::borrow::Cow;
 
-use conv::ConvUtil;
+use conv2::ConvUtil;
 use eframe::egui::{Modifiers, PointerButton, Vec2};
 use freminal_terminal_emulator::{
     ansi_components::modes::mouse::{MouseEncoding, MouseTrack},

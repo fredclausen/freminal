@@ -9,7 +9,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use conv::ConvUtil;
+use conv2::ConvUtil;
 use eframe::egui::{self, CentralPanel, Pos2, Vec2, ViewportCommand};
 use fonts::get_char_size;
 use freminal_common::window_manipulation::WindowManipulation;
@@ -217,7 +217,7 @@ fn handle_window_manipulation(
                 terminal_emulator.internal.report_window_size(pos_x, pos_y);
             }
             WindowManipulation::ReportWindowTextAreaSizeInPixels => {
-                let size = ui.ctx().screen_rect().max;
+                let size = ui.ctx().content_rect().max;
                 let pos_x = size.x.approx_as::<usize>().unwrap_or_else(|e| {
                     error!("Failed to convert position x to usize: {e}. Using 0 as default");
                     0
@@ -349,7 +349,7 @@ impl eframe::App for FreminalGui {
                 error!("failed to set window size {e}");
             }
 
-            let window_width = ctx.input(|i: &egui::InputState| i.screen_rect());
+            let window_width = ctx.input(|i: &egui::InputState| i.content_rect());
 
             handle_window_manipulation(
                 ui,

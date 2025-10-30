@@ -30,7 +30,7 @@ use super::{
     fonts::{get_char_size, setup_font_files, TerminalFont},
 };
 use anyhow::Result;
-use conv::{ConvUtil, ValueFrom};
+use conv2::{ConvUtil, ValueFrom};
 use std::borrow::Cow;
 
 fn control_key(key: Key) -> Option<Cow<'static, [TerminalInput]>> {
@@ -1053,7 +1053,7 @@ impl FreminalTerminalWidget {
                         ui.ctx().output_mut(|output| {
                             output.cursor_icon = CursorIcon::Wait;
                             output.commands.push(OutputCommand::OpenUrl(OpenUrl {
-                                url: url.to_string(),
+                                url: url.clone(),
                                 new_tab: true,
                             }));
                         });

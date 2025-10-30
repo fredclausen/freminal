@@ -41,7 +41,7 @@ repos:
       - id: shellcheck
 
   - repo: https://github.com/sirosen/check-jsonschema
-    rev: a1419a25b3ec6c91a963e044f03f6dc197930b10  # frozen: 0.33.1
+    rev: a1419a25b3ec6c91a963e044f03f6dc197930b10 # frozen: 0.33.1
     hooks:
       - id: check-github-actions
       - id: check-github-workflows
@@ -69,7 +69,7 @@ repos:
       - id: black
 
   - repo: https://github.com/pycqa/flake8
-    rev: "d93590f5be797aabb60e3b09f2f52dddb02f349f"  # frozen: 7.3.0
+    rev: "d93590f5be797aabb60e3b09f2f52dddb02f349f" # frozen: 7.3.0
     hooks:
       - id: flake8
         args: ["--extend-ignore=W503,W504,E501"]

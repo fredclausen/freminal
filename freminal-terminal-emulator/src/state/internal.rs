@@ -4,7 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use anyhow::Result;
-use conv::ConvUtil;
+use conv2::ConvUtil;
 use core::str;
 use eframe::egui::{self, Color32, Context};
 use freminal_common::{

@@ -5,7 +5,7 @@
 
 mod pty;
 use anyhow::{Error, Result};
-use conv::ValueFrom;
+use conv2::ValueFrom;
 use portable_pty::PtySize;
 pub use pty::FreminalPtyInputOutput;
 // pub type TermIoErr = Box<dyn std::error::Error>;

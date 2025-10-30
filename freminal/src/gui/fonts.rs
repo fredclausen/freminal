@@ -121,8 +121,10 @@ pub fn get_char_size(ctx: &egui::Context, font_size: f32) -> (f32, f32) {
         family: FontFamily::Name(REGULAR_FONT_NAME.into()),
     };
 
-    let width = ctx.fonts(|fonts| fonts.glyph_width(&font_id, ' '));
-    let height = ctx.fonts(|fonts| fonts.row_height(&font_id));
+    let width =
+        ctx.fonts_mut(|fonts: &mut egui::epaint::FontsView<'_>| fonts.glyph_width(&font_id, ' '));
+    let height =
+        ctx.fonts_mut(|fonts: &mut egui::epaint::FontsView<'_>| fonts.row_height(&font_id));
 
     // NOTE: Using glyph width and row height do not give accurate results. Even using the mesh
     // bounds of a single character is not reasonable. Instead we layout 16 rows and 16 cols and

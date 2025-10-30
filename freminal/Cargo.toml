@@ -22,7 +22,7 @@ category = "Developer Tools"
 
 [dependencies]
 eframe.workspace = true
-conv.workspace = true
+conv2.workspace = true
 anyhow.workspace = true
 parking_lot.workspace = true
 tracing-appender.workspace = true

@@ -120,7 +120,7 @@ impl TChar {
 #[must_use]
 pub fn display_vec_tchar_as_string(v: &[TChar]) -> String {
     v.iter().fold(String::new(), |mut acc, c| {
-        write!(&mut acc, "{c}").unwrap();
+        write!(&mut acc, "{c}").unwrap_or_default();
         acc
     })
 }
