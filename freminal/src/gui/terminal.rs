@@ -724,6 +724,87 @@ fn process_tags(
     }
 }
 
+fn render_terminal_text(
+    ui: &mut egui::Ui,
+    full_text: &str,
+    job: &egui::text::LayoutJob,
+    font_size: f32,
+) -> egui::Response {
+    let ctx = ui.ctx();
+
+    let font_id = egui::FontId::monospace(font_size);
+
+    // Need mutable access for glyph metrics
+    let glyph_width = ctx.fonts_mut(|f| f.glyph_width(&font_id, 'W'));
+    let row_height = ctx.fonts_mut(|f| f.row_height(&font_id));
+    let baseline_offset = row_height;
+
+    // Compute total size — roughly estimate height based on newlines
+    let num_lines = full_text.chars().filter(|&c| c == '\n').count() + 1;
+    let longest_line_len = full_text
+        .split('\n')
+        .map(|line| line.chars().count())
+        .max()
+        .unwrap_or(0);
+
+    // Safe conversions with fallback baseline
+    let fallback_value = 100.0_f32; // arbitrary safe default if conversion fails
+    let total_width = f32::value_from(longest_line_len).unwrap_or(fallback_value) * glyph_width;
+    let total_height = f32::value_from(num_lines).unwrap_or(fallback_value) * row_height;
+
+    let (rect, response) =
+        ui.allocate_exact_size(egui::vec2(total_width, total_height), egui::Sense::hover());
+
+    let painter = ui.painter();
+
+    let origin = rect.left_top();
+    let mut x = origin.x;
+    let mut y = origin.y;
+    let mut baseline_y = y + baseline_offset;
+
+    for section in &job.sections {
+        let format = &section.format;
+        let font_id = format.font_id.clone();
+        let text_color = format.color;
+        let bg_color = format.background;
+
+        // Text slice for this section
+        let section_text = &full_text[section.byte_range.clone()];
+
+        for c in section_text.chars() {
+            if c == '\n' {
+                // Move to next line
+                x = origin.x;
+                y += row_height;
+                baseline_y = y + baseline_offset;
+                continue;
+            }
+
+            // Draw background cell
+            if bg_color != egui::Color32::TRANSPARENT {
+                let bg_rect = egui::Rect::from_min_size(
+                    egui::pos2(x, y),
+                    egui::vec2(glyph_width, row_height),
+                );
+                painter.rect_filled(bg_rect, 0.0, bg_color);
+            }
+
+            // Draw glyph baseline-aligned
+            painter.text(
+                egui::pos2(x, baseline_y),
+                egui::Align2::LEFT_BOTTOM,
+                c.to_string(),
+                font_id.clone(),
+                text_color,
+            );
+
+            x += glyph_width;
+        }
+    }
+
+    response
+}
+
 fn add_terminal_data_to_ui(
     ui: &mut Ui,
     data: &UiData,
@@ -761,13 +842,17 @@ fn add_terminal_data_to_ui(
 
     match data {
         UiData::NewPass(_) => {
-            let response = UiJobAction {
-                text: data_utf8,
-                adjusted_format_data,
+            let response_data = UiJobAction {
+                text: data_utf8.clone(),
+                adjusted_format_data: adjusted_format_data.clone(),
             };
-            Ok((ui.label(job), Some(response)))
+            let response = render_terminal_text(ui, &data_utf8, &job, font_size);
+            Ok((response, Some(response_data)))
         }
-        UiData::PreviousPass(_) => Ok((ui.label(job), None)),
+        UiData::PreviousPass(_) => {
+            let response = render_terminal_text(ui, &data_utf8, &job, font_size);
+            Ok((response, None))
+        }
     }
 }
 
