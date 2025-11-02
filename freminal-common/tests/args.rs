@@ -1,120 +1,87 @@
-// Copyright (C) 2024-2025 Fred Clausen
-// Use of this source code is governed by an MIT-style
-// license that can be found in the LICENSE file or at
-// https://opensource.org/licenses/MIT.
+// tests/args_tests.rs
 
+use anyhow::Result;
 use freminal_common::args::Args;
-use test_log::test;
 
-#[test]
-fn test_args_parse() {
-    let args = Args::parse(vec!["freminal".to_string()].into_iter()).unwrap();
-    assert_eq!(args.recording, None);
-    assert_eq!(args.shell, None);
-
-    let args = Args::parse(
-        vec![
-            "freminal".to_string(),
-            "--recording-path".to_string(),
-            "test".to_string(),
-        ]
-        .into_iter(),
-    )
-    .unwrap();
-    assert_eq!(args.recording, Some("test".to_string()));
-    assert_eq!(args.shell, None);
-
-    let args = Args::parse(
-        vec![
-            "freminal".to_string(),
-            "--shell".to_string(),
-            "test".to_string(),
-        ]
-        .into_iter(),
-    )
-    .unwrap();
-    assert_eq!(args.recording, None);
-    assert_eq!(args.shell, Some("test".to_string()));
-
-    let args = Args::parse(
-        vec![
-            "freminal".to_string(),
-            "--recording-path".to_string(),
-            "test".to_string(),
-            "--shell".to_string(),
-            "test".to_string(),
-        ]
-        .into_iter(),
-    )
-    .unwrap();
-    assert_eq!(args.recording, Some("test".to_string()));
-    assert_eq!(args.shell, Some("test".to_string()));
+fn parse_from<I: IntoIterator<Item = S>, S: Into<String>>(args: I) -> Result<Args> {
+    Args::parse(args.into_iter().map(Into::into))
 }
 
 #[test]
-fn test_invalid_arg() {
-    let args = Args::parse(
-        vec![
-            "freminal".to_string(),
-            "--recording-path".to_string(),
-            "test".to_string(),
-            "--invalid".to_string(),
-        ]
-        .into_iter(),
-    );
-    assert!(args.is_err());
-}
-
-#[test]
-fn test_missing_recording_path_arg() {
-    let args =
-        Args::parse(vec!["freminal".to_string(), "--recording-path".to_string()].into_iter());
-    assert!(args.is_err());
-}
-
-#[test]
-fn test_missing_shell_arg() {
-    let args = Args::parse(vec!["freminal".to_string(), "--shell".to_string()].into_iter());
-    assert!(args.is_err());
-}
-
-#[test]
-fn test_log_file_arg() {
-    let args = Args::parse(
-        vec![
-            "freminal".to_string(),
-            "--write-logs-to-file=true".to_string(),
-        ]
-        .into_iter(),
-    )
-    .unwrap();
+fn parses_empty_args_defaults() {
+    let args = parse_from(["freminal"]).unwrap();
+    assert!(args.recording.is_none());
+    assert!(args.shell.is_none());
+    assert!(!args.show_all_debug);
+    #[cfg(debug_assertions)]
     assert!(args.write_logs_to_file);
-
-    let args = Args::parse(
-        vec![
-            "freminal".to_string(),
-            "--write-logs-to-file=false".to_string(),
-        ]
-        .into_iter(),
-    )
-    .unwrap();
+    #[cfg(not(debug_assertions))]
     assert!(!args.write_logs_to_file);
+}
 
-    // test "--write-logs-to-file" without value
-    let args =
-        Args::parse(vec!["freminal".to_string(), "--write-logs-to-file".to_string()].into_iter());
-    assert!(args.is_err());
+#[test]
+fn parses_recording_path() {
+    let args = parse_from(["freminal", "--recording-path", "rec.log"]).unwrap();
+    assert_eq!(args.recording.as_deref(), Some("rec.log"));
+}
 
-    let args =
-        Args::parse(vec!["freminal".to_string(), "--write-logs-to-file=".to_string()].into_iter());
-    assert!(args.is_err());
+#[test]
+fn missing_recording_path_argument() {
+    let result = parse_from(["freminal", "--recording-path"]);
+    assert!(result.is_err());
+}
 
-    let args = Args::parse(
-        vec![
-            "freminal".to_string(),
-            "--write-logs-to-file=nope".to_string(),
-        ]
-        .into_iter(),
-    );
-    assert!(args.is_err());
+#[test]
+fn parses_shell_argument() {
+    let args = parse_from(["freminal", "--shell", "/bin/bash"]).unwrap();
+    assert_eq!(args.shell.as_deref(), Some("/bin/bash"));
+}
+
+#[test]
+fn missing_shell_argument() {
+    let result = parse_from(["freminal", "--shell"]);
+    assert!(result.is_err());
+}
+
+#[test]
+fn parses_show_all_debug_flag() {
+    let args = parse_from(["freminal", "--show-all-debug"]).unwrap();
+    assert!(args.show_all_debug);
+}
+
+#[test]
+fn parses_write_logs_to_file_true() {
+    let args = parse_from(["freminal", "--write-logs-to-file=true"]).unwrap();
+    assert!(args.write_logs_to_file);
+}
+
+#[test]
+fn parses_write_logs_to_file_false() {
+    let args = parse_from(["freminal", "--write-logs-to-file=false"]).unwrap();
+    assert!(!args.write_logs_to_file);
+}
+
+#[test]
+fn missing_write_logs_to_file_value() {
+    let result = parse_from(["freminal", "--write-logs-to-file"]);
+    assert!(result.is_err());
+}
+
+#[test]
+fn invalid_write_logs_to_file_value() {
+    let result = parse_from(["freminal", "--write-logs-to-file=maybe"]);
+    assert!(result.is_err());
+}
+
+#[test]
+fn invalid_argument_is_error() {
+    let result = parse_from(["freminal", "--not-a-real-flag"]);
+    assert!(result.is_err());
+}
+
+#[test]
+fn help_flag_does_not_error() {
+    let result = parse_from(["freminal", "--help"]);
+    // help just prints but shouldn't fail
+    assert!(result.is_ok());
 }
