@@ -31,7 +31,6 @@ tracing.workspace = true
 freminal-terminal-emulator = { path = "../freminal-terminal-emulator" }
 freminal-common = { path = "../freminal-common" }
 
-
 [features]
 default = []
 validation = []
