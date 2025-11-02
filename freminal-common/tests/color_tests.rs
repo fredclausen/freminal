@@ -5,12 +5,34 @@ use std::str::FromStr;
 /// ---------- Deterministic Unit Tests ----------
 
 #[test]
-fn lookup_standard_colors() {
-    assert_eq!(lookup_256_color_by_index(1), (128, 0, 0));
-    assert_eq!(lookup_256_color_by_index(4), (0, 0, 128));
-    assert_eq!(lookup_256_color_by_index(7), (192, 192, 192));
-    assert_eq!(lookup_256_color_by_index(9), (255, 0, 0));
-    assert_eq!(lookup_256_color_by_index(15), (255, 255, 255));
+fn lookup_standard_colors_complete() {
+    // Standard colors 0–15
+    assert_eq!(lookup_256_color_by_index(0), (0, 0, 0));
+    assert_eq!(lookup_256_color_by_index(1), (128, 0, 0)); // dark red
+    assert_eq!(lookup_256_color_by_index(2), (0, 128, 0)); // dark green
+    assert_eq!(lookup_256_color_by_index(3), (128, 128, 0)); // dark yellow
+    assert_eq!(lookup_256_color_by_index(4), (0, 0, 128)); // dark blue
+    assert_eq!(lookup_256_color_by_index(5), (128, 0, 128)); // dark magenta
+    assert_eq!(lookup_256_color_by_index(6), (0, 128, 128)); // dark cyan
+    assert_eq!(lookup_256_color_by_index(7), (192, 192, 192)); // light gray
+    assert_eq!(lookup_256_color_by_index(8), (128, 128, 128)); // gray
+    assert_eq!(lookup_256_color_by_index(9), (255, 0, 0)); // bright red
+    assert_eq!(lookup_256_color_by_index(10), (0, 255, 0)); // bright green
+    assert_eq!(lookup_256_color_by_index(11), (255, 255, 0)); // bright yellow
+    assert_eq!(lookup_256_color_by_index(12), (0, 0, 255)); // bright blue
+    assert_eq!(lookup_256_color_by_index(13), (255, 0, 255)); // bright magenta
+    assert_eq!(lookup_256_color_by_index(14), (0, 255, 255)); // bright cyan
+    assert_eq!(lookup_256_color_by_index(15), (255, 255, 255)); // bright white
+
+    // Verify alias values (same return path)
+    assert_eq!(lookup_256_color_by_index(196), (255, 0, 0));
+    assert_eq!(lookup_256_color_by_index(46), (0, 255, 0));
+    assert_eq!(lookup_256_color_by_index(226), (255, 255, 0)); // alias for 11
+    assert_eq!(lookup_256_color_by_index(21), (0, 0, 255));
+    assert_eq!(lookup_256_color_by_index(201), (255, 0, 255));
+    assert_eq!(lookup_256_color_by_index(51), (0, 255, 255));
+    assert_eq!(lookup_256_color_by_index(231), (255, 255, 255));
+    assert_eq!(lookup_256_color_by_index(244), (128, 128, 128)); // alias for 8
 }
 
 #[test]
@@ -75,8 +97,28 @@ fn default_colors_map_to_regular() {
 
 #[test]
 fn display_predefined_colors() {
+    // Standard colors
+    assert_eq!(TerminalColor::Default.to_string(), "default");
+    assert_eq!(TerminalColor::Black.to_string(), "black");
     assert_eq!(TerminalColor::Red.to_string(), "red");
+    assert_eq!(TerminalColor::Green.to_string(), "green");
+    assert_eq!(TerminalColor::Yellow.to_string(), "yellow");
+    assert_eq!(TerminalColor::Blue.to_string(), "blue");
+    assert_eq!(TerminalColor::Magenta.to_string(), "magenta");
+    assert_eq!(TerminalColor::Cyan.to_string(), "cyan");
+    assert_eq!(TerminalColor::White.to_string(), "white");
+
+    // Bright variants
+    assert_eq!(TerminalColor::BrightYellow.to_string(), "bright yellow");
+    assert_eq!(TerminalColor::BrightBlack.to_string(), "bright black");
+    assert_eq!(TerminalColor::BrightRed.to_string(), "bright red");
+    assert_eq!(TerminalColor::BrightGreen.to_string(), "bright green");
+    assert_eq!(TerminalColor::BrightBlue.to_string(), "bright blue");
     assert_eq!(TerminalColor::BrightMagenta.to_string(), "bright magenta");
+    assert_eq!(TerminalColor::BrightCyan.to_string(), "bright cyan");
+    assert_eq!(TerminalColor::BrightWhite.to_string(), "bright white");
+
+    // Defaults and special
     assert_eq!(
         TerminalColor::DefaultUnderlineColor.to_string(),
         "default underline color"
@@ -89,6 +131,131 @@ fn display_predefined_colors() {
         TerminalColor::DefaultCursorColor.to_string(),
         "default cursor color"
     );
+
+    // Custom RGB branch
+    assert_eq!(
+        TerminalColor::Custom(12, 34, 56).to_string(),
+        "rgb(12, 34, 56)"
+    );
+}
+
+#[test]
+fn parse_all_valid_and_invalid_colors() {
+    use std::str::FromStr;
+
+    // Basic and bright colors
+    assert_eq!(
+        TerminalColor::from_str("default").unwrap(),
+        TerminalColor::Default
+    );
+    assert_eq!(
+        TerminalColor::from_str("black").unwrap(),
+        TerminalColor::Black
+    );
+    assert_eq!(TerminalColor::from_str("red").unwrap(), TerminalColor::Red);
+    assert_eq!(
+        TerminalColor::from_str("green").unwrap(),
+        TerminalColor::Green
+    );
+    assert_eq!(
+        TerminalColor::from_str("yellow").unwrap(),
+        TerminalColor::Yellow
+    );
+    assert_eq!(
+        TerminalColor::from_str("blue").unwrap(),
+        TerminalColor::Blue
+    );
+    assert_eq!(
+        TerminalColor::from_str("magenta").unwrap(),
+        TerminalColor::Magenta
+    );
+    assert_eq!(
+        TerminalColor::from_str("cyan").unwrap(),
+        TerminalColor::Cyan
+    );
+    assert_eq!(
+        TerminalColor::from_str("white").unwrap(),
+        TerminalColor::White
+    );
+
+    // Bright variants
+    assert_eq!(
+        TerminalColor::from_str("bright yellow").unwrap(),
+        TerminalColor::BrightYellow
+    );
+    assert_eq!(
+        TerminalColor::from_str("bright black").unwrap(),
+        TerminalColor::BrightBlack
+    );
+    assert_eq!(
+        TerminalColor::from_str("bright red").unwrap(),
+        TerminalColor::BrightRed
+    );
+    assert_eq!(
+        TerminalColor::from_str("bright green").unwrap(),
+        TerminalColor::BrightGreen
+    );
+    assert_eq!(
+        TerminalColor::from_str("bright blue").unwrap(),
+        TerminalColor::BrightBlue
+    );
+    assert_eq!(
+        TerminalColor::from_str("bright magenta").unwrap(),
+        TerminalColor::BrightMagenta
+    );
+    assert_eq!(
+        TerminalColor::from_str("bright cyan").unwrap(),
+        TerminalColor::BrightCyan
+    );
+    assert_eq!(
+        TerminalColor::from_str("bright white").unwrap(),
+        TerminalColor::BrightWhite
+    );
+
+    // Defaults
+    assert_eq!(
+        TerminalColor::from_str("default_background").unwrap(),
+        TerminalColor::DefaultBackground
+    );
+    assert_eq!(
+        TerminalColor::from_str("default_underline_color").unwrap(),
+        TerminalColor::DefaultUnderlineColor
+    );
+    assert_eq!(
+        TerminalColor::from_str("default_cursor_color").unwrap(),
+        TerminalColor::DefaultCursorColor
+    );
+
+    // ❌ Explicitly test error branch and check message
+    let err = TerminalColor::from_str("unknown_value").unwrap_err();
+    let msg = err.to_string();
+    assert!(
+        msg.contains("Invalid color string"),
+        "unexpected error message: {msg}"
+    );
+}
+
+#[test]
+fn manual_display_write_covers_all_paths() {
+    use std::fmt::Write;
+
+    // Explicitly test `f.write_str` branch (normal color)
+    let color = TerminalColor::Yellow;
+    let mut buf = String::new();
+    write!(&mut buf, "{color}").unwrap();
+    assert_eq!(buf, "yellow");
+
+    // Explicitly test `return write!(...)` branch (Custom color)
+    let color = TerminalColor::Custom(200, 150, 100);
+    let mut buf = String::new();
+    write!(&mut buf, "{color}").unwrap();
+    assert_eq!(buf, "rgb(200, 150, 100)");
+
+    // Cover Default variant again via direct fmt call (not .to_string)
+    let color = TerminalColor::Default;
+    let mut buf = String::new();
+    write!(&mut buf, "{color}").unwrap();
+    assert_eq!(buf, "default");
 }
 
 #[test]
