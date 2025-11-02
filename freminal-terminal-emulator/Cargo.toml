@@ -30,6 +30,11 @@ vergen.workspace = true
 [dev-dependencies]
 criterion.workspace = true
 test-log.workspace = true
+proptest.workspace = true
+anyhow.workspace = true
+# assert_cmd.workspace = true
+# predicates.workspace = true
+
 
 [build-dependencies]
 vergen.workspace = true

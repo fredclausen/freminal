@@ -171,8 +171,10 @@ impl fmt::Display for Url {
     }
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Default)]
 pub enum AnsiOscType {
+    #[default]
+    NoOp,
     RequestColorQueryBackground(AnsiOscInternalType),
     RequestColorQueryForeground(AnsiOscInternalType),
     Ftcs(String),
@@ -187,6 +189,7 @@ pub enum AnsiOscType {
 impl std::fmt::Display for AnsiOscType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::NoOp => write!(f, "NoOp"),
             Self::RequestColorQueryBackground(value) => {
                 write!(f, "RequestColorQueryBackground({value:?})")
             }
@@ -258,8 +261,14 @@ impl AnsiOscParser {
                 if is_osc_terminator(&self.params) {
                     self.state = AnsiOscParserState::Finished;
 
-                    while is_final_character_osc_terminator(self.params[self.params.len() - 1]) {
-                        self.params.pop();
+                    if !self.params.is_empty() {
+                        while let Some(&last) = self.params.last() {
+                            if is_final_character_osc_terminator(last) {
+                                self.params.pop();
+                            } else {
+                                break;
+                            }
+                        }
                     }
                 }
             }

@@ -721,6 +721,7 @@ impl TerminalState {
 
     pub(crate) fn sgr(&mut self, sgr: SelectGraphicRendition) {
         match sgr {
+            SelectGraphicRendition::NoOp => (),
             SelectGraphicRendition::Reset => self.reset(),
             SelectGraphicRendition::Bold => {
                 self.get_current_buffer().cursor_state.font_weight = FontWeight::Bold;
@@ -828,6 +829,7 @@ impl TerminalState {
     #[allow(clippy::too_many_lines)]
     pub(crate) fn set_mode(&mut self, mode: &Mode) {
         match mode {
+            Mode::NoOp => {}
             Mode::Decckm(Decckm::Query) => {
                 self.report_mode(&self.get_cursor_key_mode().report(None));
             }
@@ -1039,6 +1041,7 @@ impl TerminalState {
 
     pub(crate) fn osc_response(&mut self, osc: AnsiOscType) {
         match osc {
+            AnsiOscType::NoOp => (),
             AnsiOscType::Url(url) => match url {
                 UrlResponse::End => {
                     self.get_current_buffer().cursor_state.url = None;

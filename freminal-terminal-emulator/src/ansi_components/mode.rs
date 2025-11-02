@@ -46,8 +46,10 @@ pub struct TerminalModes {
     pub line_feed_mode: Lnm,
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Default)]
 pub enum Mode {
+    #[default]
+    NoOp,
     // Cursor keys mode
     // https://vt100.net/docs/vt100-ug/chapter3.html
     AllowColumnModeSwitch(AllowColumnModeSwitch),
@@ -197,6 +199,7 @@ impl Mode {
 impl ReportMode for Mode {
     fn report(&self, override_mode: Option<SetMode>) -> String {
         match self {
+            Self::NoOp => "NoOp".into(),
             Self::AllowColumnModeSwitch(allow_column_mode_switch) => {
                 allow_column_mode_switch.report(override_mode)
             }
@@ -231,6 +234,7 @@ impl ReportMode for Mode {
 impl fmt::Display for Mode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::NoOp => write!(f, "NoOp"),
             Self::AllowColumnModeSwitch(allow_column_mode_switch) => {
                 write!(f, "{allow_column_mode_switch}")
             }

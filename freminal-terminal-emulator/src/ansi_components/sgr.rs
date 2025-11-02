@@ -6,8 +6,10 @@
 use anyhow::Result;
 use freminal_common::colors::TerminalColor;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Default)]
 pub enum SelectGraphicRendition {
+    #[default]
+    NoOp, // added to allow default construction
     // NOTE: Non-exhaustive list
     Reset,
     Bold,

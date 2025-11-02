@@ -543,3 +543,4 @@ freminal.log.[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]
 test.txt
 temp.txt
 .direnv
+*proptest-regressions

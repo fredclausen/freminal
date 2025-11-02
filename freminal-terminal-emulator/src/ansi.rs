@@ -466,3 +466,61 @@ impl FreminalAnsiParser {
         output
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn push_data_if_non_empty_behavior() {
+        let mut data = vec![b'a', b'b'];
+        let mut output = Vec::new();
+        push_data_if_non_empty(&mut data, &mut output);
+        assert_eq!(data.len(), 0);
+        assert_eq!(output.len(), 1);
+        push_data_if_non_empty(&mut data, &mut output);
+        assert_eq!(output.len(), 1);
+    }
+
+    #[test]
+    fn ansi_parser_inner_empty_branches() {
+        let mut p = FreminalAnsiParser::new();
+        let mut out = vec![];
+        let mut data = vec![];
+
+        // Escape → Err, sets inner
+        assert!(p
+            .ansi_parser_inner_empty(b'\x1b', &mut data, &mut out)
+            .is_err());
+        assert_eq!(p.inner, ParserInner::Escape);
+
+        // Reset to Empty
+        p.inner = ParserInner::Empty;
+        for &(b, expected) in &[
+            (b'\r', "CarriageReturn"),
+            (b'\n', "Newline"),
+            (0x08, "Backspace"),
+            (0x07, "Bell"),
+        ] {
+            out.clear();
+            data.clear();
+            let r = p.ansi_parser_inner_empty(b, &mut data, &mut out);
+            assert!(r.is_err());
+            assert!(
+                !out.is_empty(),
+                "Expected output vector to contain at least one element"
+            );
+            if let Some(last_output) = out.last() {
+                assert_eq!(last_output.to_string(), expected);
+            } else {
+                panic!("Output vector should not be empty");
+            }
+        }
+
+        // Normal data path (Ok)
+        out.clear();
+        data.clear();
+        assert!(p.ansi_parser_inner_empty(b'A', &mut data, &mut out).is_ok());
+        assert!(data.is_empty()); // correct: data is only pushed in FreminalAnsiParser::push
+    }
+}

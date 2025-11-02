@@ -1287,6 +1287,7 @@ dependencies = [
  "eframe",
  "freminal-common",
  "portable-pty",
+ "proptest",
  "sys-locale",
  "tar",
  "tempfile",
