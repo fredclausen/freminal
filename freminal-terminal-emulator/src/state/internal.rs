@@ -95,7 +95,7 @@ impl Buffer {
     }
 
     #[must_use]
-    pub fn show_cursor(&self) -> bool {
+    pub const fn show_cursor(&self) -> bool {
         self.terminal_buffer.show_cursor(&self.cursor_state.pos)
     }
 }
@@ -171,7 +171,7 @@ impl TerminalState {
     }
 
     #[must_use]
-    pub fn show_cursor(&mut self) -> bool {
+    pub const fn show_cursor(&mut self) -> bool {
         self.get_current_buffer().show_cursor()
     }
 
@@ -185,11 +185,11 @@ impl TerminalState {
         self.changed
     }
 
-    pub fn set_state_changed(&mut self) {
+    pub const fn set_state_changed(&mut self) {
         self.changed = true;
     }
 
-    pub fn clear_changed(&mut self) {
+    pub const fn clear_changed(&mut self) {
         self.changed = false;
     }
 
@@ -209,7 +209,7 @@ impl TerminalState {
         }
     }
 
-    pub fn get_current_buffer(&mut self) -> &mut Buffer {
+    pub const fn get_current_buffer(&mut self) -> &mut Buffer {
         match self.current_buffer {
             BufferType::Primary => &mut self.primary_buffer,
             BufferType::Alternate => &mut self.alternate_buffer,
@@ -217,7 +217,7 @@ impl TerminalState {
     }
 
     #[must_use]
-    pub fn get_win_size(&mut self) -> (usize, usize) {
+    pub const fn get_win_size(&mut self) -> (usize, usize) {
         self.get_current_buffer().terminal_buffer.get_win_size()
     }
 
@@ -268,7 +268,7 @@ impl TerminalState {
     }
 
     #[must_use]
-    pub fn cursor_pos(&mut self) -> CursorPos {
+    pub const fn cursor_pos(&mut self) -> CursorPos {
         self.get_current_buffer().cursor_state.pos
     }
 
@@ -418,7 +418,7 @@ impl TerminalState {
         current_buffer.cursor_state.pos = response.new_cursor_pos;
     }
 
-    pub fn set_cursor_pos(&mut self, x: Option<usize>, y: Option<usize>) {
+    pub const fn set_cursor_pos(&mut self, x: Option<usize>, y: Option<usize>) {
         let current_buffer = self.get_current_buffer();
         if let Some(x) = x {
             current_buffer.cursor_state.pos.x = x.saturating_sub(1);
@@ -574,7 +574,7 @@ impl TerminalState {
         }
     }
 
-    pub(crate) fn carriage_return(&mut self) {
+    pub(crate) const fn carriage_return(&mut self) {
         self.get_current_buffer().cursor_state.pos.x = 0;
     }
 
@@ -691,28 +691,28 @@ impl TerminalState {
             .retain(|d| *d != *decoration);
     }
 
-    pub(crate) fn set_foreground(&mut self, color: TerminalColor) {
+    pub(crate) const fn set_foreground(&mut self, color: TerminalColor) {
         self.get_current_buffer()
             .cursor_state
             .colors
             .set_color(color);
     }
 
-    pub(crate) fn set_background(&mut self, color: TerminalColor) {
+    pub(crate) const fn set_background(&mut self, color: TerminalColor) {
         self.get_current_buffer()
             .cursor_state
             .colors
             .set_background_color(color);
     }
 
-    pub(crate) fn set_underline_color(&mut self, color: TerminalColor) {
+    pub(crate) const fn set_underline_color(&mut self, color: TerminalColor) {
         self.get_current_buffer()
             .cursor_state
             .colors
             .set_underline_color(color);
     }
 
-    pub(crate) fn set_reverse_video(&mut self, reverse_video: ReverseVideo) {
+    pub(crate) const fn set_reverse_video(&mut self, reverse_video: ReverseVideo) {
         self.get_current_buffer()
             .cursor_state
             .colors
@@ -1312,7 +1312,7 @@ impl TerminalState {
         }
     }
 
-    pub fn set_top_and_bottom_margins(&mut self, top: usize, bottom: usize) {
+    pub const fn set_top_and_bottom_margins(&mut self, top: usize, bottom: usize) {
         let current_buffer = self.get_current_buffer();
 
         current_buffer

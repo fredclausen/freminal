@@ -259,7 +259,7 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
 }
 
 impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
-    pub fn set_mouse_position_from_move_event(&mut self, pos: &egui::Pos2) {
+    pub const fn set_mouse_position_from_move_event(&mut self, pos: &egui::Pos2) {
         self.internal.mouse_position = Some(*pos);
     }
 
@@ -302,10 +302,10 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         }
     }
 
-    pub fn set_previous_pass_invalid(&mut self) {
+    pub const fn set_previous_pass_invalid(&mut self) {
         self.previous_pass_valid = false;
     }
-    pub fn set_previous_pass_valid(&mut self) {
+    pub const fn set_previous_pass_valid(&mut self) {
         self.previous_pass_valid = true;
     }
     pub fn needs_redraw(&mut self) -> bool {
@@ -319,7 +319,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         !self.previous_pass_valid || internal
     }
 
-    pub fn get_win_size(&mut self) -> (usize, usize) {
+    pub const fn get_win_size(&mut self) -> (usize, usize) {
         self.internal.get_win_size()
     }
 
@@ -371,7 +371,7 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
         self.internal.data_and_format_data_for_gui()
     }
 
-    pub fn cursor_pos(&mut self) -> CursorPos {
+    pub const fn cursor_pos(&mut self) -> CursorPos {
         self.internal.cursor_pos()
     }
 

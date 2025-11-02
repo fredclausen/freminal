@@ -43,7 +43,7 @@ impl StateColors {
         Self::default()
     }
 
-    pub fn set_default(&mut self) {
+    pub const fn set_default(&mut self) {
         self.color = TerminalColor::Default;
         self.background_color = TerminalColor::DefaultBackground;
         self.underline_color = TerminalColor::DefaultUnderlineColor;
@@ -74,19 +74,19 @@ impl StateColors {
         self
     }
 
-    pub fn set_color(&mut self, color: TerminalColor) {
+    pub const fn set_color(&mut self, color: TerminalColor) {
         self.color = color;
     }
 
-    pub fn set_background_color(&mut self, background_color: TerminalColor) {
+    pub const fn set_background_color(&mut self, background_color: TerminalColor) {
         self.background_color = background_color;
     }
 
-    pub fn set_underline_color(&mut self, underline_color: TerminalColor) {
+    pub const fn set_underline_color(&mut self, underline_color: TerminalColor) {
         self.underline_color = underline_color;
     }
 
-    pub fn set_reverse_video(&mut self, reverse_video: ReverseVideo) {
+    pub const fn set_reverse_video(&mut self, reverse_video: ReverseVideo) {
         self.reverse_video = reverse_video;
     }
 
@@ -116,7 +116,7 @@ impl StateColors {
         }
     }
 
-    pub fn flip_reverse_video(&mut self) {
+    pub const fn flip_reverse_video(&mut self) {
         self.reverse_video = match self.reverse_video {
             ReverseVideo::On => ReverseVideo::Off,
             ReverseVideo::Off => ReverseVideo::On,
@@ -142,13 +142,13 @@ impl CursorState {
     }
 
     #[must_use]
-    pub fn with_background_color(mut self, background_color: TerminalColor) -> Self {
+    pub const fn with_background_color(mut self, background_color: TerminalColor) -> Self {
         self.colors.set_background_color(background_color);
         self
     }
 
     #[must_use]
-    pub fn with_color(mut self, color: TerminalColor) -> Self {
+    pub const fn with_color(mut self, color: TerminalColor) -> Self {
         self.colors.set_color(color);
         self
     }

@@ -87,7 +87,7 @@ impl TerminalBufferHolder {
     }
 
     #[must_use]
-    pub fn show_cursor(&self, cursor_pos: &CursorPos) -> bool {
+    pub const fn show_cursor(&self, cursor_pos: &CursorPos) -> bool {
         // FIXME: I think this logic is partially buggy. If the cursor is not in the last line it may break
         // if we have scrolled more then height from the bottom, we don't want to show the cursor
         // otherwise, if the cursor_pos.y position is within viewable_index_bottom and viewable_index_bottom - height, we want to show the cursor
@@ -780,7 +780,7 @@ impl TerminalBufferHolder {
         }
     }
 
-    pub fn set_top_and_bottom_margins(&mut self, top_margin: usize, bottom_margin: usize) {
+    pub const fn set_top_and_bottom_margins(&mut self, top_margin: usize, bottom_margin: usize) {
         self.top_margin = top_margin.saturating_sub(1);
         self.bottom_margin = if bottom_margin == 0 {
             usize::MAX
