@@ -57,3 +57,6 @@ unicode-segmentation = "1.12.0"
 test-log = { version = "0.2.18", features = ["trace"] }
 tempfile = "3.23.0"
 vergen = { version = "9.0.6", features = ["build", "cargo", "rustc", "si"] }
+
+# dev
+proptest = "1.9.0"

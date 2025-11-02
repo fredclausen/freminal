@@ -1,11 +1,15 @@
-// tests/args_tests.rs
-
 use anyhow::Result;
 use freminal_common::args::Args;
+use proptest::prelude::*;
 
+/// Helper: run the parser with a simple iterator of strings
 fn parse_from<I: IntoIterator<Item = S>, S: Into<String>>(args: I) -> Result<Args> {
     Args::parse(args.into_iter().map(Into::into))
 }
+
+// ------------------------
+// Unit tests
+// ------------------------
 
 #[test]
 fn parses_empty_args_defaults() {
@@ -82,6 +86,60 @@ fn invalid_argument_is_error() {
 #[test]
 fn help_flag_does_not_error() {
     let result = parse_from(["freminal", "--help"]);
-    // help just prints but shouldn't fail
     assert!(result.is_ok());
+}
+
+// ------------------------
+// Property-based tests
+// ------------------------
+
+proptest! {
+    /// Any combination of valid boolean flag forms for `--write-logs-to-file`
+    /// should parse consistently.
+    #[test]
+    fn write_logs_to_file_accepts_boolean_values(val in prop::bool::ANY) {
+        let arg = format!("--write-logs-to-file={}", val);
+        let args = parse_from(["freminal", &arg]).unwrap();
+        prop_assert_eq!(args.write_logs_to_file, val);
+    }
+
+    /// Arbitrary strings that do *not* start with `--` should always trigger an error.
+    #[test]
+    fn invalid_arguments_fail(s in "[a-zA-Z0-9_]+") {
+        // Avoid empty program name
+        let result = parse_from(["freminal", &s]);
+        prop_assert!(result.is_err());
+    }
+
+    /// Mixing valid and invalid flags: the first invalid should cause failure.
+    #[test]
+    fn mixed_valid_and_invalid_arguments_fail(
+        bad_arg in "--[a-z]{1,8}",
+        rec in "rec[0-9]+\\.log"
+    ) {
+        let args = ["freminal", "--recording-path", &rec, &bad_arg];
+        let result = parse_from(args);
+        prop_assert!(result.is_err());
+    }
+
+    /// Ensure `--recording-path` and `--shell` always propagate correctly
+    /// for random filenames and shell names.
+    #[test]
+    fn recording_and_shell_preserved(
+        path in "[a-zA-Z0-9_/\\.]{1,20}",
+        shell in "/bin/[a-z]{2,8}"
+    ) {
+        let args = parse_from(["freminal", "--recording-path", &path, "--shell", &shell]).unwrap();
+        prop_assert_eq!(args.recording.as_deref(), Some(path.as_str()));
+        prop_assert_eq!(args.shell.as_deref(), Some(shell.as_str()));
+    }
+
+    /// The parser should never panic or crash for arbitrary ASCII input.
+    #[test]
+    fn parser_never_panics_on_random_input(input in prop::collection::vec("[ -~]{0,20}", 0..10)) {
+        let args: Vec<String> = std::iter::once("freminal".to_string())
+            .chain(input.into_iter())
+            .collect();
+        let _ = Args::parse(args.into_iter()); // should not panic
+    }
 }
