@@ -1106,7 +1106,7 @@ impl TerminalState {
                     .push(WindowManipulation::SetTitleBarText(title));
             }
             AnsiOscType::Ftcs(value) => {
-                warn!("Ftcs is not supported: {value}");
+                debug!("Ftcs is not supported: {value}");
             }
             // FIXME: I think once we get in to muxxing we'll need to handle this
             // I think the idea here is that OSC 7 is emitted to inform the terminal of the current working directory
