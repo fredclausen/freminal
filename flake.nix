@@ -47,9 +47,10 @@
             };
           };
 
+          # replace your preCommitHooksPkg with this
           preCommitHooksPkg = pkgs.python3Packages.buildPythonPackage rec {
             pname = "pre-commit-hooks";
-            version = "5.0.0";
+            version = "6.0.0";
             pyproject = true;
             build-system = [
               pkgs.python3Packages.setuptools
@@ -57,9 +58,9 @@
             ];
             src = pkgs.fetchFromGitHub {
               owner = "pre-commit";
-              repo = pname;
-              rev = "v${version}";
-              sha256 = "sha256-BYNi/xtdichqsn55hqr1MSFwWpH+7cCbLfqmpn9cxto=";
+              repo = "pre-commit-hooks";
+              rev = "v6.0.0";
+              sha256 = "sha256-pxtsnRryTguNGYbdiQ55UhuRyJTQvFfaqVOTcCz2jgk=";
             };
             propagatedBuildInputs = [ ruamelYaml_0186 ];
           };
@@ -89,25 +90,23 @@
             src = pkgs.fetchFromGitHub {
               owner = "sirosen";
               repo = pname;
-              rev = "${version}";
+              rev = version;
               sha256 = "sha256-JSz8zwiOnX3nuKypffe0wZ7YoZ7uHH/lAoUgdKfkEO8=";
             };
-            propagatedBuildInputs =
-              with pkgs.python3Packages;
-              [
-                click
-                requests
-                jsonschema
-                regress
-              ]
-              ++ [ ruamelYaml_0186 ];
+            propagatedBuildInputs = with pkgs.python3Packages; [
+              click
+              requests
+              jsonschema
+              regress
+              ruamelYaml_0186
+            ];
           };
         in
         {
           pre-commit-check = git-hooks.lib.${system}.run {
             src = ./.;
 
-            # ✅ Global file exclusions and filters
+            # ✅ Global excludes
             excludes = [
               "^res/"
               "^./res/"
@@ -117,7 +116,7 @@
             ];
 
             hooks = {
-              # --- Standard pre-commit-hooks bundle ---
+              # --- Basic hygiene ---
               check-yaml = {
                 enable = true;
                 entry = "${preCommitHooksPkg}/bin/check-yaml";
@@ -133,6 +132,7 @@
               requirements-txt-fixer = {
                 enable = true;
                 entry = "${preCommitHooksPkg}/bin/requirements-txt-fixer";
+                files = "^(requirements(\\.txt)?|requirements/.*\\.txt)$";
               };
               mixed-line-ending = {
                 enable = true;
@@ -148,7 +148,7 @@
                 entry = "${preCommitHooksPkg}/bin/check-shebang-scripts-are-executable";
               };
 
-              # --- Extra tooling ---
+              # --- Code quality ---
               hadolint.enable = true;
 
               prettier = {
@@ -174,12 +174,12 @@
 
               shellcheck.enable = true;
 
-              # ✅ Correct subcommand calls for check-jsonschema
+              # --- JSON Schema validation ---
               check-github-actions = {
                 enable = true;
                 entry = "${checkJsonschema}/bin/check-jsonschema";
                 args = [
-                  "--check-type"
+                  "--builtin-schema"
                   "github-actions"
                 ];
                 files = "\\.ya?ml$";
@@ -188,28 +188,46 @@
                 enable = true;
                 entry = "${checkJsonschema}/bin/check-jsonschema";
                 args = [
-                  "--check-type"
+                  "--builtin-schema"
                   "github-workflows"
                 ];
                 files = "\\.ya?ml$";
               };
 
-              rustfmt.enable = true;
-              clippy.enable = true;
+              # --- Rust tooling (explicit toolchain path) ---
+              rustfmt = {
+                enable = true;
+                entry = "${pkgs.rust-bin.stable.latest.default}/bin/cargo";
+                args = [
+                  "fmt"
+                  "--all"
+                  "--"
+                  "--check"
+                ];
+              };
+              clippy = {
+                enable = true;
+                entry = "${pkgs.rust-bin.stable.latest.default}/bin/cargo";
+                args = [
+                  "clippy"
+                  "--workspace"
+                  "--all-targets"
+                ];
+              };
 
+              # --- Python + Nix formatting ---
               black.enable = true;
               flake8 = {
                 enable = true;
                 args = [ "--extend-ignore=W503,W504,E501" ];
               };
-
               nixfmt.enable = true;
             };
           };
         }
       );
 
-      # --- Pre-commit runner app ---
+      # --- Convenience app to run all hooks ---
       formatter = eachSystem (
         system:
         let
@@ -275,9 +293,7 @@
               alias pre-commit="pre-commit-run"
               export RUST_SRC_PATH=${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}
               export LD_LIBRARY_PATH=${libPath}:$LD_LIBRARY_PATH
-              export SKIP_PATHS_REGEX="^res/"
             '';
-
           };
         }
       );
