@@ -23,6 +23,17 @@
           inherit system;
           overlays = [ (import rust-overlay) ];
         };
+        myRustToolchain = pkgs.rust-bin.fromRustupToolchain {
+          channel = "stable";
+          components = [
+            "rustc"
+            "cargo"
+            "clippy"
+            "rustfmt"
+            "rust-analyzer"
+            "rust-src"
+          ]; # Add desired components
+        };
       in
       {
         checks.pre-commit-check = git-hooks.lib.${system}.run {
@@ -119,7 +130,7 @@
 
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            rust-bin.stable.latest.default
+            myRustToolchain
             pre-commit
             check-jsonschema
             codespell
