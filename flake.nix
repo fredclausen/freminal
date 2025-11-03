@@ -32,6 +32,7 @@
             "rustfmt"
             "rust-analyzer"
             "rust-src"
+            "llvm-tools-preview"
           ]; # Add desired components
         };
       in
