@@ -471,6 +471,10 @@ impl FreminalAnsiParser {
 mod tests {
     use super::*;
 
+    // -------------------------------------------------------------------------
+    // Existing tests
+    // -------------------------------------------------------------------------
+
     #[test]
     fn push_data_if_non_empty_behavior() {
         let mut data = vec![b'a', b'b'];
@@ -522,5 +526,161 @@ mod tests {
         data.clear();
         assert!(p.ansi_parser_inner_empty(b'A', &mut data, &mut out).is_ok());
         assert!(data.is_empty()); // correct: data is only pushed in FreminalAnsiParser::push
+    }
+
+    // -------------------------------------------------------------------------
+    // New tests for full coverage
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn escape_branches_cover_all_modes() {
+        let mut p = FreminalAnsiParser::new();
+        let mut out = Vec::new();
+        let mut data = Vec::new();
+
+        // '[' → CSI
+        p.inner = ParserInner::Escape;
+        p.ansiparser_inner_escape(b'[', &mut data, &mut out);
+        assert!(matches!(p.inner, ParserInner::Csi(_)));
+
+        // ']' → OSC
+        p.inner = ParserInner::Escape;
+        p.ansiparser_inner_escape(b']', &mut data, &mut out);
+        assert!(matches!(p.inner, ParserInner::Osc(_)));
+
+        // other → Standard
+        p.inner = ParserInner::Escape;
+        p.ansiparser_inner_escape(b'Z', &mut data, &mut out);
+        assert!(
+            matches!(p.inner, ParserInner::Standard(_) | ParserInner::Empty),
+            "Unexpected inner state: {:?}",
+            p.inner
+        );
+    }
+
+    #[test]
+    fn push_drives_each_parser_inner_variant() {
+        let mut parser = FreminalAnsiParser::new();
+
+        // Empty path → Data
+        let out = parser.push(b"abc");
+        assert_eq!(out.last(), Some(&TerminalOutput::Data(b"abc".to_vec())));
+
+        // Escape → CSI
+        let result_csi = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            parser.push(b"\x1b[31m") // valid CSI SGR sequence
+        }));
+        assert!(result_csi.is_ok(), "CSI branch should not panic");
+
+        // Escape → OSC
+        let result_osc = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            parser.push(b"\x1b]0;hi\x07") // valid OSC title sequence
+        }));
+        assert!(result_osc.is_ok(), "OSC branch should not panic");
+
+        // Escape → Standard
+        let result_std = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            parser.push(b"\x1bZ") // DECID or unsupported escape
+        }));
+        assert!(result_std.is_ok(), "Standard branch should not panic");
+    }
+
+    #[test]
+    fn parser_handles_error_paths_without_panic() {
+        let mut parser = FreminalAnsiParser::new();
+        // malformed ESC / OSC sequences; should log but never panic
+        let weird = b"\x1b[999;xxxm\x1b]invalid\x07";
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| parser.push(weird)));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn display_all_terminal_output_variants_exhaustively() {
+        use TerminalOutput::*;
+        let outputs = vec![
+            ClearDisplayfromCursortoEndofDisplay,
+            ClearDiplayfromStartofDisplaytoCursor,
+            ClearScrollbackandDisplay,
+            ClearLineForwards,
+            ClearLineBackwards,
+            DecSpecialGraphics(crate::ansi_components::line_draw::DecSpecialGraphics::Replace),
+            CursorVisualStyle(freminal_common::cursor::CursorVisualStyle::BlockCursorSteady),
+            WindowManipulation(
+                freminal_common::window_manipulation::WindowManipulation::DeIconifyWindow,
+            ),
+            MemoryLock,
+            MemoryUnlock,
+            DeviceControlString(b"abc".to_vec()),
+            ApplicationProgramCommand(b"xyz".to_vec()),
+            RequestDeviceNameandVersion,
+            EightBitControl,
+            SevenBitControl,
+            AnsiConformanceLevelOne,
+            AnsiConformanceLevelTwo,
+            AnsiConformanceLevelThree,
+            DoubleLineHeightTop,
+            DoubleLineHeightBottom,
+            SingleWidthLine,
+            DoubleWidthLine,
+            ScreenAlignmentTest,
+            CharsetDefault,
+            CharsetUTF8,
+            CharsetG0,
+            CharsetG1,
+            CharsetG1AsGR,
+            CharsetG2,
+            CharsetG2AsGR,
+            CharsetG2AsGL,
+            CharsetG3,
+            CharsetG3AsGR,
+            CharsetG3AsGL,
+            DecSpecial,
+            CharsetUK,
+            CharsetUS,
+            CharsetUSASCII,
+            CharsetDutch,
+            CharsetFinnish,
+            CharsetFrench,
+            CharsetFrenchCanadian,
+            CharsetGerman,
+            CharsetItalian,
+            CharsetNorwegianDanish,
+            CharsetSpanish,
+            CharsetSwedish,
+            CharsetSwiss,
+            SaveCursor,
+            RestoreCursor,
+            CursorToLowerLeftCorner,
+            ResetDevice,
+            RequestDeviceAttributes,
+            Skipped,
+            Invalid,
+        ];
+        for o in outputs {
+            let _ = format!("{o}");
+        }
+    }
+
+    #[test]
+    fn extract_and_split_helpers_cover_edge_cases() {
+        // extract_param out-of-range
+        assert_eq!(extract_param(5, &[Some(1)]), None);
+
+        // split_params empty string
+        let r = split_params_into_semicolon_delimited_usize(b"");
+
+        if let Ok(v) = r.as_ref() {
+            assert_eq!(v, &vec![None]);
+        } else {
+            panic!("Expected Ok result");
+        }
+
+        // colon-delimited also works on empty
+        let r = split_params_into_colon_delimited_usize(b"");
+        if let Ok(v) = r.as_ref() {
+            assert_eq!(v, &vec![None]);
+        } else {
+            panic!("Expected Ok result");
+        }
     }
 }

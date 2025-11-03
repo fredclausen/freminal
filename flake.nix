@@ -18,7 +18,9 @@
           ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ wayland ]
         );
 
-        rustToolchain = pkgs.rust-bin.stable.latest.default;
+        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+  extensions = [ "rust-src" "llvm-tools-preview" ];
+};
 
         nativeBuildInputs = with pkgs; [ rustToolchain ];
         buildInputs = with pkgs; [
@@ -29,6 +31,7 @@
           samply
           cargo-tauri
           typos
+          #cargo-llvm-cov
         ];
 
         RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
@@ -39,6 +42,12 @@
           shellHook = ''
             export RUST_SRC_PATH=${RUST_SRC_PATH}
             export LD_LIBRARY_PATH=${libPath}:$LD_LIBRARY_PATH
+
+            # Install cargo-llvm-cov if not already present
+    if ! command -v cargo-llvm-cov >/dev/null 2>&1; then
+      echo "Installing cargo-llvm-cov into local Cargo bin..."
+      cargo install cargo-llvm-cov --locked
+    fi
           '';
         };
       });
