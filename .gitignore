@@ -545,3 +545,4 @@ web_modules/
 wheels/
 yarn-debug.log*
 yarn-error.log*
+.pre-commit-config.yaml

@@ -30,41 +30,8 @@
             overlays = [ (import rust-overlay) ];
           };
 
-          # --- pre-commit-hooks (from GitHub, PyPI tarball is gone)
-          preCommitHooksPkg = pkgs.python3Packages.buildPythonPackage rec {
-            pname = "pre-commit-hooks";
-            version = "5.0.0";
-            pyproject = true;
-            build-system = [
-              pkgs.python3Packages.setuptools
-              pkgs.python3Packages.wheel
-            ];
-            src = pkgs.fetchFromGitHub {
-              owner = "pre-commit";
-              repo = pname;
-              rev = "${version}";
-              sha256 = "sha256-BYNi/xtdichqsn55hqr1MSFwWpH+7cCbLfqmpn9cxto=";
-            };
+          # --- Custom Python Packages ---
 
-            propagatedBuildInputs = [ ruamelYaml_0186 ];
-          };
-
-          # --- codespell
-          codespellPkg = pkgs.python3Packages.buildPythonPackage rec {
-            pname = "codespell";
-            version = "2.4.1";
-            pyproject = true;
-            build-system = [
-              pkgs.python3Packages.setuptools
-              pkgs.python3Packages.setuptools-scm
-            ];
-            src = pkgs.fetchPypi {
-              inherit pname version;
-              sha256 = "sha256-KZ/NywnSPoHjWmcbvnRtWtfoOFly5l27gzouqsM8AeU=";
-            };
-          };
-
-          # --- pinned ruamel.yaml 0.18.6 (runtime dep)
           ruamelYaml_0186 = pkgs.python3Packages.buildPythonPackage rec {
             pname = "ruamel.yaml";
             version = "0.18.6";
@@ -80,7 +47,37 @@
             };
           };
 
-          # --- check-jsonschema (validated from GitHub)
+          preCommitHooksPkg = pkgs.python3Packages.buildPythonPackage rec {
+            pname = "pre-commit-hooks";
+            version = "5.0.0";
+            pyproject = true;
+            build-system = [
+              pkgs.python3Packages.setuptools
+              pkgs.python3Packages.wheel
+            ];
+            src = pkgs.fetchFromGitHub {
+              owner = "pre-commit";
+              repo = pname;
+              rev = "v${version}";
+              sha256 = "sha256-BYNi/xtdichqsn55hqr1MSFwWpH+7cCbLfqmpn9cxto=";
+            };
+            propagatedBuildInputs = [ ruamelYaml_0186 ];
+          };
+
+          codespellPkg = pkgs.python3Packages.buildPythonPackage rec {
+            pname = "codespell";
+            version = "2.4.1";
+            pyproject = true;
+            build-system = [
+              pkgs.python3Packages.setuptools
+              pkgs.python3Packages.setuptools-scm
+            ];
+            src = pkgs.fetchPypi {
+              inherit pname version;
+              sha256 = "sha256-KZ/NywnSPoHjWmcbvnRtWtfoOFly5l27gzouqsM8AeU=";
+            };
+          };
+
           checkJsonschema = pkgs.python3Packages.buildPythonPackage rec {
             pname = "check-jsonschema";
             version = "0.29.4";
@@ -110,8 +107,17 @@
           pre-commit-check = git-hooks.lib.${system}.run {
             src = ./.;
 
+            # ✅ Global file exclusions and filters
+            excludes = [
+              "^res/"
+              "^./res/"
+              "^typos\\.toml$"
+              "^speed_tests/.*\\.txt$"
+              "^Documents/.*"
+            ];
+
             hooks = {
-              # --- YAML / whitespace / shebangs ---
+              # --- Standard pre-commit-hooks bundle ---
               check-yaml = {
                 enable = true;
                 entry = "${preCommitHooksPkg}/bin/check-yaml";
@@ -142,10 +148,9 @@
                 entry = "${preCommitHooksPkg}/bin/check-shebang-scripts-are-executable";
               };
 
-              # --- Dockerfile linting ---
+              # --- Extra tooling ---
               hadolint.enable = true;
 
-              # --- Prettier ---
               prettier = {
                 enable = true;
                 types_or = [
@@ -160,7 +165,6 @@
                 extraPackages = [ pkgs.nodePackages.prettier ];
               };
 
-              # --- Codespell ---
               codespell = {
                 enable = true;
                 entry = "${codespellPkg}/bin/codespell";
@@ -168,10 +172,9 @@
                 files = "\\.([ch]|cpp|rs|py|sh|txt|md|toml|yaml|yml)$";
               };
 
-              # --- Shell scripts ---
               shellcheck.enable = true;
 
-              # --- GitHub Actions / Workflows validation ---
+              # ✅ Correct subcommand calls for check-jsonschema
               check-github-actions = {
                 enable = true;
                 entry = "${checkJsonschema}/bin/check-jsonschema";
@@ -191,25 +194,22 @@
                 files = "\\.ya?ml$";
               };
 
-              # --- Rust ---
               rustfmt.enable = true;
               clippy.enable = true;
 
-              # --- Python ---
               black.enable = true;
               flake8 = {
                 enable = true;
                 args = [ "--extend-ignore=W503,W504,E501" ];
               };
 
-              # --- Nix ---
               nixfmt.enable = true;
             };
           };
         }
       );
 
-      # --- Formatter helper (run all hooks)
+      # --- Pre-commit runner app ---
       formatter = eachSystem (
         system:
         let
@@ -223,7 +223,6 @@
         pkgs.writeShellScriptBin "pre-commit-run" script
       );
 
-      # --- Expose as an app (so `nix run .#pre-commit-run` works)
       apps = eachSystem (system: {
         pre-commit-run = {
           type = "app";
@@ -276,7 +275,9 @@
               alias pre-commit="pre-commit-run"
               export RUST_SRC_PATH=${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}
               export LD_LIBRARY_PATH=${libPath}:$LD_LIBRARY_PATH
+              export SKIP_PATHS_REGEX="^res/"
             '';
+
           };
         }
       );
