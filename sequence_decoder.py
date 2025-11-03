@@ -9,7 +9,8 @@
 
 # the sequence of numbers to decode
 
-# grab the file name from the args. If no filename is specified use "sequence.bin"
+# grab the file name from the args.
+# If no filename is specified use "sequence.bin"
 
 # possible args are --recording-path <path> and --convert-escape
 
