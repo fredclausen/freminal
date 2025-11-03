@@ -1,5 +1,5 @@
 {
-  description = "Freminal development environment with reproducible pre-commit hooks";
+  description = "Freminal development environment with reproducible pre-commit hooks and xtask support";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -31,7 +31,6 @@
           };
 
           # --- Custom Python Packages ---
-
           ruamelYaml_0186 = pkgs.python3Packages.buildPythonPackage rec {
             pname = "ruamel.yaml";
             version = "0.18.6";
@@ -47,7 +46,6 @@
             };
           };
 
-          # replace your preCommitHooksPkg with this
           preCommitHooksPkg = pkgs.python3Packages.buildPythonPackage rec {
             pname = "pre-commit-hooks";
             version = "6.0.0";
@@ -58,8 +56,8 @@
             ];
             src = pkgs.fetchFromGitHub {
               owner = "pre-commit";
-              repo = "pre-commit-hooks";
-              rev = "v6.0.0";
+              repo = pname;
+              rev = "v${version}";
               sha256 = "sha256-pxtsnRryTguNGYbdiQ55UhuRyJTQvFfaqVOTcCz2jgk=";
             };
             propagatedBuildInputs = [ ruamelYaml_0186 ];
@@ -106,7 +104,6 @@
           pre-commit-check = git-hooks.lib.${system}.run {
             src = ./.;
 
-            # ✅ Global excludes
             excludes = [
               "^res/"
               "^./res/"
@@ -129,15 +126,15 @@
                 enable = true;
                 entry = "${preCommitHooksPkg}/bin/trailing-whitespace-fixer";
               };
-              requirements-txt-fixer = {
-                enable = true;
-                entry = "${preCommitHooksPkg}/bin/requirements-txt-fixer";
-                files = "^(requirements(\\.txt)?|requirements/.*\\.txt)$";
-              };
               mixed-line-ending = {
                 enable = true;
                 entry = "${preCommitHooksPkg}/bin/mixed-line-ending";
                 args = [ "--fix=auto" ];
+              };
+              requirements-txt-fixer = {
+                enable = true;
+                entry = "${preCommitHooksPkg}/bin/requirements-txt-fixer";
+                files = "^(requirements(\\.txt)?|requirements/.*\\.txt)$";
               };
               check-executables-have-shebangs = {
                 enable = true;
@@ -150,7 +147,6 @@
 
               # --- Code quality ---
               hadolint.enable = true;
-
               prettier = {
                 enable = true;
                 types_or = [
@@ -164,14 +160,12 @@
                 ];
                 extraPackages = [ pkgs.nodePackages.prettier ];
               };
-
               codespell = {
                 enable = true;
                 entry = "${codespellPkg}/bin/codespell";
                 args = [ "--ignore-words=.dictionary.txt" ];
                 files = "\\.([ch]|cpp|rs|py|sh|txt|md|toml|yaml|yml)$";
               };
-
               shellcheck.enable = true;
 
               # --- JSON Schema validation ---
@@ -194,7 +188,7 @@
                 files = "\\.ya?ml$";
               };
 
-              # --- Rust tooling (explicit toolchain path) ---
+              # --- Rust tooling ---
               rustfmt = {
                 enable = true;
                 entry = "${pkgs.rust-bin.stable.latest.default}/bin/cargo";
@@ -222,12 +216,23 @@
                 args = [ "--extend-ignore=W503,W504,E501" ];
               };
               nixfmt.enable = true;
+
+              # --- Optional xtask verification ---
+              xtask-check = {
+                enable = true;
+                entry = "${pkgs.rust-bin.stable.latest.default}/bin/cargo";
+                pass_filenames = false;
+                args = [
+                  "xtask"
+                  "ci"
+                ];
+              };
             };
           };
         }
       );
 
-      # --- Convenience app to run all hooks ---
+      # --- App: run pre-commit hooks manually ---
       formatter = eachSystem (
         system:
         let
@@ -241,12 +246,31 @@
         pkgs.writeShellScriptBin "pre-commit-run" script
       );
 
-      apps = eachSystem (system: {
-        pre-commit-run = {
-          type = "app";
-          program = "${self.formatter.${system}}/bin/pre-commit-run";
-        };
-      });
+      # --- Apps ---
+      apps = eachSystem (
+        system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ (import rust-overlay) ];
+          };
+        in
+        {
+          pre-commit-run = {
+            type = "app";
+            program = "${self.formatter.${system}}/bin/pre-commit-run";
+          };
+
+          xtask = {
+            type = "app";
+            program = "${pkgs.rust-bin.stable.latest.default}/bin/cargo";
+            args = [
+              "xtask"
+              "ci"
+            ];
+          };
+        }
+      );
 
       # --- Dev shell ---
       devShells = eachSystem (
@@ -291,6 +315,7 @@
             shellHook = ''
               ${shellHook}
               alias pre-commit="pre-commit-run"
+              alias xtask="cargo run -p xtask --"
               export RUST_SRC_PATH=${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}
               export LD_LIBRARY_PATH=${libPath}:$LD_LIBRARY_PATH
             '';
