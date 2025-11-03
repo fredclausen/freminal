@@ -73,3 +73,8 @@ repos:
     hooks:
       - id: flake8
         args: ["--extend-ignore=W503,W504,E501"]
+
+  - repo: https://github.com/NixOS/nixfmt
+    rev: 8842e9fb100190704cfbb281231a363c01d11382 # frozen: v1.1.0
+    hooks:
+      - id: nixfmt
