@@ -1,11 +1,10 @@
 {
-  description = "Freminal development environment with reproducible pre-commit hooks and xtask support";
+  description = "Freminal dev env — Nix-native pre-commit + xtask";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay.url = "github:oxalica/rust-overlay";
-    systems.url = "github:nix-systems/default";
     git-hooks.url = "github:cachix/git-hooks.nix";
   };
 
@@ -15,312 +14,130 @@
       nixpkgs,
       flake-utils,
       rust-overlay,
-      systems,
       git-hooks,
     }:
-    let
-      eachSystem = nixpkgs.lib.genAttrs (import systems);
-    in
-    {
-      checks = eachSystem (
-        system:
-        let
-          pkgs = import nixpkgs {
-            inherit system;
-            overlays = [ (import rust-overlay) ];
-          };
+    flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ (import rust-overlay) ];
+        };
+      in
+      {
+        checks.pre-commit-check = git-hooks.lib.${system}.run {
+          src = ./.;
 
-          # --- Custom Python Packages ---
-          ruamelYaml_0186 = pkgs.python3Packages.buildPythonPackage rec {
-            pname = "ruamel.yaml";
-            version = "0.18.6";
-            pyproject = true;
-            build-system = [
-              pkgs.python3Packages.setuptools
-              pkgs.python3Packages.wheel
-            ];
-            src = pkgs.fetchPypi {
-              pname = "ruamel.yaml";
-              inherit version;
-              sha256 = "sha256-iyfmohfnhsb75WNNjz8RvGPg+A9qWJDyiGPZxFqsMRs=";
-            };
-          };
-
-          preCommitHooksPkg = pkgs.python3Packages.buildPythonPackage rec {
-            pname = "pre-commit-hooks";
-            version = "6.0.0";
-            pyproject = true;
-            build-system = [
-              pkgs.python3Packages.setuptools
-              pkgs.python3Packages.wheel
-            ];
-            src = pkgs.fetchFromGitHub {
-              owner = "pre-commit";
-              repo = pname;
-              rev = "v${version}";
-              sha256 = "sha256-pxtsnRryTguNGYbdiQ55UhuRyJTQvFfaqVOTcCz2jgk=";
-            };
-            propagatedBuildInputs = [ ruamelYaml_0186 ];
-          };
-
-          codespellPkg = pkgs.python3Packages.buildPythonPackage rec {
-            pname = "codespell";
-            version = "2.4.1";
-            pyproject = true;
-            build-system = [
-              pkgs.python3Packages.setuptools
-              pkgs.python3Packages.setuptools-scm
-            ];
-            src = pkgs.fetchPypi {
-              inherit pname version;
-              sha256 = "sha256-KZ/NywnSPoHjWmcbvnRtWtfoOFly5l27gzouqsM8AeU=";
-            };
-          };
-
-          checkJsonschema = pkgs.python3Packages.buildPythonPackage rec {
-            pname = "check-jsonschema";
-            version = "0.29.4";
-            pyproject = true;
-            build-system = [
-              pkgs.python3Packages.setuptools
-              pkgs.python3Packages.wheel
-            ];
-            src = pkgs.fetchFromGitHub {
-              owner = "sirosen";
-              repo = pname;
-              rev = version;
-              sha256 = "sha256-JSz8zwiOnX3nuKypffe0wZ7YoZ7uHH/lAoUgdKfkEO8=";
-            };
-            propagatedBuildInputs = with pkgs.python3Packages; [
-              click
-              requests
-              jsonschema
-              regress
-              ruamelYaml_0186
-            ];
-          };
-        in
-        {
-          pre-commit-check = git-hooks.lib.${system}.run {
-            src = ./.;
-
-            excludes = [
-              "^res/"
-              "^./res/"
-              "^typos\\.toml$"
-              "^speed_tests/.*\\.txt$"
-              "^Documents/.*"
-            ];
-
-            hooks = {
-              # --- Basic hygiene ---
-              check-yaml = {
-                enable = true;
-                entry = "${preCommitHooksPkg}/bin/check-yaml";
-              };
-              end-of-file-fixer = {
-                enable = true;
-                entry = "${preCommitHooksPkg}/bin/end-of-file-fixer";
-              };
-              trailing-whitespace = {
-                enable = true;
-                entry = "${preCommitHooksPkg}/bin/trailing-whitespace-fixer";
-              };
-              mixed-line-ending = {
-                enable = true;
-                entry = "${preCommitHooksPkg}/bin/mixed-line-ending";
-                args = [ "--fix=auto" ];
-              };
-              requirements-txt-fixer = {
-                enable = true;
-                entry = "${preCommitHooksPkg}/bin/requirements-txt-fixer";
-                files = "^(requirements(\\.txt)?|requirements/.*\\.txt)$";
-              };
-              check-executables-have-shebangs = {
-                enable = true;
-                entry = "${preCommitHooksPkg}/bin/check-executables-have-shebangs";
-              };
-              check-shebang-scripts-are-executable = {
-                enable = true;
-                entry = "${preCommitHooksPkg}/bin/check-shebang-scripts-are-executable";
-              };
-
-              # --- Code quality ---
-              hadolint.enable = true;
-              prettier = {
-                enable = true;
-                types_or = [
-                  "file"
-                  "bash"
-                  "sh"
-                  "javascript"
-                  "jsx"
-                  "ts"
-                  "tsx"
-                ];
-                extraPackages = [ pkgs.nodePackages.prettier ];
-              };
-              codespell = {
-                enable = true;
-                entry = "${codespellPkg}/bin/codespell";
-                args = [ "--ignore-words=.dictionary.txt" ];
-                files = "\\.([ch]|cpp|rs|py|sh|txt|md|toml|yaml|yml)$";
-              };
-              shellcheck.enable = true;
-
-              # --- JSON Schema validation ---
-              check-github-actions = {
-                enable = true;
-                entry = "${checkJsonschema}/bin/check-jsonschema";
-                args = [
-                  "--builtin-schema"
-                  "github-actions"
-                ];
-                files = "\\.ya?ml$";
-              };
-              check-github-workflows = {
-                enable = true;
-                entry = "${checkJsonschema}/bin/check-jsonschema";
-                args = [
-                  "--builtin-schema"
-                  "github-workflows"
-                ];
-                files = "\\.ya?ml$";
-              };
-
-              # --- Rust tooling ---
-              rustfmt = {
-                enable = true;
-                entry = "${pkgs.rust-bin.stable.latest.default}/bin/cargo";
-                args = [
-                  "fmt"
-                  "--all"
-                  "--"
-                  "--check"
-                ];
-              };
-              clippy = {
-                enable = true;
-                entry = "${pkgs.rust-bin.stable.latest.default}/bin/cargo";
-                args = [
-                  "clippy"
-                  "--workspace"
-                  "--all-targets"
-                ];
-              };
-
-              # --- Python + Nix formatting ---
-              black.enable = true;
-              flake8 = {
-                enable = true;
-                args = [ "--extend-ignore=W503,W504,E501" ];
-              };
-              nixfmt.enable = true;
-
-              # --- Optional xtask verification ---
-              xtask-check = {
-                enable = true;
-                entry = "${pkgs.rust-bin.stable.latest.default}/bin/cargo";
-                pass_filenames = false;
-                args = [
-                  "xtask"
-                  "ci"
-                ];
-              };
-            };
-          };
-        }
-      );
-
-      # --- App: run pre-commit hooks manually ---
-      formatter = eachSystem (
-        system:
-        let
-          pkgs = nixpkgs.legacyPackages.${system};
-          inherit (self.checks.${system}.pre-commit-check) config;
-          inherit (config) package configFile;
-          script = ''
-            ${pkgs.lib.getExe package} run --all-files --config ${configFile}
-          '';
-        in
-        pkgs.writeShellScriptBin "pre-commit-run" script
-      );
-
-      # --- Apps ---
-      apps = eachSystem (
-        system:
-        let
-          pkgs = import nixpkgs {
-            inherit system;
-            overlays = [ (import rust-overlay) ];
-          };
-        in
-        {
-          pre-commit-run = {
-            type = "app";
-            program = "${self.formatter.${system}}/bin/pre-commit-run";
-          };
-
-          xtask = {
-            type = "app";
-            program = "${pkgs.rust-bin.stable.latest.default}/bin/cargo";
-            args = [
-              "xtask"
-              "ci"
-            ];
-          };
-        }
-      );
-
-      # --- Dev shell ---
-      devShells = eachSystem (
-        system:
-        let
-          pkgs = import nixpkgs {
-            inherit system;
-            overlays = [ (import rust-overlay) ];
-          };
-
-          rustToolchain = pkgs.rust-bin.stable.latest.default.override {
-            extensions = [
-              "rust-src"
-              "llvm-tools-preview"
-            ];
-          };
-
-          libPath = pkgs.lib.makeLibraryPath (
-            with pkgs;
-            [
-              libGL
-              libxkbcommon
-            ]
-            ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ wayland ]
-          );
-
-          rustTools = with pkgs; [
-            cargo-make
-            cargo-deny
-            cargo-machete
-            cargo-profiler
-            samply
-            cargo-tauri
-            typos
+          excludes = [
+            "^res/"
+            "^./res/"
+            "^typos\\.toml$"
+            "^speed_tests/.*\\.txt$"
+            "^Documents/.*"
           ];
 
-          inherit (self.checks.${system}.pre-commit-check) shellHook enabledPackages;
-        in
-        {
-          default = pkgs.mkShell {
-            buildInputs = [ rustToolchain ] ++ rustTools ++ enabledPackages;
-            shellHook = ''
-              ${shellHook}
-              alias pre-commit="pre-commit-run"
-              alias xtask="cargo run -p xtask --"
-              export RUST_SRC_PATH=${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}
-              export LD_LIBRARY_PATH=${libPath}:$LD_LIBRARY_PATH
-            '';
+          hooks = {
+            # Built-in git-hooks.nix hooks
+            check-yaml.enable = true;
+            end-of-file-fixer.enable = true;
+            trailing-whitespace.enable = true;
+            mixed-line-ending = {
+              enable = true;
+              args = [ "--fix=auto" ];
+            };
+            check-executables-have-shebangs.enable = true;
+            check-shebang-scripts-are-executable.enable = true;
+            black.enable = true;
+            flake8.enable = true;
+            nixfmt.enable = true;
+            hadolint.enable = true;
+            shellcheck.enable = true;
+            prettier.enable = true;
+
+            # Hooks that need system packages
+            codespell = {
+              enable = true;
+              entry = "${pkgs.codespell}/bin/codespell";
+              args = [ "--ignore-words=.dictionary.txt" ];
+              files = "\\.([ch]|cpp|rs|py|sh|txt|md|toml|yaml|yml)$";
+            };
+
+            check-github-actions = {
+              enable = true;
+              entry = "${pkgs.check-jsonschema}/bin/check-jsonschema";
+              args = [
+                "--builtin-schema"
+                "github-actions"
+              ];
+              files = "\\.ya?ml$";
+              pass_filenames = false;
+            };
+
+            check-github-workflows = {
+              enable = true;
+              entry = "${pkgs.check-jsonschema}/bin/check-jsonschema";
+              args = [
+                "--builtin-schema"
+                "github-workflows"
+              ];
+              files = "\\.ya?ml$";
+              pass_filenames = false;
+            };
+
+            # Rust hooks
+            rustfmt = {
+              enable = true;
+              entry = "${pkgs.rust-bin.stable.latest.default}/bin/cargo";
+              args = [
+                "fmt"
+                "--all"
+                "--"
+                "--check"
+              ];
+            };
+            clippy = {
+              enable = true;
+              entry = "${pkgs.rust-bin.stable.latest.default}/bin/cargo";
+              args = [
+                "clippy"
+                "--workspace"
+                "--all-targets"
+              ];
+            };
+
+            xtask-check = {
+              enable = true;
+              entry = "${pkgs.rust-bin.stable.latest.default}/bin/cargo";
+              args = [
+                "xtask"
+                "ci"
+              ];
+              pass_filenames = false;
+            };
           };
-        }
-      );
-    };
+        };
+
+        devShells.default = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            rust-bin.stable.latest.default
+            pre-commit
+            check-jsonschema
+            codespell
+            cargo-deny
+            cargo-machete
+            cargo-make
+            cargo-profiler
+            typos
+            cachix
+            nodePackages.markdownlint-cli2
+          ];
+
+          shellHook = ''
+            alias pre-commit="pre-commit run --all-files"
+            alias xtask="cargo run -p xtask --"
+          '';
+        };
+
+      }
+    );
 }
