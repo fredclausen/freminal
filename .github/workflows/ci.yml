@@ -30,8 +30,8 @@ jobs:
           skipPush: true
 
       # --- Run all checks from flake ---
-      - name: Run pre-commit via Nix hook (impure mode)
-        run: nix develop --impure --command pre-commit run --all-files --hook-stage manual --show-diff-on-failure
+      - name: Run Nix-managed pre-commit check
+        run: nix build --no-link .#checks.x86_64-linux.pre-commit-check --print-build-logs
 
       # --- Run devShell pre-commit hooks ---
       - name: Run pre-commit hooks
