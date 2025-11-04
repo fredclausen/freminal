@@ -29,17 +29,7 @@ jobs:
           skipPush: true
 
       # ---------- Run everything inside your devShell (like direnv locally) ----------
-      - name: Run checks and tests in Nix devShell
+      - name: Run pre-commit (use Nix-generated config)
         run: |
-          nix develop --impure --command bash -e -c '
-            set -euxo pipefail
-
-            echo "Running pre-commit hooks..."
-            pre-commit run --all-files --hook-stage manual --show-diff-on-failure
-
-            # echo "Running xtask ci..."
-            # cargo xtask ci
-
-            # echo "Running cargo tests..."
-            # cargo test --workspace --all-targets --all-features
-          '
+          CONFIG_PATH=$(nix eval --raw .#checks.x86_64-linux.pre-commit-check.configFile)
+          nix develop --impure --command pre-commit run --config "$CONFIG_PATH" --all-files --hook-stage manual --show-diff-on-failure
