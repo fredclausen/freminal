@@ -15,10 +15,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: DeterminateSystems/determinate-nix-action@v3
-      - run: nix develop
+      - name: Set up Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@v3
 
-      # ---------- Run everything inside your devShell (like direnv locally) ----------
-      - name: Run pre-commit (use Nix-generated config)
+      - name: Pre-commit checks
         run: |
+          nix develop
           pre-commit run --all-files --hook-stage manual --show-diff-on-failure
