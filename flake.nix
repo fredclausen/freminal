@@ -104,6 +104,8 @@
               pass_filenames = false;
             };
 
+            packages.pre-commit-config = self.checks.${system}.pre-commit-check.configFile;
+
             # Rust hooks
             rustfmt = {
               enable = true;
