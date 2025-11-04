@@ -11,25 +11,14 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v26
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-
-      - name: Use Cachix for faster builds
-        uses: cachix/cachix-action@v15
-        with:
-          name: freminal
-          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-          skipPush: true
+      - uses: DeterminateSystems/determinate-nix-action@v3
+      - run: nix build .
 
       # ---------- Run everything inside your devShell (like direnv locally) ----------
       - name: Run pre-commit (use Nix-generated config)
         run: |
-          nix develop
           pre-commit run --all-files --hook-stage manual --show-diff-on-failure
