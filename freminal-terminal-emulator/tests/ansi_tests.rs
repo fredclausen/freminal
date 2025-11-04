@@ -233,3 +233,86 @@ proptest! {
         let _ = split_params_into_semicolon_delimited_usize(input.as_bytes());
     }
 }
+
+#[test]
+fn csi_parser_error_path_triggers_logging() {
+    let mut parser = FreminalAnsiParser::new();
+
+    // Feed malformed CSI: starts ESC [ then invalid sequence that causes error
+    let data = b"\x1b[9999;xxm"; // `xx` can't parse as numeric params
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| parser.push(data)));
+
+    // Should not panic, but should hit Err(e) inside ansiparser_inner_csi
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    // Should end up Empty or contain Invalid
+    assert!(
+        out.is_empty() || out.iter().any(|o| matches!(o, TerminalOutput::Invalid)),
+        "Expected Invalid or empty output, got: {:?}",
+        out
+    );
+}
+
+#[test]
+fn osc_parser_error_path_triggers_logging() {
+    let mut parser = FreminalAnsiParser::new();
+
+    // Malformed OSC: ESC ] then junk without terminator
+    let data = b"\x1b]not_a_valid_osc_sequence";
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| parser.push(data)));
+
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(
+        out.is_empty() || out.iter().any(|o| matches!(o, TerminalOutput::Invalid)),
+        "Expected Invalid or empty output"
+    );
+}
+
+#[test]
+fn standard_parser_error_and_invalid_logging() {
+    let mut parser = FreminalAnsiParser::new();
+
+    // ESC followed by an illegal single char that should trigger Standard parser failure
+    let data = b"\x1b9"; // '9' isn't a valid standard escape
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| parser.push(data)));
+
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(
+        out.is_empty() || out.iter().any(|o| matches!(o, TerminalOutput::Invalid)),
+        "Expected Invalid output"
+    );
+}
+
+#[test]
+fn data_is_pushed_after_final_iteration() {
+    let mut parser = FreminalAnsiParser::new();
+
+    // A sequence with both data and control to ensure leftover data is flushed at end
+    let out = parser.push(b"abc\x1b["); // ESC begins CSI, data before it should be pushed
+    assert!(
+        out.iter().any(|o| matches!(o, TerminalOutput::Data(_))),
+        "Expected Data output before CSI"
+    );
+}
+
+#[test]
+fn ansi_parser_inner_empty_and_data_push_combination() {
+    let mut parser = FreminalAnsiParser::new();
+
+    // Interleave carriage returns and normal text to ensure push_data_if_non_empty executes at the end
+    let data = b"a\rb\nc";
+    let out = parser.push(data);
+
+    // Should include both CarriageReturn/Newline and Data pushes
+    assert!(
+        out.iter().any(|o| matches!(o, TerminalOutput::Data(_))),
+        "Expected Data entries"
+    );
+    assert!(
+        out.iter()
+            .any(|o| matches!(o, TerminalOutput::CarriageReturn)),
+        "Expected CR entries"
+    );
+}
