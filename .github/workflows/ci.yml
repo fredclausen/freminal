@@ -15,10 +15,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      # --- Install Nix via Determinate Systems ---
       - name: Set up Determinate Nix
         uses: DeterminateSystems/determinate-nix-action@v3
 
-      - name: Pre-commit checks
+      # --- Optional: use Determinate Cache (drop if you use Cachix) ---
+      # - name: Use Determinate Cache
+      #   uses: DeterminateSystems/magic-nix-cache-action@v2
+
+      # --- Enter your flake's devShell (same behavior as direnv) ---
+      - name: Run checks in devShell
         run: |
-          nix develop
-          pre-commit run --all-files --hook-stage manual --show-diff-on-failure
+          nix develop --impure --command bash -e -c '
+            set -euxo pipefail
+            pre-commit run --all-files --hook-stage manual --show-diff-on-failure
+            cargo xtask ci
+            cargo test --workspace --all-targets --all-features
+          '
