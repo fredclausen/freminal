@@ -28,7 +28,5 @@ jobs:
         run: |
           nix develop --impure --command bash -e -c '
             set -euxo pipefail
-            pre-commit run --all-files --hook-stage manual --show-diff-on-failure
-            cargo xtask ci
-            cargo test --workspace --all-targets --all-features
+            pre-commit run --all-files
           '

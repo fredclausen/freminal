@@ -58,10 +58,14 @@
             # Built-in git-hooks.nix hooks
             check-yaml.enable = true;
             end-of-file-fixer.enable = true;
-            trailing-whitespace.enable = true;
+            trailing-whitespace = {
+              enable = true;
+              entry = "${pkgs.python3Packages.pre-commit-hooks}/bin/trailing-whitespace-fixer";
+            };
 
             mixed-line-ending = {
               enable = true;
+              entry = "${pkgs.python3Packages.pre-commit-hooks}/bin/mixed-line-ending";
               args = [ "--fix=auto" ];
             };
 
@@ -89,8 +93,8 @@
                 "--builtin-schema"
                 "github-actions"
               ];
-              files = "\\.ya?ml$";
-              pass_filenames = false;
+              files = "^\\.github/actions/.*\\.ya?ml$";
+              pass_filenames = true;
             };
 
             check-github-workflows = {
@@ -100,11 +104,9 @@
                 "--builtin-schema"
                 "github-workflows"
               ];
-              files = "\\.ya?ml$";
-              pass_filenames = false;
+              files = "^\\.github/workflows/.*\\.ya?ml$";
+              pass_filenames = true;
             };
-
-            packages.pre-commit-config = self.checks.${system}.pre-commit-check.configFile;
 
             # Rust hooks
             rustfmt = {
@@ -139,26 +141,40 @@
           };
         };
 
-        devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            myRustToolchain
-            pre-commit
-            check-jsonschema
-            codespell
-            cargo-deny
-            cargo-machete
-            cargo-make
-            cargo-profiler
-            typos
-            cachix
-            nodePackages.markdownlint-cli2
-          ];
+        devShells.default =
+          let
+            inherit (self.checks.${system}.pre-commit-check) shellHook enabledPackages;
+          in
+          pkgs.mkShell {
+            # Put your Rust toolchain *after* enabledPackages so it wins in PATH
+            buildInputs =
+              enabledPackages
+              ++ [
+                myRustToolchain
+              ]
+              ++ (with pkgs; [
+                pre-commit
+                check-jsonschema
+                codespell
+                cargo-deny
+                cargo-machete
+                cargo-make
+                cargo-profiler
+                typos
+                cachix
+                nodePackages.markdownlint-cli2
+              ]);
 
-          shellHook = ''
-            alias pre-commit="pre-commit run --all-files"
-            alias xtask="cargo run -p xtask --"
-          '';
-        };
+            shellHook = ''
+              export PATH="${myRustToolchain}/bin:$PATH"
+                # Run git-hooks.nix setup (creates .pre-commit-config.yaml)
+                ${shellHook}
+
+                # Your own extras
+                alias pre-commit="pre-commit run --all-files"
+                alias xtask="cargo run -p xtask --"
+            '';
+          };
 
       }
     );
