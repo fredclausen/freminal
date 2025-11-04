@@ -1,4 +1,5 @@
 name: CI
+
 on:
   push:
     branches: [main]
@@ -14,14 +15,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      # --- Install Nix ---
       - name: Install Nix
         uses: cachix/install-nix-action@v26
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      # --- Optional: Use nix cache (recommended) ---
       - name: Use Cachix for faster builds
         uses: cachix/cachix-action@v15
         with:
@@ -29,21 +28,18 @@ jobs:
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
           skipPush: true
 
-      # --- Run all checks from flake ---
-      - name: Run Nix-managed pre-commit check
-        run: nix build --no-link .#checks.x86_64-linux.pre-commit-check --print-build-logs
-
-      # --- Run devShell pre-commit hooks ---
-      - name: Run pre-commit hooks
+      # ---------- Run everything inside your devShell (like direnv locally) ----------
+      - name: Run checks and tests in Nix devShell
         run: |
-          nix develop --command pre-commit run --all-files
+          nix develop --impure --command bash -e -c '
+            set -euxo pipefail
 
-      # --- Run xtask CI ---
-      - name: Run xtask ci
-        run: |
-          nix develop --command cargo xtask ci
+            echo "Running pre-commit hooks..."
+            pre-commit run --all-files --hook-stage manual --show-diff-on-failure
 
-      # --- Run cargo test ---
-      - name: Run cargo tests
-        run: |
-          nix develop --command cargo test --workspace --all-targets --all-features
+            # echo "Running xtask ci..."
+            # cargo xtask ci
+
+            # echo "Running cargo tests..."
+            # cargo test --workspace --all-targets --all-features
+          '

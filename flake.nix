@@ -59,10 +59,12 @@
             check-yaml.enable = true;
             end-of-file-fixer.enable = true;
             trailing-whitespace.enable = true;
+
             mixed-line-ending = {
               enable = true;
               args = [ "--fix=auto" ];
             };
+
             check-executables-have-shebangs.enable = true;
             check-shebang-scripts-are-executable.enable = true;
             black.enable = true;
