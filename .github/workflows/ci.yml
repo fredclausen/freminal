@@ -31,5 +31,5 @@ jobs:
       # ---------- Run everything inside your devShell (like direnv locally) ----------
       - name: Run pre-commit (use Nix-generated config)
         run: |
-          CONFIG_PATH=$(nix eval --raw .#pre-commit-config)
-          nix develop --impure --command pre-commit run --config "$CONFIG_PATH" --all-files --hook-stage manual --show-diff-on-failure
+          nix develop
+          pre-commit run --all-files --hook-stage manual --show-diff-on-failure
