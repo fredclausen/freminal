@@ -37,14 +37,14 @@ impl ReportMode for Decckm {
     fn report(&self, override_mode: Option<SetMode>) -> String {
         override_mode.map_or_else(
             || match self {
-                Self::Ansi => "\x1b[?1;2$y".to_string(),
-                Self::Application => "\x1b[?1;1$y".to_string(),
-                Self::Query => "\x1b[?1;0$y".to_string(),
+                Self::Ansi => String::from("\x1b[?1;2$y"),
+                Self::Application => String::from("\x1b[?1;1$y"),
+                Self::Query => String::from("\x1b[?1;0$y"),
             },
             |override_mode| match override_mode {
-                SetMode::DecSet => "\x1b[?1;1$y".to_string(),
-                SetMode::DecRst => "\x1b[?1;2$y".to_string(),
-                SetMode::DecQuery => "\x1b[?1;0$y".to_string(),
+                SetMode::DecSet => String::from("\x1b[?1;1$y"),
+                SetMode::DecRst => String::from("\x1b[?1;2$y"),
+                SetMode::DecQuery => String::from("\x1b[?1;0$y"),
             },
         )
     }

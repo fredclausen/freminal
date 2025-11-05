@@ -371,12 +371,7 @@ impl AnsiOscParser {
 
 // the terminator of the OSC sequence is a ST (0x5C) or BEL (0x07)
 const fn is_osc_terminator(b: &[u8]) -> bool {
-    match b {
-        // BEL ends the sequence
-        // ESC '\' (ST) ends the sequence
-        [.., 0x07] | [.., 0x1b, 0x5c] => true,
-        _ => false,
-    }
+    matches!(b, [.., 0x07] | [.., 0x1b, 0x5c])
 }
 
 // FIXME: Support ST (0x1b)\ as a terminator

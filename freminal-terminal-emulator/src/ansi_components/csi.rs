@@ -238,7 +238,6 @@ fn is_csi_intermediate(b: u8) -> bool {
 }
 
 fn format_error_output(sequence: &[u8]) {
-    let params = String::from_utf8(sequence.to_vec())
-        .unwrap_or_else(|_| "Unable To Parse Params".to_string());
+    let params = String::from_utf8_lossy(sequence);
     warn!("Unhandled CSI sequence: [{params}");
 }

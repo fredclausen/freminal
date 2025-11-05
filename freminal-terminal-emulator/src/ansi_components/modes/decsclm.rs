@@ -20,7 +20,7 @@ pub enum Decsclm {
 
 impl ReportMode for Decsclm {
     fn report(&self, _override_mode: Option<SetMode>) -> String {
-        "\x1b[?4;0$y".to_string()
+        String::from("\x1b[?4;0$y")
     }
 }
 

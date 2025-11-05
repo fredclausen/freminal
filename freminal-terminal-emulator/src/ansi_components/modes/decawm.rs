@@ -37,14 +37,14 @@ impl ReportMode for Decawm {
     fn report(&self, override_mode: Option<SetMode>) -> String {
         override_mode.map_or_else(
             || match self {
-                Self::NoAutoWrap => "\x1b[?7;2$y".to_string(),
-                Self::AutoWrap => "\x1b[?7;1$y".to_string(),
-                Self::Query => "\x1b[?7;0$y".to_string(),
+                Self::NoAutoWrap => String::from("\x1b[?7;2$y"),
+                Self::AutoWrap => String::from("\x1b[?7;1$y"),
+                Self::Query => String::from("\x1b[?7;0$y"),
             },
             |override_mode| match override_mode {
-                SetMode::DecSet => "\x1b[?7;1$y".to_string(),
-                SetMode::DecRst => "\x1b[?7;2$y".to_string(),
-                SetMode::DecQuery => "\x1b[?7;0$y".to_string(),
+                SetMode::DecSet => String::from("\x1b[?7;1$y"),
+                SetMode::DecRst => String::from("\x1b[?7;2$y"),
+                SetMode::DecQuery => String::from("\x1b[?7;0$y"),
             },
         )
     }

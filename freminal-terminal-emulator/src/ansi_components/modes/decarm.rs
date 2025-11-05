@@ -26,14 +26,14 @@ impl ReportMode for Decarm {
     fn report(&self, override_mode: Option<SetMode>) -> String {
         override_mode.map_or_else(
             || match self {
-                Self::NoRepeatKey => "\x1b[?8;2$y".to_string(),
-                Self::RepeatKey => "\x1b[?8;1$y".to_string(),
-                Self::Query => "\x1b[?8;0$y".to_string(),
+                Self::NoRepeatKey => String::from("\x1b[?8;2$y"),
+                Self::RepeatKey => String::from("\x1b[?8;1$y"),
+                Self::Query => String::from("\x1b[?8;0$y"),
             },
             |override_mode| match override_mode {
-                SetMode::DecSet => "\x1b[?8;1$y".to_string(),
-                SetMode::DecRst => "\x1b[?8;2$y".to_string(),
-                SetMode::DecQuery => "\x1b[?8;0$y".to_string(),
+                SetMode::DecSet => String::from("\x1b[?8;1$y"),
+                SetMode::DecRst => String::from("\x1b[?8;2$y"),
+                SetMode::DecQuery => String::from("\x1b[?8;0$y"),
             },
         )
     }

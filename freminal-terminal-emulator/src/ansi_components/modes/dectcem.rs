@@ -26,14 +26,14 @@ impl ReportMode for Dectcem {
     fn report(&self, override_mode: Option<SetMode>) -> String {
         override_mode.map_or_else(
             || match self {
-                Self::Hide => "\x1b[?25;2$y".to_string(),
-                Self::Show => "\x1b[?25;1$y".to_string(),
-                Self::Query => "\x1b[?25;0$y".to_string(),
+                Self::Hide => String::from("\x1b[?25;2$y"),
+                Self::Show => String::from("\x1b[?25;1$y"),
+                Self::Query => String::from("\x1b[?25;0$y"),
             },
             |override_mode| match override_mode {
-                SetMode::DecSet => "\x1b[?25;1$y".to_string(),
-                SetMode::DecRst => "\x1b[?25;2$y".to_string(),
-                SetMode::DecQuery => "\x1b[?25;0$y".to_string(),
+                SetMode::DecSet => String::from("\x1b[?25;1$y"),
+                SetMode::DecRst => String::from("\x1b[?25;2$y"),
+                SetMode::DecQuery => String::from("\x1b[?25;0$y"),
             },
         )
     }

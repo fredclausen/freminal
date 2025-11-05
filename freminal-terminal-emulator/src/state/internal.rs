@@ -958,7 +958,7 @@ impl TerminalState {
             }
             Mode::UnknownQuery(m) => {
                 let query = String::from_utf8(m.clone())
-                    .unwrap_or_else(|_| "Unable to convert to string".to_string());
+                    .unwrap_or_else(|_| String::from("Unable to convert to string"));
                 warn!("Querying unknown mode: {query}");
                 self.report_mode(&mode.report(None));
             }
@@ -1028,7 +1028,7 @@ impl TerminalState {
         // 18: User windows
         // 22: ANSI color, e.g., VT525
 
-        let output = collect_text(&"\x1b[?65;1;2;4;6;17;18;22c".to_string());
+        let output = collect_text(&String::from("\x1b[?65;1;2;4;6;17;18;22c"));
         for input in output.iter() {
             match self.write(input) {
                 Ok(()) => (),
@@ -1143,9 +1143,9 @@ impl TerminalState {
 
     pub fn report_window_state(&mut self, minimized: bool) {
         let output = if minimized {
-            collect_text(&"\x1b[2t".to_string())
+            collect_text(&String::from("\x1b[2t"))
         } else {
-            collect_text(&"\x1b[1t".to_string())
+            collect_text(&String::from("\x1b[1t"))
         };
         for input in output.iter() {
             match self.write(input) {

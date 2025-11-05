@@ -26,14 +26,14 @@ impl ReportMode for ReverseWrapAround {
     fn report(&self, override_mode: Option<SetMode>) -> String {
         override_mode.map_or_else(
             || match self {
-                Self::DontWrap => "\x1b[?45;2$y".to_string(),
-                Self::WrapAround => "\x1b[?45;1$y".to_string(),
-                Self::Query => "\x1b[?45;0$y".to_string(),
+                Self::DontWrap => String::from("\x1b[?45;2$y"),
+                Self::WrapAround => String::from("\x1b[?45;1$y"),
+                Self::Query => String::from("\x1b[?45;0$y"),
             },
             |override_mode| match override_mode {
-                SetMode::DecSet => "\x1b[?45;1$y".to_string(),
-                SetMode::DecRst => "\x1b[?45;2$y".to_string(),
-                SetMode::DecQuery => "\x1b[?45;0$y".to_string(),
+                SetMode::DecSet => String::from("\x1b[?45;1$y"),
+                SetMode::DecRst => String::from("\x1b[?45;2$y"),
+                SetMode::DecQuery => String::from("\x1b[?45;0$y"),
             },
         )
     }
