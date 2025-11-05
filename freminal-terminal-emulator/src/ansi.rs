@@ -15,7 +15,13 @@ use crate::ansi_components::{
 use anyhow::Result;
 use freminal_common::{cursor::CursorVisualStyle, window_manipulation::WindowManipulation};
 
+/// High-level actions produced by the ANSI/OSC parser.
+///
+/// This enum represents normalized terminal effects (cursor movement,
+/// erasures, SGR, window ops, etc.) emitted by parsing.
+/// The set may grow; match exhaustively with a wildcard for forward-compat.
 #[derive(Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum TerminalOutput {
     SetCursorPos {
         x: Option<usize>,
@@ -26,7 +32,8 @@ pub enum TerminalOutput {
         y: Option<i32>,
     },
     ClearDisplayfromCursortoEndofDisplay,
-    ClearDiplayfromStartofDisplaytoCursor,
+    /// Clear the display **backwards** from the cursor to the start of the display.
+    ClearDisplayfromStartofDisplaytoCursor,
     ClearScrollbackandDisplay,
     ClearDisplay,
     CarriageReturn,
@@ -118,7 +125,7 @@ impl std::fmt::Display for TerminalOutput {
             }
             Self::ClearDisplayfromCursortoEndofDisplay => write!(f, "ClearForwards"),
             Self::ClearScrollbackandDisplay => write!(f, "ClearAll"),
-            Self::ClearDiplayfromStartofDisplaytoCursor => write!(f, "ClearBackwards"),
+            Self::ClearDisplayfromStartofDisplaytoCursor => write!(f, "ClearBackwards"),
             Self::ClearDisplay => write!(f, "ClearDisplay"),
             Self::CarriageReturn => write!(f, "CarriageReturn"),
             Self::ClearLineForwards => write!(f, "ClearLineForwards"),
@@ -599,7 +606,7 @@ mod tests {
         use TerminalOutput::*;
         let outputs = vec![
             ClearDisplayfromCursortoEndofDisplay,
-            ClearDiplayfromStartofDisplaytoCursor,
+            ClearDisplayfromStartofDisplaytoCursor,
             ClearScrollbackandDisplay,
             ClearLineForwards,
             ClearLineBackwards,

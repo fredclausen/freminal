@@ -1382,7 +1382,7 @@ impl TerminalState {
                 TerminalOutput::SetCursorPos { x, y } => self.set_cursor_pos(x, y),
                 TerminalOutput::SetCursorPosRel { x, y } => self.set_cursor_pos_rel(x, y),
                 TerminalOutput::ClearDisplayfromCursortoEndofDisplay => self.clear_forwards(),
-                TerminalOutput::ClearDiplayfromStartofDisplaytoCursor => self.clear_backwards(),
+                TerminalOutput::ClearDisplayfromStartofDisplaytoCursor => self.clear_backwards(),
                 TerminalOutput::ClearScrollbackandDisplay => self.clear_all(),
                 TerminalOutput::ClearDisplay => self.clear_visible(),
                 TerminalOutput::ClearLineForwards => self.clear_line_forwards(),

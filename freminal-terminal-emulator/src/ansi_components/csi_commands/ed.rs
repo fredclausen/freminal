@@ -33,7 +33,7 @@ pub fn ansi_parser_inner_csi_finished_set_position_j(
 
     let ret = match param.unwrap_or(0) {
         0 => TerminalOutput::ClearDisplayfromCursortoEndofDisplay,
-        1 => TerminalOutput::ClearDiplayfromStartofDisplaytoCursor,
+        1 => TerminalOutput::ClearDisplayfromStartofDisplaytoCursor,
         2 => TerminalOutput::ClearDisplay,
         3 => TerminalOutput::ClearScrollbackandDisplay,
         _ => TerminalOutput::Invalid,
