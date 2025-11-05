@@ -8,15 +8,11 @@ use freminal_common::colors::TerminalColor;
 
 /// Catppuccin Mocha (Lavender-adjusted) palette mapping
 #[must_use]
-pub fn internal_color_to_egui(
-    default_foreground_color: Color32,
-    color: TerminalColor,
-    make_faint: bool,
-) -> Color32 {
+pub fn internal_color_to_egui(color: TerminalColor, make_faint: bool) -> Color32 {
     let color_before_faint = match color {
         TerminalColor::Default
         | TerminalColor::DefaultUnderlineColor
-        | TerminalColor::DefaultCursorColor => default_foreground_color,
+        | TerminalColor::DefaultCursorColor => Color32::from_hex("#cdd6f4").unwrap_or_default(),
 
         TerminalColor::DefaultBackground => Color32::from_hex("#1e1e2e").unwrap_or_default(),
 
