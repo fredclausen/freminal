@@ -73,6 +73,13 @@ use freminal_common::window_manipulation::WindowManipulation;
 /// ESC [ Ps1 ; Ps2 ; Ps3 t
 /// # Errors
 /// Will return an error if the parameter is not a valid number
+#[inline]
+fn param_or(params: &[Option<usize>], idx: usize, default: usize) -> usize {
+    params.get(idx).and_then(|opt| *opt).unwrap_or(default)
+}
+
+/// # Errors
+/// Will return an error if the parameter is not a valid number
 pub fn ansi_parser_inner_csi_finished_set_position_t(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,
@@ -87,18 +94,18 @@ pub fn ansi_parser_inner_csi_finished_set_position_t(
     };
 
     let (ps1, ps2, ps3) = if params.len() == 1 {
-        (params[0].unwrap_or_default(), 0, 0)
+        (param_or(&params, 0, usize::MAX), 0, 0)
     } else if params.len() == 2 {
         (
-            params[0].unwrap_or_default(),
-            params[1].unwrap_or_default(),
+            param_or(&params, 0, usize::MAX),
+            param_or(&params, 1, usize::MAX),
             0,
         )
     } else {
         (
-            params[0].unwrap_or_default(),
-            params[1].unwrap_or_default(),
-            params[2].unwrap_or_default(),
+            param_or(&params, 0, usize::MAX),
+            param_or(&params, 1, usize::MAX),
+            param_or(&params, 2, usize::MAX),
         )
     };
 

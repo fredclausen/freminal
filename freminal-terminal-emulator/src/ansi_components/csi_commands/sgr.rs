@@ -14,6 +14,11 @@ use crate::{
 use anyhow::Result;
 use freminal_common::colors::{lookup_256_color_by_index, TerminalColor};
 
+#[inline]
+fn opt(params: &[Option<usize>], idx: usize) -> Option<usize> {
+    params.get(idx).copied().flatten()
+}
+
 /// Select Graphic Rendition
 ///
 /// SGR sets the text attributes for the following characters. Several attributes can be combined by separating them with a semicolon.
@@ -36,22 +41,22 @@ pub fn ansi_parser_inner_csi_finished_sgr_ansi(
     let Ok(mut params) = params else {
         warn!("Invalid SGR sequence");
         output.push(TerminalOutput::Invalid);
-
         return Err(ParserFailures::UnhandledSGRCommand(format!("{params:?}")).into());
     };
 
+    // Empty SGR params means reset (0)
     if params.is_empty() {
         params.push(Some(0));
     }
 
-    if params.len() == 1 && params[0].is_none() {
+    // If exactly one param and it's None, treat as 0 (reset)
+    if params.len() == 1 && opt(&params, 0).is_none() {
         params[0] = Some(0);
     }
 
     let mut param_iter: IntoIter<Option<usize>> = params.into_iter();
     loop {
-        let param = param_iter.next();
-        let Some(param) = param.unwrap_or(None) else {
+        let Some(param) = param_iter.next().flatten() else {
             break;
         };
 
@@ -69,7 +74,7 @@ pub fn ansi_parser_inner_csi_finished_sgr_ansi(
 }
 
 fn default_color(output: &mut Vec<TerminalOutput>, custom_color_control_code: usize) {
-    // FIXME: we'll treat '\e[38m' or '\e[48m' as a color reset.
+    // FIXME: we'll treat '\x1b[38m' or '\x1b[48m' as a color reset.
     // I can't find documentation for this, but it seems that other terminals handle it this way
 
     output.push(match custom_color_control_code {
@@ -93,87 +98,56 @@ pub fn handle_custom_color(
 ) {
     // if control code is 38, 48 or 58 we need to read the next param
     // otherwise, store the param as is
-
-    let mut param = param;
     let custom_color_control_code = param;
-    let custom_color_r: usize;
-    let custom_color_g: usize;
-    let custom_color_b: usize;
 
-    param = if let Some(Some(param)) = param_iter.next() {
-        param
-    } else {
+    let next = param_iter.next();
+    let Some(param) = next.flatten() else {
+        // No mode parameter after 38/48/58 → treat as a reset for that channel
         default_color(output, custom_color_control_code);
         return;
     };
 
     match param {
+        // Truecolor: 2;r;g;b  or  2:r:g:b
         2 => {
+            // Some colon-splitters may leave an extra token after the 2; skip it if present.
             if param_iter.len() > 3 && split_by_colon {
-                param_iter.next();
+                let _ = param_iter.next();
             }
 
-            custom_color_r = if let Some(Some(param)) = param_iter.next() {
-                param
-            } else {
-                0
-            };
-            custom_color_g = if let Some(Some(param)) = param_iter.next() {
-                param
-            } else {
-                0
-            };
-            custom_color_b = if let Some(Some(param)) = param_iter.next() {
-                param
-            } else {
-                0
-            };
-        }
-        5 => {
-            let lookup = match param_iter.next() {
-                Some(Some(lookup)) => lookup,
-                _ => 0,
-            };
+            let r = param_iter.next().flatten().unwrap_or(0);
+            let g = param_iter.next().flatten().unwrap_or(0);
+            let b = param_iter.next().flatten().unwrap_or(0);
 
-            // look up the rgb
+            match SelectGraphicRendition::from_usize_color(custom_color_control_code, r, g, b) {
+                Ok(sgr) => output.push(TerminalOutput::Sgr(sgr)),
+                Err(e) => {
+                    warn!("Invalid RGB SGR sequence: {}", e);
+                    output.push(TerminalOutput::Invalid);
+                }
+            }
+        }
+
+        // 256-color: 5;idx
+        5 => {
+            let lookup = param_iter.next().flatten().unwrap_or(0);
 
             match custom_color_control_code {
-                38 => {
-                    output.push(TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
-                        lookup_256_color_by_index(lookup),
-                    )));
-                }
-                48 => {
-                    output.push(TerminalOutput::Sgr(SelectGraphicRendition::Background(
-                        lookup_256_color_by_index(lookup),
-                    )));
-                }
-                58 => {
-                    output.push(TerminalOutput::Sgr(SelectGraphicRendition::UnderlineColor(
-                        lookup_256_color_by_index(lookup),
-                    )));
-                }
+                38 => output.push(TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
+                    lookup_256_color_by_index(lookup),
+                ))),
+                48 => output.push(TerminalOutput::Sgr(SelectGraphicRendition::Background(
+                    lookup_256_color_by_index(lookup),
+                ))),
+                58 => output.push(TerminalOutput::Sgr(SelectGraphicRendition::UnderlineColor(
+                    lookup_256_color_by_index(lookup),
+                ))),
                 _ => output.push(TerminalOutput::Invalid),
             }
-
-            return;
         }
+
         _ => {
             warn!("Invalid SGR sequence: {}", param);
-            output.push(TerminalOutput::Invalid);
-            return;
-        }
-    }
-
-    match SelectGraphicRendition::from_usize_color(
-        custom_color_control_code,
-        custom_color_r,
-        custom_color_g,
-        custom_color_b,
-    ) {
-        Ok(sgr) => output.push(TerminalOutput::Sgr(sgr)),
-        Err(e) => {
-            warn!("Invalid RGB SGR sequence: {}", e);
             output.push(TerminalOutput::Invalid);
         }
     }

@@ -255,11 +255,18 @@ impl AnsiOscParser {
                     self.params.push(b);
                 } else {
                     warn!("Invalid OSC param: {:x}", b);
-                    self.state = AnsiOscParserState::Invalid;
+                    {
+                        self.state = AnsiOscParserState::Invalid;
+                        self.params.clear();
+                        self.intermediates.clear();
+                    };
                 }
 
                 if is_osc_terminator(&self.params) {
-                    self.state = AnsiOscParserState::Finished;
+                    {
+                        self.state = AnsiOscParserState::Finished;
+                        // keep params for emit; ensure sequence is trimmed elsewhere if needed
+                    };
 
                     if !self.params.is_empty() {
                         while let Some(&last) = self.params.last() {

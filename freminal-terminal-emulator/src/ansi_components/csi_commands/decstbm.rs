@@ -29,6 +29,13 @@ use anyhow::Result;
 ///
 /// # Errors
 /// Will return an error if the parameter is not a valid number
+#[inline]
+fn param_or(params: &[Option<usize>], idx: usize, default: usize) -> usize {
+    params.get(idx).and_then(|opt| *opt).unwrap_or(default)
+}
+
+/// # Errors
+/// Will return an error if the parameter is not a valid number
 pub fn ansi_parser_inner_csi_set_top_and_bottom_margins(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,
@@ -66,7 +73,7 @@ pub fn ansi_parser_inner_csi_set_top_and_bottom_margins(
         Some(Some(n)) => *n,
     };
 
-    let pb = params[1].unwrap_or(usize::MAX);
+    let pb = param_or(&params, 1, usize::MAX);
 
     if pt >= pb || pt == 0 || pb == 0 {
         warn!("Invalid DECSTBM command with out of bounds params. pt: {pt}, pb: {pb}");

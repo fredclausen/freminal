@@ -20,8 +20,13 @@ use freminal_common::{cursor::CursorVisualStyle, window_manipulation::WindowMani
 /// This enum represents normalized terminal effects (cursor movement,
 /// erasures, SGR, window ops, etc.) emitted by parsing.
 /// The set may grow; match exhaustively with a wildcard for forward-compat.
-#[derive(Debug, Eq, PartialEq)]
+/// High-level actions produced by the ANSI/OSC parser.
+///
+/// This enum represents normalized terminal effects (cursor movement,
+/// erasures, SGR, window ops, etc.) emitted by parsing.
+/// The set may grow; match exhaustively with a wildcard for forward-compat.
 #[non_exhaustive]
+#[derive(Debug, Eq, PartialEq)]
 pub enum TerminalOutput {
     SetCursorPos {
         x: Option<usize>,
@@ -32,7 +37,6 @@ pub enum TerminalOutput {
         y: Option<i32>,
     },
     ClearDisplayfromCursortoEndofDisplay,
-    /// Clear the display **backwards** from the cursor to the start of the display.
     ClearDisplayfromStartofDisplaytoCursor,
     ClearScrollbackandDisplay,
     ClearDisplay,
