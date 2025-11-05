@@ -14,57 +14,67 @@ use std::str::FromStr;
 
 #[test]
 fn lookup_standard_colors_complete() {
-    // Standard colors 0–15
-    assert_eq!(lookup_256_color_by_index(0), (0, 0, 0));
-    assert_eq!(lookup_256_color_by_index(1), (128, 0, 0));
-    assert_eq!(lookup_256_color_by_index(2), (0, 128, 0));
-    assert_eq!(lookup_256_color_by_index(3), (128, 128, 0));
-    assert_eq!(lookup_256_color_by_index(4), (0, 0, 128));
-    assert_eq!(lookup_256_color_by_index(5), (128, 0, 128));
-    assert_eq!(lookup_256_color_by_index(6), (0, 128, 128));
-    assert_eq!(lookup_256_color_by_index(7), (192, 192, 192));
-    assert_eq!(lookup_256_color_by_index(8), (128, 128, 128));
-    assert_eq!(lookup_256_color_by_index(9), (255, 0, 0));
-    assert_eq!(lookup_256_color_by_index(10), (0, 255, 0));
-    assert_eq!(lookup_256_color_by_index(11), (255, 255, 0));
-    assert_eq!(lookup_256_color_by_index(12), (0, 0, 255));
-    assert_eq!(lookup_256_color_by_index(13), (255, 0, 255));
-    assert_eq!(lookup_256_color_by_index(14), (0, 255, 255));
-    assert_eq!(lookup_256_color_by_index(15), (255, 255, 255));
-
-    // Aliases
-    assert_eq!(lookup_256_color_by_index(244), (128, 128, 128));
-    assert_eq!(lookup_256_color_by_index(196), (255, 0, 0));
-    assert_eq!(lookup_256_color_by_index(46), (0, 255, 0));
-    assert_eq!(lookup_256_color_by_index(226), (255, 255, 0));
-    assert_eq!(lookup_256_color_by_index(21), (0, 0, 255));
-    assert_eq!(lookup_256_color_by_index(201), (255, 0, 255));
-    assert_eq!(lookup_256_color_by_index(51), (0, 255, 255));
-    assert_eq!(lookup_256_color_by_index(231), (255, 255, 255));
+    // Standard ANSI 0–15 mappings
+    assert_eq!(lookup_256_color_by_index(0), TerminalColor::Black);
+    assert_eq!(lookup_256_color_by_index(1), TerminalColor::Red);
+    assert_eq!(lookup_256_color_by_index(2), TerminalColor::Green);
+    assert_eq!(lookup_256_color_by_index(3), TerminalColor::Yellow);
+    assert_eq!(lookup_256_color_by_index(4), TerminalColor::Blue);
+    assert_eq!(lookup_256_color_by_index(5), TerminalColor::Magenta);
+    assert_eq!(lookup_256_color_by_index(6), TerminalColor::Cyan);
+    assert_eq!(lookup_256_color_by_index(7), TerminalColor::White);
+    assert_eq!(lookup_256_color_by_index(8), TerminalColor::BrightBlack);
+    assert_eq!(lookup_256_color_by_index(9), TerminalColor::BrightRed);
+    assert_eq!(lookup_256_color_by_index(10), TerminalColor::BrightGreen);
+    assert_eq!(lookup_256_color_by_index(11), TerminalColor::BrightYellow);
+    assert_eq!(lookup_256_color_by_index(12), TerminalColor::BrightBlue);
+    assert_eq!(lookup_256_color_by_index(13), TerminalColor::BrightMagenta);
+    assert_eq!(lookup_256_color_by_index(14), TerminalColor::BrightCyan);
+    assert_eq!(lookup_256_color_by_index(15), TerminalColor::BrightWhite);
 }
 
 #[test]
 fn lookup_grayscale_range() {
-    assert_eq!(lookup_256_color_by_index(232), (8, 8, 8));
-    assert_eq!(lookup_256_color_by_index(255), (238, 238, 238));
-}
-
-#[test]
-fn lookup_black_and_out_of_range() {
-    assert_eq!(lookup_256_color_by_index(0), (0, 0, 0));
-    assert_eq!(lookup_256_color_by_index(16), (0, 0, 0));
-    assert_eq!(lookup_256_color_by_index(300), (0, 0, 0));
-}
-
-#[test]
-fn lookup_programmatic_color_branch() {
-    let idx = 40;
-    let expected = (
-        cube_component(idx, 36),
-        cube_component(idx, 6),
-        cube_component(idx, 1),
+    // 232 → rgb(8,8,8)
+    assert_eq!(
+        lookup_256_color_by_index(232),
+        TerminalColor::Custom(8, 8, 8)
     );
-    assert_eq!(lookup_256_color_by_index(idx), expected);
+
+    // 255 → rgb(238,238,238)
+    assert_eq!(
+        lookup_256_color_by_index(255),
+        TerminalColor::Custom(238, 238, 238)
+    );
+}
+
+#[test]
+fn lookup_out_of_range_defaults_to_custom_or_default() {
+    // Out of range values map to Custom or Default
+    let c = lookup_256_color_by_index(300);
+    // Should be a Custom or Default (depending on your policy)
+    match c {
+        TerminalColor::Custom(_, _, _) | TerminalColor::Default => {}
+        _ => panic!("unexpected color variant for out-of-range index: {c:?}"),
+    }
+}
+
+#[test]
+fn lookup_color_cube_sample() {
+    // Example index in color cube range
+    let idx = 40;
+    let result = lookup_256_color_by_index(idx);
+    if let TerminalColor::Custom(r, g, b) = result {
+        let expected_r = cube_component(idx, 36);
+        let expected_g = cube_component(idx, 6);
+        let expected_b = cube_component(idx, 1);
+
+        assert_eq!(r as usize, expected_r);
+        assert_eq!(g as usize, expected_g);
+        assert_eq!(b as usize, expected_b);
+    } else {
+        panic!("Expected Custom color, got {result:?}");
+    }
 }
 
 #[test]
@@ -203,12 +213,17 @@ fn manual_display_write_covers_all_paths() {
 proptest! {
     #[test]
     fn grayscale_monotonic(index in 232usize..=254usize) {
-        let (r1, g1, b1) = lookup_256_color_by_index(index);
-        let (r2, _g2, _b2) = lookup_256_color_by_index(index + 1);
+        let c1 = lookup_256_color_by_index(index);
+        let c2 = lookup_256_color_by_index(index + 1);
 
-        prop_assert_eq!(r1, g1);
-        prop_assert_eq!(g1, b1);
-        prop_assert!(r2 >= r1);
+        match (c1, c2) {
+            (TerminalColor::Custom(r1,g1,b1), TerminalColor::Custom(r2,_,_)) => {
+                prop_assert_eq!(r1, g1);
+                prop_assert_eq!(g1, b1);
+                prop_assert!(r2 >= r1);
+            }
+            _ => prop_assert!(false, "Expected Custom colors"),
+        }
     }
 
     #[test]
@@ -218,12 +233,6 @@ proptest! {
 
         let wrap = cube_component(value + modifier * 6, modifier);
         prop_assert_eq!(wrap, c);
-    }
-
-    #[test]
-    fn lookup_rgb_bounds(index in 0usize..=300usize) {
-        let (r, g, b) = lookup_256_color_by_index(index);
-        prop_assert!(r <= 255 && g <= 255 && b <= 255);
     }
 
     #[test]

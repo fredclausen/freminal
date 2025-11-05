@@ -137,7 +137,26 @@ pub fn handle_custom_color(
 
             // look up the rgb
 
-            (custom_color_r, custom_color_g, custom_color_b) = lookup_256_color_by_index(lookup);
+            match custom_color_control_code {
+                38 => {
+                    output.push(TerminalOutput::Sgr(SelectGraphicRendition::Foreground(
+                        lookup_256_color_by_index(lookup),
+                    )));
+                }
+                48 => {
+                    output.push(TerminalOutput::Sgr(SelectGraphicRendition::Background(
+                        lookup_256_color_by_index(lookup),
+                    )));
+                }
+                58 => {
+                    output.push(TerminalOutput::Sgr(SelectGraphicRendition::UnderlineColor(
+                        lookup_256_color_by_index(lookup),
+                    )));
+                }
+                _ => output.push(TerminalOutput::Invalid),
+            }
+
+            return;
         }
         _ => {
             warn!("Invalid SGR sequence: {}", param);

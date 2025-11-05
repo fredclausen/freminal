@@ -1058,7 +1058,9 @@ impl TerminalState {
                     AnsiOscInternalType::Query => {
                         // lets get the color as a hex string
 
-                        let (r, g, b, a) = Color32::BLACK.to_tuple();
+                        // FIXME: this is hard coded and should be from the active color scheme
+                        let (r, g, b, a) =
+                            Color32::from_hex("#45475a").unwrap_or_default().to_tuple();
                         let output = collect_text(&format!(
                             "\x1b]11;rgb:{r:02x}/{g:02x}/{b:02x}{a:02x}\x1b\\"
                         ));

@@ -6,11 +6,10 @@
 use eframe::egui::Color32;
 use freminal_common::colors::TerminalColor;
 
-// We use the default Wez color scheme
+/// Catppuccin Mocha (Lavender-adjusted) palette mapping
 #[must_use]
 pub fn internal_color_to_egui(
     default_foreground_color: Color32,
-    default_background_color: Color32,
     color: TerminalColor,
     make_faint: bool,
 ) -> Color32 {
@@ -18,23 +17,29 @@ pub fn internal_color_to_egui(
         TerminalColor::Default
         | TerminalColor::DefaultUnderlineColor
         | TerminalColor::DefaultCursorColor => default_foreground_color,
-        TerminalColor::DefaultBackground => default_background_color,
-        TerminalColor::Black => Color32::from_hex("#000000").unwrap_or_default(),
-        TerminalColor::Red => Color32::from_hex("#cc5555").unwrap_or_default(),
-        TerminalColor::Green => Color32::from_hex("#55cc55").unwrap_or_default(),
-        TerminalColor::Yellow => Color32::from_hex("#cdcd55").unwrap_or_default(),
-        TerminalColor::Blue => Color32::from_hex("#5555cc").unwrap_or_default(),
-        TerminalColor::Magenta => Color32::from_hex("#cc55cc").unwrap_or_default(),
-        TerminalColor::Cyan => Color32::from_hex("#7acaca").unwrap_or_default(),
-        TerminalColor::White => Color32::from_hex("#b3b3b3").unwrap_or_default(),
-        TerminalColor::BrightBlack => Color32::from_hex("#555555").unwrap_or_default(),
-        TerminalColor::BrightRed => Color32::from_hex("#ff5555").unwrap_or_default(),
-        TerminalColor::BrightGreen => Color32::from_hex("#55ff55").unwrap_or_default(),
-        TerminalColor::BrightYellow => Color32::from_hex("#ffff55").unwrap_or_default(),
-        TerminalColor::BrightBlue => Color32::from_hex("#5555ff").unwrap_or_default(),
-        TerminalColor::BrightMagenta => Color32::from_hex("#ff55ff").unwrap_or_default(),
-        TerminalColor::BrightCyan => Color32::from_hex("#55ffff").unwrap_or_default(),
-        TerminalColor::BrightWhite => Color32::from_hex("#ffffff").unwrap_or_default(),
+
+        TerminalColor::DefaultBackground => Color32::from_hex("#1e1e2e").unwrap_or_default(),
+
+        // Base palette 0–7
+        TerminalColor::Black => Color32::from_hex("#45475a").unwrap_or_default(), // 0
+        TerminalColor::Red => Color32::from_hex("#f38ba8").unwrap_or_default(),   // 1
+        TerminalColor::Green => Color32::from_hex("#a6e3a1").unwrap_or_default(), // 2
+        TerminalColor::Yellow => Color32::from_hex("#f9e2af").unwrap_or_default(), // 3
+        TerminalColor::Blue => Color32::from_hex("#89b4fa").unwrap_or_default(),  // 4
+        TerminalColor::Magenta => Color32::from_hex("#f5c2e7").unwrap_or_default(), // 5
+        TerminalColor::Cyan => Color32::from_hex("#94e2d5").unwrap_or_default(),  // 6
+        TerminalColor::White => Color32::from_hex("#a6adc8").unwrap_or_default(), // 7
+
+        // Bright palette 8–15
+        TerminalColor::BrightBlack => Color32::from_hex("#585b70").unwrap_or_default(), // 8
+        TerminalColor::BrightRed => Color32::from_hex("#f37799").unwrap_or_default(),   // 9
+        TerminalColor::BrightGreen => Color32::from_hex("#89d88b").unwrap_or_default(), // 10
+        TerminalColor::BrightYellow => Color32::from_hex("#ebd391").unwrap_or_default(), // 11
+        TerminalColor::BrightBlue => Color32::from_hex("#74a8fc").unwrap_or_default(),  // 12
+        TerminalColor::BrightMagenta => Color32::from_hex("#f2aede").unwrap_or_default(), // 13
+        TerminalColor::BrightCyan => Color32::from_hex("#6bd7ca").unwrap_or_default(),  // 14
+        TerminalColor::BrightWhite => Color32::from_hex("#bac2de").unwrap_or_default(), // 15
+
         TerminalColor::Custom(r, g, b) => Color32::from_rgb(r, g, b),
     };
 
@@ -45,16 +50,10 @@ pub fn internal_color_to_egui(
     }
 }
 
-// https://github.com/mbadolato/iTerm2-Color-Schemes/blob/master/wezterm/Wez.toml
-// # Wez
-// [colors]
-// foreground = "#b3b3b3"
-// background = "#000000"
-// cursor_bg = "#53ae71"
-// cursor_border = "#53ae71"
-// cursor_fg = "#000000"
-// selection_bg = "#4d52f8"
-// selection_fg = "#000000"
-
-// ansi = ["#000000","#cc5555","#55cc55","#cdcd55","#5555cc","#cc55cc","#7acaca","#cccccc"]
-// brights = ["#555555","#ff5555","#55ff55","#ffff55","#5555ff","#ff55ff","#55ffff","#ffffff"]
+// Theme reference
+// background = "#1e1e2e"
+// foreground = "#cdd6f4"
+// selection-background = "#353748"
+// selection-foreground = "#cdd6f4"
+// cursor-color = "#f5e0dc"
+// cursor-text = "#11111b"

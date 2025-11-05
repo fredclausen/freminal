@@ -8,9 +8,10 @@
 
 use std::sync::Arc;
 
+use crate::gui::colors::internal_color_to_egui;
 use anyhow::Result;
 use conv2::ConvUtil;
-use eframe::egui::{self, CentralPanel, Pos2, Vec2, ViewportCommand};
+use eframe::egui::{self, CentralPanel, Color32, Pos2, Vec2, ViewportCommand};
 use fonts::get_char_size;
 use freminal_common::window_manipulation::WindowManipulation;
 use freminal_terminal_emulator::interface::TerminalEmulator;
@@ -24,8 +25,16 @@ pub mod terminal;
 
 fn set_egui_options(ctx: &egui::Context) {
     ctx.style_mut(|style| {
-        style.visuals.window_fill = egui::Color32::BLACK;
-        style.visuals.panel_fill = egui::Color32::BLACK;
+        style.visuals.window_fill = internal_color_to_egui(
+            Color32::RED,
+            freminal_common::colors::TerminalColor::DefaultBackground,
+            false,
+        );
+        style.visuals.panel_fill = internal_color_to_egui(
+            Color32::RED,
+            freminal_common::colors::TerminalColor::DefaultBackground,
+            false,
+        );
     });
     ctx.options_mut(|options| {
         options.zoom_with_keyboard = false;
@@ -365,8 +374,16 @@ impl eframe::App for FreminalGui {
 
             if lock.internal.is_normal_display() {
                 ui.ctx().style_mut(|style| {
-                    style.visuals.window_fill = egui::Color32::BLACK;
-                    style.visuals.panel_fill = egui::Color32::BLACK;
+                    style.visuals.window_fill = internal_color_to_egui(
+                        Color32::RED,
+                        freminal_common::colors::TerminalColor::DefaultBackground,
+                        false,
+                    );
+                    style.visuals.panel_fill = internal_color_to_egui(
+                        Color32::RED,
+                        freminal_common::colors::TerminalColor::DefaultBackground,
+                        false,
+                    );
                 });
             } else {
                 ui.ctx().style_mut(|style| {

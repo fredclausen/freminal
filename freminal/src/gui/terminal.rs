@@ -460,8 +460,16 @@ fn paint_cursor(
 
 fn setup_bg_fill(ctx: &egui::Context) {
     ctx.style_mut(|style| {
-        style.visuals.window_fill = egui::Color32::BLACK;
-        style.visuals.panel_fill = egui::Color32::BLACK;
+        style.visuals.window_fill = internal_color_to_egui(
+            Color32::RED,
+            freminal_common::colors::TerminalColor::DefaultBackground,
+            false,
+        );
+        style.visuals.panel_fill = internal_color_to_egui(
+            Color32::RED,
+            freminal_common::colors::TerminalColor::DefaultBackground,
+            false,
+        );
     });
 }
 
@@ -678,22 +686,13 @@ fn process_tags(
             terminal_fonts.get_family(&tag.font_decorations, &tag.font_weight);
         textformat.font_id.size = font_size;
         let make_faint = tag.font_decorations.contains(&FontDecorations::Faint);
-        textformat.color =
-            internal_color_to_egui(default_color, default_background, color, make_faint);
+        textformat.color = internal_color_to_egui(default_color, color, make_faint);
         // FIXME: ????? should background be faint? I feel like no, but....
-        textformat.background = internal_color_to_egui(
-            default_background,
-            default_background,
-            background_color,
-            make_faint,
-        );
+        textformat.background =
+            internal_color_to_egui(default_background, background_color, make_faint);
         if tag.font_decorations.contains(&FontDecorations::Underline) {
-            let underline_color_converted = internal_color_to_egui(
-                textformat.color,
-                default_background,
-                underline_color,
-                make_faint,
-            );
+            let underline_color_converted =
+                internal_color_to_egui(textformat.color, underline_color, make_faint);
 
             textformat.underline = Stroke::new(1.0, underline_color_converted);
         } else {
@@ -1101,10 +1100,8 @@ impl FreminalTerminalWidget {
 
             if terminal_emulator.show_cursor() {
                 let default_foreground_color = ui.style().visuals.text_color();
-                let default_background_color = ui.style().visuals.window_fill();
                 let color = internal_color_to_egui(
                     default_foreground_color,
-                    default_background_color,
                     terminal_emulator.internal.get_current_buffer().cursor_color,
                     false,
                 );

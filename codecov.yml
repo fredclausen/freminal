@@ -3,3 +3,4 @@ ignore:
   - "filedescriptor"
   - "freminal/freminal-terminal-emulator/src/io/pty.rs"
   - "freminal/freminal-terminal-emulator/src/io/mod.rs"
+  - "xtask"

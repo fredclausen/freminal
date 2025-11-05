@@ -3,43 +3,49 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+use conv2::ValueInto;
 use std::fmt;
 
 #[must_use]
-pub const fn lookup_256_color_by_index(index: usize) -> (usize, usize, usize) {
+pub fn lookup_256_color_by_index(index: usize) -> TerminalColor {
     // https://stackoverflow.com/questions/69138165/how-to-get-the-rgb-values-of-a-256-color-palette-terminal-color
     match index {
         // standard colors 0 -15, as well as their bright counterparts 8-15
         // And the other values that map to them further up the color table
-        1 => (128, 0, 0),
-        2 => (0, 128, 0),
-        3 => (128, 128, 0),
-        4 => (0, 0, 128),
-        5 => (128, 0, 128),
-        6 => (0, 128, 128),
-        7 => (192, 192, 192),
-        8 | 244 => (128, 128, 128),
-        9 | 196 => (255, 0, 0),
-        10 | 46 => (0, 255, 0),
-        11 | 226 => (255, 255, 0),
-        12 | 21 => (0, 0, 255),
-        13 | 201 => (255, 0, 255),
-        14 | 51 => (0, 255, 255),
-        15 | 231 => (255, 255, 255),
+        // Standard ANSI colors (0–7)
+        0 | 16 | 256 => TerminalColor::Black,
+        1 => TerminalColor::Red,
+        2 => TerminalColor::Green,
+        3 => TerminalColor::Yellow,
+        4 => TerminalColor::Blue,
+        5 => TerminalColor::Magenta,
+        6 => TerminalColor::Cyan,
+        7 => TerminalColor::White,
+
+        // Bright ANSI colors (8–15)
+        8 => TerminalColor::BrightBlack,
+        9 => TerminalColor::BrightRed,
+        10 => TerminalColor::BrightGreen,
+        11 => TerminalColor::BrightYellow,
+        12 => TerminalColor::BrightBlue,
+        13 => TerminalColor::BrightMagenta,
+        14 => TerminalColor::BrightCyan,
+        15 => TerminalColor::BrightWhite,
         // gray scale
         232..=255 => {
             let value = (2056 + 2570 * (index - 232)) / 256;
 
-            (value, value, value)
-        }
-        // the blacks
-        0 | 16 | 256.. => (0, 0, 0),
-        // programtic colors
+            // use conv2 crate to ensure safe casting
+            let value: u8 = value.value_into().unwrap_or(0);
+            TerminalColor::Custom(value, value, value)
+        } // // the blacks
+        // 0 | 16 | 256.. => (0, 0, 0),
+        // // programtic colors
         _ => {
-            let r = cube_component(index, 36);
-            let g = cube_component(index, 6);
-            let b = cube_component(index, 1);
-            (r, g, b)
+            let r = cube_component(index, 36).value_into().unwrap_or(0);
+            let g = cube_component(index, 6).value_into().unwrap_or(0);
+            let b = cube_component(index, 1).value_into().unwrap_or(0);
+            TerminalColor::Custom(r, g, b)
         }
     }
 }
