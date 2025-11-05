@@ -135,12 +135,14 @@ impl StandardParser {
 
         if self.state == StandardParserState::Finished {
             if self.dcs {
-                output.push(TerminalOutput::DeviceControlString(self.sequence.clone()));
+                output.push(TerminalOutput::DeviceControlString(std::mem::take(
+                    &mut self.sequence,
+                )));
                 return Ok(Some(ParserInner::Empty));
             } else if self.apc {
-                output.push(TerminalOutput::ApplicationProgramCommand(
-                    self.sequence.clone(),
-                ));
+                output.push(TerminalOutput::ApplicationProgramCommand(std::mem::take(
+                    &mut self.sequence,
+                )));
                 return Ok(Some(ParserInner::Empty));
             }
         }
@@ -458,7 +460,6 @@ pub const fn is_standard_param(b: u8) -> bool {
 }
 
 fn format_error_output(sequence: &[u8]) {
-    let params = String::from_utf8(sequence.to_vec())
-        .unwrap_or_else(|_| "Unable To Parse Params".to_string());
+    let params = String::from_utf8_lossy(sequence);
     warn!("Unhandled Standard sequence: ESC{params}");
 }

@@ -33,8 +33,8 @@ impl std::fmt::Display for AnsiOscInternalType {
     }
 }
 
-impl From<Vec<Option<AnsiOscToken>>> for AnsiOscInternalType {
-    fn from(value: Vec<Option<AnsiOscToken>>) -> Self {
+impl From<&Vec<Option<AnsiOscToken>>> for AnsiOscInternalType {
+    fn from(value: &Vec<Option<AnsiOscToken>>) -> Self {
         // The first value is the type of the OSC sequence
         // if the first value is b'?', then it is a query
         // otherwise, it is a set but we'll leave that as unknown for now
@@ -43,7 +43,7 @@ impl From<Vec<Option<AnsiOscToken>>> for AnsiOscInternalType {
             .get(1)
             .map_or(Self::Unknown(None), |value| match value {
                 Some(AnsiOscToken::String(value)) => {
-                    if value == &"?".to_string() {
+                    if value.as_str() == "?" {
                         Self::Query
                     } else {
                         Self::String(value.clone())
@@ -98,8 +98,8 @@ enum OscTarget {
 // OSC 777	NOTIFY	Send Notification.
 // OSC 888	DUMPSTATE	Dumps internal state to debug stream.
 
-impl From<AnsiOscToken> for OscTarget {
-    fn from(value: AnsiOscToken) -> Self {
+impl From<&AnsiOscToken> for OscTarget {
+    fn from(value: &AnsiOscToken) -> Self {
         match value {
             AnsiOscToken::U8(0 | 2) => Self::TitleBar,
             AnsiOscToken::U8(1) => Self::IconName,
@@ -165,7 +165,7 @@ impl fmt::Display for Url {
         write!(
             f,
             "Url {{ id: {}, url: {} }}",
-            self.id.clone().unwrap_or_else(|| "None".to_string()),
+            self.id.as_deref().unwrap_or("None"),
             self.url
         )
     }
@@ -308,8 +308,9 @@ impl AnsiOscParser {
                         return Ok(Some(ParserInner::Empty));
                     };
 
-                    let osc_target = OscTarget::from(type_number.clone());
-                    let osc_internal_type = AnsiOscInternalType::from(params.clone());
+                    // Only clone what’s actually reused later.
+                    let osc_target = OscTarget::from(&type_number);
+                    let osc_internal_type = AnsiOscInternalType::from(&params);
 
                     match osc_target {
                         OscTarget::Background => {
@@ -332,13 +333,13 @@ impl AnsiOscParser {
                                 osc_internal_type.to_string(),
                             )));
                         }
-
                         OscTarget::RemoteHost => {
                             output.push(TerminalOutput::OscResponse(AnsiOscType::RemoteHost(
                                 osc_internal_type.to_string(),
                             )));
                         }
                         OscTarget::Url => {
+                            // `params` is reused here → must keep the clone above
                             let url_response = UrlResponse::from(params);
                             output
                                 .push(TerminalOutput::OscResponse(AnsiOscType::Url(url_response)));
@@ -347,6 +348,7 @@ impl AnsiOscParser {
                             output.push(TerminalOutput::OscResponse(AnsiOscType::ResetCursorColor));
                         }
                         OscTarget::Unknown => {
+                            // `type_number` reused here → must keep the clone above
                             warn!("Unknown OSC target: {:?}", type_number);
                             output.push(TerminalOutput::Invalid);
                         }
@@ -369,13 +371,12 @@ impl AnsiOscParser {
 
 // the terminator of the OSC sequence is a ST (0x5C) or BEL (0x07)
 const fn is_osc_terminator(b: &[u8]) -> bool {
-    // the array has to be at least 4 bytes long, and the last two characters need to be 0x1b and 0x5c
-
-    if b.len() < 2 {
-        return false;
+    match b {
+        // BEL ends the sequence
+        // ESC '\' (ST) ends the sequence
+        [.., 0x07] | [.., 0x1b, 0x5c] => true,
+        _ => false,
     }
-
-    b[b.len() - 2] == 0x1b && b[b.len() - 1] == 0x5c || b[b.len() - 1] == 0x07
 }
 
 // FIXME: Support ST (0x1b)\ as a terminator
