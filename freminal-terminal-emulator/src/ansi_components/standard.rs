@@ -177,19 +177,12 @@ impl StandardParser {
 
         match self.state {
             StandardParserState::Finished => match self.intermediates.first() {
-                None => {
-                    output.push(TerminalOutput::Invalid);
-                    ParserOutcome::Invalid("No intermediates".to_string())
-                }
+                None => ParserOutcome::Invalid("No intermediates".to_string()),
                 Some(b' ') => {
                     let value = self.params.first();
 
                     match value {
-                        None => {
-                            output.push(TerminalOutput::Invalid);
-
-                            ParserOutcome::Invalid("No params".to_string())
-                        }
+                        None => ParserOutcome::Invalid("No params".to_string()),
                         Some(value) => {
                             let value = *value as char;
                             match value {
@@ -214,11 +207,7 @@ impl StandardParser {
                     let value = self.params.first();
 
                     match value {
-                        None => {
-                            output.push(TerminalOutput::Invalid);
-
-                            ParserOutcome::Invalid("No params".to_string())
-                        }
+                        None => ParserOutcome::Invalid("No params".to_string()),
                         Some(value) => {
                             let value = *value as char;
                             match value {
@@ -243,10 +232,7 @@ impl StandardParser {
                     let value = self.params.first();
 
                     match value {
-                        None => {
-                            output.push(TerminalOutput::Invalid);
-                            ParserOutcome::Invalid("No params".to_string())
-                        }
+                        None => ParserOutcome::Invalid("No params".to_string()),
                         Some(value) => {
                             let value = *value as char;
                             match value {
@@ -268,10 +254,7 @@ impl StandardParser {
                     let value = self.params.first();
 
                     match value {
-                        None => {
-                            output.push(TerminalOutput::Invalid);
-                            ParserOutcome::Invalid("No params".to_string())
-                        }
+                        None => ParserOutcome::Invalid("No params".to_string()),
                         Some(value) => {
                             let value = *value as char;
 
@@ -298,10 +281,7 @@ impl StandardParser {
                     let value = self.params.first();
 
                     match value {
-                        None => {
-                            output.push(TerminalOutput::Invalid);
-                            ParserOutcome::Invalid("No params".to_string())
-                        }
+                        None => ParserOutcome::Invalid("No params".to_string()),
                         Some(value) => {
                             if *value == b'C' {
                                 output.push(TerminalOutput::CharsetG1);
@@ -318,10 +298,7 @@ impl StandardParser {
                     let value = self.params.first();
 
                     match value {
-                        None => {
-                            output.push(TerminalOutput::Invalid);
-                            ParserOutcome::Invalid("No params".to_string())
-                        }
+                        None => ParserOutcome::Invalid("No params".to_string()),
                         Some(value) => {
                             if *value == b'C' {
                                 output.push(TerminalOutput::CharsetG2);
@@ -337,10 +314,7 @@ impl StandardParser {
                     let value = self.params.first();
 
                     match value {
-                        None => {
-                            output.push(TerminalOutput::Invalid);
-                            ParserOutcome::Invalid("No params".to_string())
-                        }
+                        None => ParserOutcome::Invalid("No params".to_string()),
                         Some(value) => {
                             match value {
                                 // FIXME: Should this be the same as DecSpecialGraphics::Replace?
@@ -415,7 +389,6 @@ impl StandardParser {
                 }
             },
             StandardParserState::Invalid => {
-                output.push(TerminalOutput::Invalid);
                 ParserOutcome::Invalid("Invalid parser state".to_string())
             }
             _ => ParserOutcome::Continue,

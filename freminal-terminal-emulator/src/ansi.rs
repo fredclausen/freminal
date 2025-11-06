@@ -380,9 +380,14 @@ impl FreminalAnsiParser {
                             debug!("Invalid ANSI sequence; recent={}", self.current_trace_str());
                         }
                     }
-                    ParserOutcome::Continue => self.inner = ParserInner::Standard(parser),
+                    ParserOutcome::Continue => {
+                        // Note: retain assignment here — we're transitioning from Escape to Standard.)
+                        self.inner = ParserInner::Standard(parser);
+                    }
 
                     ParserOutcome::Invalid(message) => {
+                        // All invalid sequences emit `TerminalOutput::Invalid` here.
+                        output.push(TerminalOutput::Invalid);
                         error!(
                             "ANSI parser error: {}; recent={}",
                             message,
@@ -436,6 +441,8 @@ impl FreminalAnsiParser {
                         }
                         ParserOutcome::Continue => (),
                         ParserOutcome::Invalid(message) => {
+                            // All invalid sequences emit `TerminalOutput::Invalid` here.
+                            output.push(TerminalOutput::Invalid);
                             error!(
                                 "ANSI parser error: {}; recent={}",
                                 message,
@@ -481,6 +488,8 @@ impl FreminalAnsiParser {
                     }
                     ParserOutcome::Continue => (),
                     ParserOutcome::Invalid(message) => {
+                        // All invalid sequences emit `TerminalOutput::Invalid` here.
+                        output.push(TerminalOutput::Invalid);
                         error!(
                             "ANSI parser error: {}; recent={}",
                             message,

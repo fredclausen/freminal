@@ -396,10 +396,7 @@ impl AnsiOscParser {
 
                 ParserOutcome::Finished
             }
-            AnsiOscParserState::Invalid => {
-                output.push(TerminalOutput::Invalid);
-                ParserOutcome::Invalid("Invalid OSC State".to_string())
-            }
+            AnsiOscParserState::Invalid => ParserOutcome::Invalid("Invalid OSC State".to_string()),
             _ => ParserOutcome::Continue,
         }
     }
