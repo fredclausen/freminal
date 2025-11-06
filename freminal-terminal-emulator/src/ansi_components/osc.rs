@@ -243,6 +243,12 @@ impl AnsiOscParser {
         }
     }
 
+    /// Expose current sequence trace for testing and diagnostics.
+    #[must_use]
+    pub fn trace_str(&self) -> String {
+        self.seq_trace.as_str()
+    }
+
     /// Push a byte into the parser
     ///
     /// # Errors

@@ -62,11 +62,19 @@ impl AnsiCsiParser {
         }
     }
 
+    /// Expose current sequence trace for testing and diagnostics.
+    #[must_use]
+    pub fn trace_str(&self) -> String {
+        self.seq_trace.as_str()
+    }
+
     /// Push a byte into the parser
     ///
     /// # Errors
     /// Will return an error if the parser is in a finished state
     pub fn push(&mut self, b: u8) -> Result<()> {
+        self.seq_trace.push(b);
+
         if let AnsiCsiParserState::Finished(_) | AnsiCsiParserState::InvalidFinished = &self.state {
             return Err(ParserFailures::ParsedPushedToOnceFinished.into());
         }
