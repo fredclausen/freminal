@@ -253,6 +253,7 @@ impl AnsiOscParser {
     ///
     /// # Errors
     /// Will return an error if the parser is in the `Finished` or `InvalidFinished` state
+    #[tracing::instrument(level = "trace", skip_all)]
     pub fn push(&mut self, b: u8) -> Result<()> {
         self.seq_trace.push(b);
         if let AnsiOscParserState::Finished | AnsiOscParserState::InvalidFinished = &self.state {
@@ -310,6 +311,7 @@ impl AnsiOscParser {
     ///
     /// # Errors
     /// Will return an error if the parser is in the `Finished` or `InvalidFinished` state
+    #[tracing::instrument(level = "trace", skip_all)]
     pub fn ansiparser_inner_osc(
         &mut self,
         b: u8,
@@ -367,7 +369,7 @@ impl AnsiOscParser {
                         }
                         OscTarget::Unknown => {
                             // `type_number` reused here → must keep the clone above
-                            warn!("Unknown OSC target: recent='{}'", self.seq_trace.as_str());
+                            warn!(target: "freminal.parser.osc", parser = "osc", recent = %self.seq_trace.as_str(), "Unknown OSC target");
                             output.push(TerminalOutput::Invalid);
                         }
                     }

@@ -72,6 +72,7 @@ impl AnsiCsiParser {
     ///
     /// # Errors
     /// Will return an error if the parser is in a finished state
+    #[tracing::instrument(level = "trace", skip_all)]
     pub fn push(&mut self, b: u8) -> Result<()> {
         self.seq_trace.push(b);
 
@@ -125,6 +126,7 @@ impl AnsiCsiParser {
     /// # Errors
     /// Will return an error if the parser encounters an invalid state
     #[allow(clippy::too_many_lines)]
+    #[tracing::instrument(level = "trace", skip_all)]
     pub fn ansiparser_inner_csi(
         &mut self,
         b: u8,
