@@ -3,9 +3,8 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::ansi::{split_params_into_semicolon_delimited_usize, ParserInner, TerminalOutput};
+use crate::ansi::{split_params_into_semicolon_delimited_usize, ParserOutcome, TerminalOutput};
 use crate::error::ParserFailures;
-use anyhow::Result;
 use freminal_common::window_manipulation::WindowManipulation;
 
 /// DECSLLP - Window Manipulation
@@ -83,14 +82,13 @@ fn param_or(params: &[Option<usize>], idx: usize, default: usize) -> usize {
 pub fn ansi_parser_inner_csi_finished_set_position_t(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,
-) -> Result<Option<ParserInner>> {
+) -> ParserOutcome {
     let params = split_params_into_semicolon_delimited_usize(params);
 
     let Ok(params) = params else {
-        warn!("Invalid DECSLPP sequence");
-        output.push(TerminalOutput::Invalid);
-
-        return Err(ParserFailures::UnhandledDECSLPPCommand(format!("{params:?}")).into());
+        return ParserOutcome::InvalidParserFailure(ParserFailures::UnhandledDECSLPPCommand(
+            format!("{params:?}"),
+        ));
     };
 
     let (ps1, ps2, ps3) = if params.len() == 1 {
@@ -115,10 +113,12 @@ pub fn ansi_parser_inner_csi_finished_set_position_t(
             warn!("Invalid DECSLPP sequence: {e}");
             output.push(TerminalOutput::Invalid);
 
-            return Err(ParserFailures::UnhandledDECSLPPCommand(format!("{params:?}")).into());
+            return ParserOutcome::InvalidParserFailure(ParserFailures::UnhandledDECSLPPCommand(
+                format!("{params:?}"),
+            ));
         }
     };
 
     output.push(TerminalOutput::WindowManipulation(parsed));
-    Ok(Some(ParserInner::Empty))
+    ParserOutcome::Finished
 }

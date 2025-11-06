@@ -3,9 +3,8 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::ansi::{split_params_into_semicolon_delimited_usize, ParserInner, TerminalOutput};
+use crate::ansi::{split_params_into_semicolon_delimited_usize, ParserOutcome, TerminalOutput};
 use crate::error::ParserFailures;
-use anyhow::Result;
 
 /// Set Top and Bottom Margins
 ///
@@ -39,33 +38,28 @@ fn param_or(params: &[Option<usize>], idx: usize, default: usize) -> usize {
 pub fn ansi_parser_inner_csi_set_top_and_bottom_margins(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,
-) -> Result<Option<ParserInner>> {
+) -> ParserOutcome {
     if params.is_empty() {
-        debug!("DECSTBM command with no params. Using defaults");
         output.push(TerminalOutput::SetTopAndBottomMargins {
             top_margin: 1,
             bottom_margin: usize::MAX,
         });
 
-        return Ok(Some(ParserInner::Empty));
+        return ParserOutcome::Finished;
     }
 
     let params = split_params_into_semicolon_delimited_usize(params);
 
     let Ok(params) = params else {
-        warn!("Invalid DECSTBM commandz");
-        output.push(TerminalOutput::Invalid);
-
-        return Err(ParserFailures::UnhandledDECSTBMCommand(format!(
-            "Failed to parse in to {params:?}"
-        ))
-        .into());
+        return ParserOutcome::InvalidParserFailure(ParserFailures::UnhandledDECSTBMCommand(
+            format!("Failed to parse in to {params:?}"),
+        ));
     };
 
     if params.len() != 2 {
-        warn!("DECSTBM command with invalid number of params. Expected 2, got {params:?}");
-        output.push(TerminalOutput::Invalid);
-        return Err(ParserFailures::UnhandledDECSTBMCommand(format!("{params:?}")).into());
+        return ParserOutcome::InvalidParserFailure(ParserFailures::UnhandledDECSTBMCommand(
+            format!("{params:?}"),
+        ));
     }
 
     let pt = match params.first() {
@@ -76,9 +70,9 @@ pub fn ansi_parser_inner_csi_set_top_and_bottom_margins(
     let pb = param_or(&params, 1, usize::MAX);
 
     if pt >= pb || pt == 0 || pb == 0 {
-        warn!("Invalid DECSTBM command with out of bounds params. pt: {pt}, pb: {pb}");
-        output.push(TerminalOutput::Invalid);
-        return Err(ParserFailures::UnhandledDECSTBMCommand(format!("{params:?}")).into());
+        return ParserOutcome::InvalidParserFailure(ParserFailures::UnhandledDECSTBMCommand(
+            format!("{params:?}"),
+        ));
     }
 
     output.push(TerminalOutput::SetTopAndBottomMargins {
@@ -86,5 +80,5 @@ pub fn ansi_parser_inner_csi_set_top_and_bottom_margins(
         bottom_margin: pb,
     });
 
-    Ok(Some(ParserInner::Empty))
+    ParserOutcome::Finished
 }

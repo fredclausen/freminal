@@ -5,7 +5,7 @@
 
 use thiserror::Error;
 
-#[derive(Debug, Error, Eq, PartialEq)]
+#[derive(Debug, Error, Eq, PartialEq, Clone)]
 #[error(transparent)]
 pub enum ParserFailures {
     #[error("Parsed pushed to once finished")]

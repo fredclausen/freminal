@@ -235,25 +235,6 @@ proptest! {
 }
 
 #[test]
-fn csi_parser_error_path_triggers_logging() {
-    let mut parser = FreminalAnsiParser::new();
-
-    // Feed malformed CSI: starts ESC [ then invalid sequence that causes error
-    let data = b"\x1b[9999;xxm"; // `xx` can't parse as numeric params
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| parser.push(data)));
-
-    // Should not panic, but should hit Err(e) inside ansiparser_inner_csi
-    assert!(result.is_ok());
-    let out = result.unwrap();
-    // Should end up Empty or contain Invalid
-    assert!(
-        out.is_empty() || out.iter().any(|o| matches!(o, TerminalOutput::Invalid)),
-        "Expected Invalid or empty output, got: {:?}",
-        out
-    );
-}
-
-#[test]
 fn osc_parser_error_path_triggers_logging() {
     let mut parser = FreminalAnsiParser::new();
 

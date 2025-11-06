@@ -21,7 +21,7 @@ fn seq_trace_updates_on_push() {
 
     // CSI
     let mut csi = AnsiCsiParser::new();
-    csi.push(b'B').unwrap();
+    csi.push(b'B');
     assert!(
         csi.trace_str().contains('B'),
         "CSI parser did not record byte in trace"
@@ -54,8 +54,8 @@ proptest! {
         {
             let mut full = AnsiCsiParser::new();
             let mut chunked = AnsiCsiParser::new();
-            for &b in &input { full.push(b).ok(); }
-            for chunk in input.chunks(3) { for &b in chunk { chunked.push(b).ok(); } }
+            for &b in &input { full.push(b); }
+            for chunk in input.chunks(3) { for &b in chunk { chunked.push(b); } }
             prop_assert_eq!(full.trace_str(), chunked.trace_str());
         }
 

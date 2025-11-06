@@ -3,17 +3,23 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::ansi_components::{
-    csi::AnsiCsiParser,
-    line_draw::DecSpecialGraphics,
-    mode::Mode,
-    osc::{AnsiOscParser, AnsiOscType},
-    sgr::SelectGraphicRendition,
-    standard::StandardParser,
+use core::fmt;
+
+use crate::{
+    ansi_components::{
+        csi::AnsiCsiParser,
+        line_draw::DecSpecialGraphics,
+        mode::Mode,
+        osc::{AnsiOscParser, AnsiOscType},
+        sgr::SelectGraphicRendition,
+        standard::StandardParser,
+    },
+    error::ParserFailures,
 };
 
 use crate::ansi_components::tracer::SequenceTracer;
 use anyhow::Result;
+use freminal_common::{cursor::CursorVisualStyle, window_manipulation::WindowManipulation};
 
 /// Represents the high-level result of feeding one byte to the parser.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,8 +30,21 @@ pub enum ParserOutcome {
     Finished,
     /// The byte resulted in an invalid sequence or parse error (error string provided).
     Invalid(String),
+    InvalidParserFailure(ParserFailures),
 }
-use freminal_common::{cursor::CursorVisualStyle, window_manipulation::WindowManipulation};
+
+impl fmt::Display for ParserOutcome {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Continue => write!(f, "Continue"),
+            Self::Finished => write!(f, "Finished"),
+            Self::Invalid(msg) => write!(f, "Invalid: {msg}"),
+            Self::InvalidParserFailure(msg) => {
+                write!(f, "InvalidParserFailure: {msg:?}")
+            }
+        }
+    }
+}
 
 /// High-level actions produced by the ANSI/OSC parser.
 ///
@@ -385,6 +404,8 @@ impl FreminalAnsiParser {
                         self.inner = ParserInner::Standard(parser);
                     }
 
+                    ParserOutcome::InvalidParserFailure(_message) => unreachable!(),
+
                     ParserOutcome::Invalid(message) => {
                         // All invalid sequences emit `TerminalOutput::Invalid` here.
                         output.push(TerminalOutput::Invalid);
@@ -440,6 +461,8 @@ impl FreminalAnsiParser {
                             }
                         }
                         ParserOutcome::Continue => (),
+                        // we cannot hit this branch right now because the standard parser does not return ParserOutcome::InvalidParserFailure
+                        ParserOutcome::InvalidParserFailure(_message) => unreachable!(),
                         ParserOutcome::Invalid(message) => {
                             // All invalid sequences emit `TerminalOutput::Invalid` here.
                             output.push(TerminalOutput::Invalid);
@@ -458,17 +481,17 @@ impl FreminalAnsiParser {
                     }
                 }
                 ParserInner::Csi(parser) => match parser.ansiparser_inner_csi(b, &mut output) {
-                    Ok(Some(value)) => {
-                        self.inner = value;
+                    ParserOutcome::Finished => {
+                        self.inner = ParserInner::Empty;
                         if output.last() == Some(&TerminalOutput::Invalid) {
                             debug!("Invalid ANSI sequence; recent={}", self.current_trace_str());
                         }
                     }
-                    Ok(None) => (),
-                    Err(e) => {
+                    ParserOutcome::Continue => (),
+                    ParserOutcome::InvalidParserFailure(message) => {
                         error!(
                             "ANSI parser error: {}; recent={}",
-                            e,
+                            message,
                             self.current_trace_str()
                         );
                         warn!(
@@ -477,6 +500,21 @@ impl FreminalAnsiParser {
                         );
                         debug!("Invalid ANSI sequence; recent={}", self.current_trace_str());
                         self.inner = ParserInner::Empty;
+                        output.push(TerminalOutput::Invalid);
+                    }
+                    ParserOutcome::Invalid(message) => {
+                        error!(
+                            "ANSI parser error: {}; recent={}",
+                            message,
+                            self.current_trace_str()
+                        );
+                        warn!(
+                            "ANSI parser error; resetting state; recent={}",
+                            self.current_trace_str()
+                        );
+                        debug!("Invalid ANSI sequence; recent={}", self.current_trace_str());
+                        self.inner = ParserInner::Empty;
+                        output.push(TerminalOutput::Invalid);
                     }
                 },
                 ParserInner::Osc(parser) => match parser.ansiparser_inner_osc(b, &mut output) {
@@ -487,6 +525,8 @@ impl FreminalAnsiParser {
                         }
                     }
                     ParserOutcome::Continue => (),
+                    // we cannot hit this branch right now because the osc parser does not return ParserOutcome::InvalidParserFailure
+                    ParserOutcome::InvalidParserFailure(_message) => unreachable!(),
                     ParserOutcome::Invalid(message) => {
                         // All invalid sequences emit `TerminalOutput::Invalid` here.
                         output.push(TerminalOutput::Invalid);

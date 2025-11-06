@@ -3,9 +3,8 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::ansi::{parse_param_as, ParserInner, TerminalOutput};
+use crate::ansi::{parse_param_as, ParserOutcome, TerminalOutput};
 use crate::error::ParserFailures;
-use anyhow::Result;
 
 /// Erase in Display
 ///
@@ -23,12 +22,11 @@ use anyhow::Result;
 pub fn ansi_parser_inner_csi_finished_set_position_j(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,
-) -> Result<Option<ParserInner>> {
+) -> ParserOutcome {
     let Ok(param) = parse_param_as::<usize>(params) else {
-        warn!("Invalid clear command");
-        output.push(TerminalOutput::Invalid);
-
-        return Err(ParserFailures::UnhandledEDCommand(format!("{params:?}")).into());
+        return ParserOutcome::InvalidParserFailure(ParserFailures::UnhandledEDCommand(format!(
+            "{params:?}"
+        )));
     };
 
     let ret = match param.unwrap_or(0) {
@@ -40,5 +38,5 @@ pub fn ansi_parser_inner_csi_finished_set_position_j(
     };
     output.push(ret);
 
-    Ok(Some(ParserInner::Empty))
+    ParserOutcome::Finished
 }

@@ -26,10 +26,8 @@ use super::{
     },
     mode::{Mode, SetMode},
 };
-use crate::ansi::{ParserInner, TerminalOutput};
+use crate::ansi::{ParserOutcome, TerminalOutput};
 use crate::ansi_components::tracer::SequenceTracer;
-use crate::error::ParserFailures;
-use anyhow::Result;
 
 #[derive(Eq, PartialEq, Debug, Default)]
 pub enum AnsiCsiParserState {
@@ -73,11 +71,11 @@ impl AnsiCsiParser {
     /// # Errors
     /// Will return an error if the parser is in a finished state
     #[tracing::instrument(level = "trace", skip_all)]
-    pub fn push(&mut self, b: u8) -> Result<()> {
+    pub fn push(&mut self, b: u8) -> ParserOutcome {
         self.seq_trace.push(b);
 
         if let AnsiCsiParserState::Finished(_) | AnsiCsiParserState::InvalidFinished = &self.state {
-            return Err(ParserFailures::ParsedPushedToOnceFinished.into());
+            return ParserOutcome::Invalid("Parser pushed to once finished".to_string());
         }
 
         self.sequence.push(b);
@@ -86,39 +84,47 @@ impl AnsiCsiParser {
             AnsiCsiParserState::Params => {
                 if is_csi_param(b) {
                     self.params.push(b);
+                    return ParserOutcome::Continue;
                 } else if is_csi_intermediate(b) {
                     self.intermediates.push(b);
                     self.state = AnsiCsiParserState::Intermediates;
+                    return ParserOutcome::Continue;
                 } else if is_csi_terminator(b) {
                     self.state = AnsiCsiParserState::Finished(b);
                     self.seq_trace.trim_control_tail();
-                } else {
-                    self.state = AnsiCsiParserState::Invalid;
+                    return ParserOutcome::Finished;
                 }
+
+                self.state = AnsiCsiParserState::Invalid;
+                ParserOutcome::Invalid("Invalid CSI parameter".to_string())
             }
             AnsiCsiParserState::Intermediates => {
                 if is_csi_param(b) {
                     self.state = AnsiCsiParserState::Invalid;
+                    return ParserOutcome::Invalid("Invalid CSI intermediate".to_string());
                 } else if is_csi_intermediate(b) {
                     self.intermediates.push(b);
+                    return ParserOutcome::Continue;
                 } else if is_csi_terminator(b) {
                     self.state = AnsiCsiParserState::Finished(b);
                     self.seq_trace.trim_control_tail();
-                } else {
-                    self.state = AnsiCsiParserState::Invalid;
+                    return ParserOutcome::Finished;
                 }
+
+                self.state = AnsiCsiParserState::Invalid;
+                ParserOutcome::Invalid("Invalid CSI intermediate".to_string())
             }
             AnsiCsiParserState::Invalid => {
                 if is_csi_terminator(b) {
                     self.state = AnsiCsiParserState::InvalidFinished;
                 }
+
+                ParserOutcome::Invalid("Invalid CSI sequence".to_string())
             }
             AnsiCsiParserState::Finished(_) | AnsiCsiParserState::InvalidFinished => {
                 unreachable!();
             }
         }
-
-        Ok(())
     }
 
     /// Push a byte into the parser and return the next state
@@ -131,8 +137,8 @@ impl AnsiCsiParser {
         &mut self,
         b: u8,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<ParserInner>> {
-        self.push(b)?;
+    ) -> ParserOutcome {
+        let push_result = self.push(b);
 
         match self.state {
             AnsiCsiParserState::Finished(b'A') => {
@@ -176,21 +182,21 @@ impl AnsiCsiParser {
                     &self.params,
                     &SetMode::DecSet,
                 )));
-                Ok(Some(ParserInner::Empty))
+                push_result
             }
             AnsiCsiParserState::Finished(b'l') => {
                 output.push(TerminalOutput::Mode(Mode::terminal_mode_from_params(
                     &self.params,
                     &SetMode::DecRst,
                 )));
-                Ok(Some(ParserInner::Empty))
+                push_result
             }
             AnsiCsiParserState::Finished(b'@') => {
                 ansi_parser_inner_csi_finished_ich(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'n') => {
                 output.push(TerminalOutput::CursorReport);
-                Ok(Some(ParserInner::Empty))
+                push_result
             }
             AnsiCsiParserState::Finished(b't') => {
                 ansi_parser_inner_csi_finished_set_position_t(&self.params, output)
@@ -200,12 +206,9 @@ impl AnsiCsiParser {
             }
             AnsiCsiParserState::Finished(b'q') => {
                 if self.params.is_empty() || self.params.first().unwrap_or(&b'0') != &b'>' {
-                    ansi_parser_inner_csi_finished_set_position_q(&self.params, output)?;
-                } else {
-                    ansi_parser_inner_csi_finished_report_version_q(&self.params, output)?;
+                    return ansi_parser_inner_csi_finished_set_position_q(&self.params, output);
                 }
-
-                Ok(Some(ParserInner::Empty))
+                ansi_parser_inner_csi_finished_report_version_q(&self.params, output)
             }
             AnsiCsiParserState::Finished(b'r') => {
                 ansi_parser_inner_csi_set_top_and_bottom_margins(&self.params, output)
@@ -215,31 +218,13 @@ impl AnsiCsiParser {
             }
             AnsiCsiParserState::Finished(b'u') => {
                 // https://sw.kovidgoyal.net/kitty/keyboard-protocol/
-                format_error_output(&self.sequence);
                 output.push(TerminalOutput::Skipped);
-                Ok(Some(ParserInner::Empty))
+                push_result
             }
-            AnsiCsiParserState::Finished(_esc) => {
-                format_error_output(&self.sequence);
-                {
-                    let recent = self.seq_trace.as_str();
-                    debug!("Invalid sequence detected (csi): recent='{}'", recent);
-                    output.push(TerminalOutput::Invalid);
-                };
+            AnsiCsiParserState::Finished(_esc) => push_result,
 
-                Ok(Some(ParserInner::Empty))
-            }
-            AnsiCsiParserState::Invalid => {
-                format_error_output(&self.sequence);
-                {
-                    let recent = self.seq_trace.as_str();
-                    debug!("Invalid sequence detected (csi): recent='{}'", recent);
-                    output.push(TerminalOutput::Invalid);
-                };
-
-                Ok(Some(ParserInner::Empty))
-            }
-            _ => Ok(None),
+            // Below should cover the invalid state(AnsiCsiParserState::Invalid) as well as any other finished states
+            _ => push_result,
         }
     }
 }
@@ -253,9 +238,4 @@ fn is_csi_terminator(b: u8) -> bool {
 }
 fn is_csi_intermediate(b: u8) -> bool {
     (0x20..=0x2f).contains(&b)
-}
-
-fn format_error_output(sequence: &[u8]) {
-    let params = String::from_utf8_lossy(sequence);
-    warn!("Unhandled CSI sequence: [{params}");
 }

@@ -3,10 +3,9 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::ansi::{ParserInner, TerminalOutput};
+use crate::ansi::{ParserOutcome, TerminalOutput};
 use crate::ansi_components::mode::{Mode, SetMode};
 use crate::error::ParserFailures;
-use anyhow::Result;
 
 /// DEC Private Mode Set
 ///
@@ -21,7 +20,7 @@ pub fn ansi_parser_inner_csi_finished_decrqm(
     intermediates: &[u8],
     terminator: u8,
     output: &mut Vec<TerminalOutput>,
-) -> Result<Option<ParserInner>> {
+) -> ParserOutcome {
     // if intermediates contains '$' then we are querying
     if intermediates.contains(&b'$') {
         output.push(TerminalOutput::Mode(Mode::terminal_mode_from_params(
@@ -39,10 +38,10 @@ pub fn ansi_parser_inner_csi_finished_decrqm(
             &SetMode::DecRst,
         )));
     } else {
-        warn!("Invalid DEC Private Mode Set sequence");
-        output.push(TerminalOutput::Invalid);
-        return Err(ParserFailures::UnhandledDECRQMCommand(params.to_vec()).into());
+        return ParserOutcome::InvalidParserFailure(ParserFailures::UnhandledDECRQMCommand(
+            params.to_vec(),
+        ));
     }
 
-    Ok(Some(ParserInner::Empty))
+    ParserOutcome::Finished
 }

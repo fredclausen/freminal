@@ -4,10 +4,9 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::ansi::{
-    extract_param, split_params_into_semicolon_delimited_usize, ParserInner, TerminalOutput,
+    extract_param, split_params_into_semicolon_delimited_usize, ParserOutcome, TerminalOutput,
 };
 use crate::error::ParserFailures;
-use anyhow::Result;
 
 /// Cursor Position
 ///
@@ -19,13 +18,13 @@ use anyhow::Result;
 pub fn ansi_parser_inner_csi_finished_set_position_h(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,
-) -> Result<Option<ParserInner>> {
+) -> ParserOutcome {
     let params_parsed = split_params_into_semicolon_delimited_usize(params);
 
     let Ok(params) = params_parsed else {
-        warn!("Invalid cursor set position sequence");
-        output.push(TerminalOutput::Invalid);
-        return Err(ParserFailures::UnhandledCUPCommand(params.to_vec()).into());
+        return ParserOutcome::InvalidParserFailure(ParserFailures::UnhandledCUPCommand(
+            params.to_vec(),
+        ));
     };
 
     let x = match extract_param(1, &params) {
@@ -43,5 +42,5 @@ pub fn ansi_parser_inner_csi_finished_set_position_h(
         y: Some(y),
     });
 
-    Ok(Some(ParserInner::Empty))
+    ParserOutcome::Finished
 }

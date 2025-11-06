@@ -5,13 +5,12 @@
 
 use std::vec::IntoIter;
 
-use crate::ansi::split_params_into_colon_delimited_usize;
+use crate::ansi::{split_params_into_colon_delimited_usize, ParserOutcome};
 use crate::error::ParserFailures;
 use crate::{
-    ansi::{split_params_into_semicolon_delimited_usize, ParserInner, TerminalOutput},
+    ansi::{split_params_into_semicolon_delimited_usize, TerminalOutput},
     ansi_components::sgr::SelectGraphicRendition,
 };
-use anyhow::Result;
 use freminal_common::colors::{lookup_256_color_by_index, TerminalColor};
 
 #[inline]
@@ -31,7 +30,7 @@ fn opt(params: &[Option<usize>], idx: usize) -> Option<usize> {
 pub fn ansi_parser_inner_csi_finished_sgr_ansi(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,
-) -> Result<Option<ParserInner>> {
+) -> ParserOutcome {
     let (params, split_by_colon) = if params.contains(&b':') {
         (split_params_into_colon_delimited_usize(params), true)
     } else {
@@ -39,9 +38,9 @@ pub fn ansi_parser_inner_csi_finished_sgr_ansi(
     };
 
     let Ok(mut params) = params else {
-        warn!("Invalid SGR sequence");
-        output.push(TerminalOutput::Invalid);
-        return Err(ParserFailures::UnhandledSGRCommand(format!("{params:?}")).into());
+        return ParserOutcome::InvalidParserFailure(ParserFailures::UnhandledSGRCommand(format!(
+            "{params:?}"
+        )));
     };
 
     // Empty SGR params means reset (0)
@@ -70,7 +69,7 @@ pub fn ansi_parser_inner_csi_finished_sgr_ansi(
         )));
     }
 
-    Ok(Some(ParserInner::Empty))
+    ParserOutcome::Finished
 }
 
 fn default_color(output: &mut Vec<TerminalOutput>, custom_color_control_code: usize) {

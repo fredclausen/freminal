@@ -3,9 +3,8 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::ansi::{parse_param_as, ParserInner, TerminalOutput};
+use crate::ansi::{parse_param_as, ParserOutcome, TerminalOutput};
 use crate::error::ParserFailures;
-use anyhow::Result;
 
 /// Cursor Up
 ///
@@ -17,14 +16,11 @@ use anyhow::Result;
 pub fn ansi_parser_inner_csi_finished_move_up(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,
-) -> Result<Option<ParserInner>> {
+) -> ParserOutcome {
     let Ok(param) = parse_param_as::<i32>(params) else {
-        warn!("Invalid cursor move up distance");
-        output.push(TerminalOutput::Invalid);
-        return Err(ParserFailures::UnhandledCUUCommand(
+        return ParserOutcome::InvalidParserFailure(ParserFailures::UnhandledCUUCommand(
             String::from_utf8_lossy(params).to_string(),
-        )
-        .into());
+        ));
     };
 
     let param = match param {
@@ -37,5 +33,5 @@ pub fn ansi_parser_inner_csi_finished_move_up(
         y: Some(-param),
     });
 
-    Ok(Some(ParserInner::Empty))
+    ParserOutcome::Finished
 }
