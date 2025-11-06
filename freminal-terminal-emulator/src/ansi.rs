@@ -475,8 +475,7 @@ impl FreminalAnsiParser {
 
         // Flush any accumulated data
         if !data_output.is_empty() {
-            output.push(TerminalOutput::Data(data_output.clone()));
-            data_output.clear();
+            output.push(TerminalOutput::Data(std::mem::take(&mut data_output)));
         }
 
         // Put the buffer back into self (no allocations, same Vec reused)
