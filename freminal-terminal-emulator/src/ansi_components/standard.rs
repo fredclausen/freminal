@@ -59,12 +59,12 @@ impl Default for StandardParser {
 
 impl StandardParser {
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             state: StandardParserState::Intermediates,
-            params: Vec::new(),
-            intermediates: Vec::new(),
-            sequence: Vec::new(),
+            params: Vec::with_capacity(8),
+            intermediates: Vec::with_capacity(8),
+            sequence: Vec::with_capacity(8),
             dcs: false,
             apc: false,
             seq_trace: SequenceTracer::new(),

@@ -367,14 +367,14 @@ impl FreminalAnsiParser {
                             // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
 
                             if output.last() == Some(&TerminalOutput::Invalid) {
-                                error!("CSI Sequence that threw an error: ESC{}", b as char);
+                                debug!("Invalid ANSI sequence: recent='{}'", self.seq_trace.as_str());
                             }
                         }
                         None => self.inner = ParserInner::Standard(parser),
                     },
                     Err(e) => {
-                        error!("Parser Error: {e}");
-                        error!("CSI Sequence that threw an error: ESC{}", b as char);
+                        warn!("ANSI parser error, resetting state; recent='{}'", self.seq_trace.as_str());
+                        debug!("Invalid ANSI sequence: recent='{}'", self.seq_trace.as_str());
                         self.inner = ParserInner::Empty;
                     }
                 }
@@ -387,17 +387,13 @@ impl FreminalAnsiParser {
         // Take the pending buffer out temporarily
         let mut data_output = std::mem::take(&mut self.pending_data);
         let mut output = Vec::new();
-        let mut output_string_sequence = String::new();
-
+        
         for &b in incoming {
             self.seq_trace.push(b);
 
             match &mut self.inner {
                 ParserInner::Empty => {
-                    if !output_string_sequence.is_empty() {
-                        output_string_sequence.clear();
-                    }
-
+                    
                     if self
                         .ansi_parser_inner_empty(b, &mut data_output, &mut output)
                         .is_err()
@@ -411,61 +407,49 @@ impl FreminalAnsiParser {
                     self.ansiparser_inner_escape(b, &mut data_output, &mut output);
                 }
                 ParserInner::Standard(parser) => {
-                    output_string_sequence.push(b as char);
-                    match parser.standard_parser_inner(b, &mut output) {
+                                        match parser.standard_parser_inner(b, &mut output) {
                         Ok(Some(value)) => {
                             self.inner = value;
                             if output.last() == Some(&TerminalOutput::Invalid) {
-                                error!(
-                                "Standard Sequence that threw an error: {output_string_sequence}"
-                            );
+                                debug!("Invalid ANSI sequence: recent='{}'", self.seq_trace.as_str());
                             }
                         }
                         Ok(None) => (),
                         Err(e) => {
-                            error!("Parser Error: {e}");
-                            error!(
-                                "Standard Sequence that threw an error: {output_string_sequence}"
-                            );
+                            warn!("ANSI parser error, resetting state; recent='{}'", self.seq_trace.as_str());
+                            debug!("Invalid ANSI sequence: recent='{}'", self.seq_trace.as_str());
                             self.inner = ParserInner::Empty;
                         }
                     }
                 }
                 ParserInner::Csi(parser) => {
-                    output_string_sequence.push(b as char);
-                    match parser.ansiparser_inner_csi(b, &mut output) {
+                                        match parser.ansiparser_inner_csi(b, &mut output) {
                         Ok(Some(value)) => {
                             self.inner = value;
                             if output.last() == Some(&TerminalOutput::Invalid) {
-                                error!(
-                                    "CSI Sequence that threw an error: {}",
-                                    output_string_sequence
-                                );
+                                debug!("Invalid ANSI sequence: recent='{}'", self.seq_trace.as_str());
                             }
                         }
                         Ok(None) => (),
                         Err(e) => {
-                            error!("Parser Error: {e}");
-                            error!("CSI Sequence that threw an error: {output_string_sequence}");
+                            warn!("ANSI parser error, resetting state; recent='{}'", self.seq_trace.as_str());
+                            debug!("Invalid ANSI sequence: recent='{}'", self.seq_trace.as_str());
                             self.inner = ParserInner::Empty;
                         }
                     }
                 }
                 ParserInner::Osc(parser) => {
-                    output_string_sequence.push(b as char);
-                    match parser.ansiparser_inner_osc(b, &mut output) {
+                                        match parser.ansiparser_inner_osc(b, &mut output) {
                         Ok(Some(value)) => {
                             self.inner = value;
                             if output.last() == Some(&TerminalOutput::Invalid) {
-                                error!(
-                                    "OSC Sequence that threw an error: {output_string_sequence}"
-                                );
+                                debug!("Invalid ANSI sequence: recent='{}'", self.seq_trace.as_str());
                             }
                         }
                         Ok(None) => (),
                         Err(e) => {
-                            error!("Parser Error: {e}");
-                            error!("OSC Sequence that threw an error: {output_string_sequence}");
+                            warn!("ANSI parser error, resetting state; recent='{}'", self.seq_trace.as_str());
+                            debug!("Invalid ANSI sequence: recent='{}'", self.seq_trace.as_str());
                             self.inner = ParserInner::Empty;
                         }
                     }

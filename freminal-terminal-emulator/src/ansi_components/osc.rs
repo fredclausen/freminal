@@ -9,6 +9,7 @@ use std::str::FromStr;
 //use eframe::egui::Color32;
 
 use crate::ansi::{ParserInner, TerminalOutput};
+use crate::ansi_components::tracer::SequenceTracer;
 use crate::error::ParserFailures;
 use anyhow::{Error, Result};
 
@@ -219,6 +220,7 @@ pub struct AnsiOscParser {
     pub(crate) state: AnsiOscParserState,
     pub(crate) params: Vec<u8>,
     pub(crate) intermediates: Vec<u8>,
+    pub(crate) seq_trace: SequenceTracer,
 }
 
 // OSC Sequence looks like this:
@@ -237,6 +239,7 @@ impl AnsiOscParser {
             state: AnsiOscParserState::Params,
             params: Vec::new(),
             intermediates: Vec::new(),
+            seq_trace: SequenceTracer::new(),
         }
     }
 
@@ -310,7 +313,7 @@ impl AnsiOscParser {
             AnsiOscParserState::Finished => {
                 if let Ok(params) = split_params_into_semicolon_delimited_usize(&self.params) {
                     let Some(type_number) = extract_param(0, &params) else {
-                        warn!("Invalid OSC params: {:?}", self.params);
+                        debug!("Invalid OSC params: recent='{}'", self.seq_trace.as_str());
                         output.push(TerminalOutput::Invalid);
                         return Ok(Some(ParserInner::Empty));
                     };
@@ -356,12 +359,12 @@ impl AnsiOscParser {
                         }
                         OscTarget::Unknown => {
                             // `type_number` reused here → must keep the clone above
-                            warn!("Unknown OSC target: {:?}", type_number);
+                            warn!("Unknown OSC target: recent='{}'", self.seq_trace.as_str());
                             output.push(TerminalOutput::Invalid);
                         }
                     }
                 } else {
-                    warn!("Invalid OSC params: {:?}", self.params);
+                    debug!("Invalid OSC params: recent='{}'", self.seq_trace.as_str());
                     output.push(TerminalOutput::Invalid);
                 }
 
