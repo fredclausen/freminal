@@ -1402,7 +1402,6 @@ impl TerminalState {
                     self.character_replace = dec_special_graphics;
                 }
                 TerminalOutput::CursorReport => self.report_cursor_position(),
-                TerminalOutput::Skipped | TerminalOutput::Bell => (),
                 TerminalOutput::ApplicationKeypadMode => {
                     self.modes.cursor_key = Decckm::Application;
                 }
@@ -1430,9 +1429,7 @@ impl TerminalState {
                 TerminalOutput::RequestDeviceNameandVersion => {
                     self.report_device_name_and_version();
                 }
-                _ => {
-                    info!("Unhandled terminal output: {segment}");
-                }
+                TerminalOutput::Skipped | TerminalOutput::Bell | _ => (),
             }
         }
 

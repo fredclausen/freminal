@@ -13,7 +13,7 @@ use proptest::prelude::*;
 fn seq_trace_updates_on_push() {
     // OSC
     let mut osc = AnsiOscParser::new();
-    osc.push(b'A').unwrap();
+    osc.push(b'A');
     assert!(
         osc.trace_str().contains('A'),
         "OSC parser did not record byte in trace"
@@ -45,8 +45,8 @@ proptest! {
         {
             let mut full = AnsiOscParser::new();
             let mut chunked = AnsiOscParser::new();
-            for &b in &input { full.push(b).ok(); }
-            for chunk in input.chunks(3) { for &b in chunk { chunked.push(b).ok(); } }
+            for &b in &input { full.push(b); }
+            for chunk in input.chunks(3) { for &b in chunk { chunked.push(b); } }
             prop_assert_eq!(full.trace_str(), chunked.trace_str());
         }
 

@@ -8,9 +8,8 @@ use std::str::FromStr;
 
 //use eframe::egui::Color32;
 
-use crate::ansi::{ParserInner, TerminalOutput};
+use crate::ansi::{ParserOutcome, TerminalOutput};
 use crate::ansi_components::tracer::SequenceTracer;
-use crate::error::ParserFailures;
 use anyhow::{Error, Result};
 
 #[derive(Eq, PartialEq, Debug)]
@@ -254,10 +253,10 @@ impl AnsiOscParser {
     /// # Errors
     /// Will return an error if the parser is in the `Finished` or `InvalidFinished` state
     #[tracing::instrument(level = "trace", skip_all)]
-    pub fn push(&mut self, b: u8) -> Result<()> {
+    pub fn push(&mut self, b: u8) -> ParserOutcome {
         self.seq_trace.push(b);
         if let AnsiOscParserState::Finished | AnsiOscParserState::InvalidFinished = &self.state {
-            return Err(ParserFailures::ParsedPushedToOnceFinished.into());
+            return ParserOutcome::Invalid("Parsed Pushed To Once Finished".to_string());
         }
 
         match self.state {
@@ -270,15 +269,14 @@ impl AnsiOscParser {
                         self.state = AnsiOscParserState::Invalid;
                         self.params.clear();
                         self.intermediates.clear();
+
+                        return ParserOutcome::Invalid("Invalid OSC param encountered".to_string());
                     };
                 }
 
                 if is_osc_terminator(&self.params) {
-                    {
-                        self.state = AnsiOscParserState::Finished;
-                        self.seq_trace.trim_control_tail();
-                        // keep params for emit; ensure sequence is trimmed elsewhere if needed
-                    };
+                    self.state = AnsiOscParserState::Finished;
+                    self.seq_trace.trim_control_tail();
 
                     if !self.params.is_empty() {
                         while let Some(&last) = self.params.last() {
@@ -289,7 +287,11 @@ impl AnsiOscParser {
                             }
                         }
                     }
+
+                    return ParserOutcome::Finished;
                 }
+
+                ParserOutcome::Continue
             }
             // OscParserState::Intermediates => {
             //     panic!("OscParser should not be in intermediates state");
@@ -301,10 +303,10 @@ impl AnsiOscParser {
                 if is_osc_terminator(&self.params) {
                     self.state = AnsiOscParserState::InvalidFinished;
                 }
+
+                ParserOutcome::Invalid("Invalid OSC sequence terminated".to_string())
             }
         }
-
-        Ok(())
     }
 
     /// Parse the OSC sequence
@@ -316,16 +318,23 @@ impl AnsiOscParser {
         &mut self,
         b: u8,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<ParserInner>> {
-        self.push(b)?;
+    ) -> ParserOutcome {
+        let push_result = self.push(b);
+
+        // if we failed the push result with ParserOutcome::Invalid, return push_result
+        if let ParserOutcome::Invalid(_) = push_result {
+            return push_result;
+        }
 
         match self.state {
             AnsiOscParserState::Finished => {
                 if let Ok(params) = split_params_into_semicolon_delimited_usize(&self.params) {
                     let Some(type_number) = extract_param(0, &params) else {
-                        debug!("Invalid OSC params: recent='{}'", self.seq_trace.as_str());
                         output.push(TerminalOutput::Invalid);
-                        return Ok(Some(ParserInner::Empty));
+                        return ParserOutcome::Invalid(format!(
+                            "Invalid OSC params: recent='{}'",
+                            self.seq_trace.as_str()
+                        ));
                     };
 
                     // Only clone what’s actually reused later.
@@ -369,22 +378,29 @@ impl AnsiOscParser {
                         }
                         OscTarget::Unknown => {
                             // `type_number` reused here → must keep the clone above
-                            warn!(target: "freminal.parser.osc", parser = "osc", recent = %self.seq_trace.as_str(), "Unknown OSC target");
                             output.push(TerminalOutput::Invalid);
+                            return ParserOutcome::Invalid(format!(
+                                "Unknown OSC Target: type_number={type_number:?}, recent='{}'",
+                                self.seq_trace.as_str()
+                            ));
                         }
                     }
                 } else {
-                    debug!("Invalid OSC params: recent='{}'", self.seq_trace.as_str());
                     output.push(TerminalOutput::Invalid);
+
+                    return ParserOutcome::Invalid(format!(
+                        "Invalid OSC params: recent='{}'",
+                        self.seq_trace.as_str()
+                    ));
                 }
 
-                Ok(Some(ParserInner::Empty))
+                ParserOutcome::Finished
             }
             AnsiOscParserState::Invalid => {
                 output.push(TerminalOutput::Invalid);
-                Ok(Some(ParserInner::Empty))
+                ParserOutcome::Invalid("Invalid OSC State".to_string())
             }
-            _ => Ok(None),
+            _ => ParserOutcome::Continue,
         }
     }
 }

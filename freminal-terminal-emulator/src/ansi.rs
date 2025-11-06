@@ -14,6 +14,17 @@ use crate::ansi_components::{
 
 use crate::ansi_components::tracer::SequenceTracer;
 use anyhow::Result;
+
+/// Represents the high-level result of feeding one byte to the parser.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParserOutcome {
+    /// The parser consumed the byte and no complete output was produced yet.
+    Continue,
+    /// The parser produced at least one `TerminalOutput` as a result of this byte.
+    Finished,
+    /// The byte resulted in an invalid sequence or parse error (error string provided).
+    Invalid(String),
+}
 use freminal_common::{cursor::CursorVisualStyle, window_manipulation::WindowManipulation};
 
 /// High-level actions produced by the ANSI/OSC parser.
@@ -466,17 +477,17 @@ impl FreminalAnsiParser {
                     }
                 },
                 ParserInner::Osc(parser) => match parser.ansiparser_inner_osc(b, &mut output) {
-                    Ok(Some(value)) => {
-                        self.inner = value;
+                    ParserOutcome::Finished => {
+                        self.inner = ParserInner::Empty;
                         if output.last() == Some(&TerminalOutput::Invalid) {
                             debug!("Invalid ANSI sequence; recent={}", self.current_trace_str());
                         }
                     }
-                    Ok(None) => (),
-                    Err(e) => {
+                    ParserOutcome::Continue => (),
+                    ParserOutcome::Invalid(message) => {
                         error!(
                             "ANSI parser error: {}; recent={}",
-                            e,
+                            message,
                             self.current_trace_str()
                         );
                         warn!(
