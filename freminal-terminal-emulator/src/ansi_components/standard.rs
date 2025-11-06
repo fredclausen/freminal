@@ -99,6 +99,7 @@ impl StandardParser {
             StandardParserState::Intermediates => {
                 if is_standard_intermediate_final(b) {
                     self.state = StandardParserState::Finished;
+                    self.seq_trace.trim_control_tail();
                     self.intermediates.push(b);
                 } else if is_standard_intermediate_continue(b) {
                     self.state = StandardParserState::Params;
@@ -119,10 +120,12 @@ impl StandardParser {
 
                     if self.contains_string_terminator() {
                         self.state = StandardParserState::Finished;
+                        self.seq_trace.trim_control_tail();
                     }
                 } else if is_standard_param(b) {
                     self.params.push(b);
                     self.state = StandardParserState::Finished;
+                    self.seq_trace.trim_control_tail();
                 } else {
                     self.state = StandardParserState::Invalid;
                 }

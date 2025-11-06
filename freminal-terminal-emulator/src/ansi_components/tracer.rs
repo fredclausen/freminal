@@ -52,4 +52,22 @@ impl SequenceTracer {
         }
         String::from_utf8_lossy(&out).into_owned()
     }
+
+    /// Trim trailing control terminators (ESC, '\', BEL) from the end of the trace.
+    pub(crate) const fn trim_control_tail(&mut self) {
+        while self.len > 0 {
+            let end_idx = if self.idx == 0 {
+                self.buf.len() - 1
+            } else {
+                self.idx - 1
+            };
+            let c = self.buf[end_idx];
+            if matches!(c, 0x1B | 0x5C | 0x07) {
+                self.idx = end_idx;
+                self.len -= 1;
+            } else {
+                break;
+            }
+        }
+    }
 }

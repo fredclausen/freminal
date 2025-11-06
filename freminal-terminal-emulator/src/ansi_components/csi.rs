@@ -90,6 +90,7 @@ impl AnsiCsiParser {
                     self.state = AnsiCsiParserState::Intermediates;
                 } else if is_csi_terminator(b) {
                     self.state = AnsiCsiParserState::Finished(b);
+                    self.seq_trace.trim_control_tail();
                 } else {
                     self.state = AnsiCsiParserState::Invalid;
                 }
@@ -101,6 +102,7 @@ impl AnsiCsiParser {
                     self.intermediates.push(b);
                 } else if is_csi_terminator(b) {
                     self.state = AnsiCsiParserState::Finished(b);
+                    self.seq_trace.trim_control_tail();
                 } else {
                     self.state = AnsiCsiParserState::Invalid;
                 }

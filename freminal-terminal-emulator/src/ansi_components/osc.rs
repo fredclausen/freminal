@@ -275,6 +275,7 @@ impl AnsiOscParser {
                 if is_osc_terminator(&self.params) {
                     {
                         self.state = AnsiOscParserState::Finished;
+                        self.seq_trace.trim_control_tail();
                         // keep params for emit; ensure sequence is trimmed elsewhere if needed
                     };
 
