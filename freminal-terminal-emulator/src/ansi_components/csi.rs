@@ -27,40 +27,38 @@ use super::{
     mode::{Mode, SetMode},
 };
 use crate::ansi::{ParserInner, TerminalOutput};
+use crate::ansi_components::tracer::SequenceTracer;
 use crate::error::ParserFailures;
 use anyhow::Result;
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Default)]
 pub enum AnsiCsiParserState {
+    #[default]
     Params,
     Intermediates,
     Finished(u8),
     Invalid,
     InvalidFinished,
 }
-
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Default)]
 pub struct AnsiCsiParser {
     pub state: AnsiCsiParserState,
     pub params: Vec<u8>,
     pub intermediates: Vec<u8>,
     pub sequence: Vec<u8>,
-}
-
-impl Default for AnsiCsiParser {
-    fn default() -> Self {
-        Self::new()
-    }
+    /// Internal trace of recent bytes for diagnostics.
+    seq_trace: SequenceTracer,
 }
 
 impl AnsiCsiParser {
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             state: AnsiCsiParserState::Params,
-            params: Vec::new(),
-            intermediates: Vec::new(),
-            sequence: Vec::new(),
+            params: Vec::with_capacity(8),
+            intermediates: Vec::with_capacity(4),
+            sequence: Vec::with_capacity(16),
+            seq_trace: SequenceTracer::new(),
         }
     }
 
@@ -211,13 +209,21 @@ impl AnsiCsiParser {
             }
             AnsiCsiParserState::Finished(_esc) => {
                 format_error_output(&self.sequence);
-                output.push(TerminalOutput::Invalid);
+                {
+                    let recent = self.seq_trace.as_str();
+                    debug!("Invalid sequence detected (csi): recent='{}'", recent);
+                    output.push(TerminalOutput::Invalid);
+                };
 
                 Ok(Some(ParserInner::Empty))
             }
             AnsiCsiParserState::Invalid => {
                 format_error_output(&self.sequence);
-                output.push(TerminalOutput::Invalid);
+                {
+                    let recent = self.seq_trace.as_str();
+                    debug!("Invalid sequence detected (csi): recent='{}'", recent);
+                    output.push(TerminalOutput::Invalid);
+                };
 
                 Ok(Some(ParserInner::Empty))
             }

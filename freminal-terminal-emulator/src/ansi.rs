@@ -12,6 +12,7 @@ use crate::ansi_components::{
     standard::StandardParser,
 };
 
+use crate::ansi_components::tracer::SequenceTracer;
 use anyhow::Result;
 use freminal_common::{cursor::CursorVisualStyle, window_manipulation::WindowManipulation};
 
@@ -281,6 +282,10 @@ pub enum ParserInner {
 #[derive(Debug, Eq, PartialEq)]
 pub struct FreminalAnsiParser {
     pub inner: ParserInner,
+    // Accumulates plain text between control sequences across chunk boundaries,
+    // reducing per-call allocations and enabling coalesced Data emissions.
+    pending_data: Vec<u8>,
+    seq_trace: SequenceTracer,
 }
 
 impl Default for FreminalAnsiParser {
@@ -294,6 +299,8 @@ impl FreminalAnsiParser {
     pub const fn new() -> Self {
         Self {
             inner: ParserInner::Empty,
+            pending_data: Vec::new(),
+            seq_trace: SequenceTracer::new(),
         }
     }
 
@@ -377,38 +384,41 @@ impl FreminalAnsiParser {
 
     #[allow(clippy::too_many_lines)]
     pub fn push(&mut self, incoming: &[u8]) -> Vec<TerminalOutput> {
+        // Take the pending buffer out temporarily
+        let mut data_output = std::mem::take(&mut self.pending_data);
         let mut output = Vec::new();
-        let mut data_output = Vec::new();
         let mut output_string_sequence = String::new();
 
-        for b in incoming {
+        for &b in incoming {
+            self.seq_trace.push(b);
+
             match &mut self.inner {
                 ParserInner::Empty => {
                     if !output_string_sequence.is_empty() {
                         output_string_sequence.clear();
                     }
 
-                    if self.ansi_parser_inner_empty(*b, &mut data_output, &mut output) == Err(()) {
+                    if self
+                        .ansi_parser_inner_empty(b, &mut data_output, &mut output)
+                        .is_err()
+                    {
                         continue;
                     }
 
-                    data_output.push(*b);
+                    data_output.push(b);
                 }
                 ParserInner::Escape => {
-                    self.ansiparser_inner_escape(*b, &mut data_output, &mut output);
+                    self.ansiparser_inner_escape(b, &mut data_output, &mut output);
                 }
                 ParserInner::Standard(parser) => {
-                    output_string_sequence.push(*b as char);
-                    match parser.standard_parser_inner(*b, &mut output) {
+                    output_string_sequence.push(b as char);
+                    match parser.standard_parser_inner(b, &mut output) {
                         Ok(Some(value)) => {
                             self.inner = value;
-
-                            // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
-
                             if output.last() == Some(&TerminalOutput::Invalid) {
                                 error!(
-                                    "Standard Sequence that threw an error: {output_string_sequence}",
-                                );
+                                "Standard Sequence that threw an error: {output_string_sequence}"
+                            );
                             }
                         }
                         Ok(None) => (),
@@ -422,22 +432,18 @@ impl FreminalAnsiParser {
                     }
                 }
                 ParserInner::Csi(parser) => {
-                    output_string_sequence.push(*b as char);
-                    match parser.ansiparser_inner_csi(*b, &mut output) {
-                        Ok(value) => {
-                            if let Some(return_value) = value {
-                                self.inner = return_value;
-
-                                // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
-
-                                if output.last() == Some(&TerminalOutput::Invalid) {
-                                    error!(
-                                        "CSI Sequence that threw an error: {}",
-                                        output_string_sequence
-                                    );
-                                }
+                    output_string_sequence.push(b as char);
+                    match parser.ansiparser_inner_csi(b, &mut output) {
+                        Ok(Some(value)) => {
+                            self.inner = value;
+                            if output.last() == Some(&TerminalOutput::Invalid) {
+                                error!(
+                                    "CSI Sequence that threw an error: {}",
+                                    output_string_sequence
+                                );
                             }
                         }
+                        Ok(None) => (),
                         Err(e) => {
                             error!("Parser Error: {e}");
                             error!("CSI Sequence that threw an error: {output_string_sequence}");
@@ -446,16 +452,13 @@ impl FreminalAnsiParser {
                     }
                 }
                 ParserInner::Osc(parser) => {
-                    output_string_sequence.push(*b as char);
-                    match parser.ansiparser_inner_osc(*b, &mut output) {
+                    output_string_sequence.push(b as char);
+                    match parser.ansiparser_inner_osc(b, &mut output) {
                         Ok(Some(value)) => {
                             self.inner = value;
-
-                            // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
-
                             if output.last() == Some(&TerminalOutput::Invalid) {
                                 error!(
-                                    "OSC Sequence that threw an error: {output_string_sequence}",
+                                    "OSC Sequence that threw an error: {output_string_sequence}"
                                 );
                             }
                         }
@@ -470,14 +473,18 @@ impl FreminalAnsiParser {
             }
         }
 
+        // Flush any accumulated data
         if !data_output.is_empty() {
-            output.push(TerminalOutput::Data(data_output));
+            output.push(TerminalOutput::Data(data_output.clone()));
+            data_output.clear();
         }
+
+        // Put the buffer back into self (no allocations, same Vec reused)
+        self.pending_data = data_output;
 
         output
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
