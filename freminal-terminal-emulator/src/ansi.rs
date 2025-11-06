@@ -368,27 +368,24 @@ impl FreminalAnsiParser {
 
                             if output.last() == Some(&TerminalOutput::Invalid) {
                                 debug!(
-                                    "Invalid ANSI sequence: recent='{}'",
-                                    self.seq_trace.as_str()
+                                    "Invalid ANSI sequence; recent={}",
+                                    self.current_trace_str()
                                 );
                             }
                         }
                         None => self.inner = ParserInner::Standard(parser),
                     },
                     Err(e) => {
-                        warn!(
-                            "ANSI parser error: {:?}; recent='{}'",
+                        error!(
+                            "ANSI parser error: {}; recent={}",
                             e,
-                            self.seq_trace.as_str()
+                            self.current_trace_str()
                         );
                         warn!(
-                            "ANSI parser error, resetting state; recent='{}'",
-                            self.seq_trace.as_str()
+                            "ANSI parser error; resetting state; recent={}",
+                            self.current_trace_str()
                         );
-                        debug!(
-                            "Invalid ANSI sequence: recent='{}'",
-                            self.seq_trace.as_str()
-                        );
+                        debug!("Invalid ANSI sequence; recent={}", self.current_trace_str());
                         self.inner = ParserInner::Empty;
                     }
                 }
@@ -425,26 +422,23 @@ impl FreminalAnsiParser {
                             self.inner = value;
                             if output.last() == Some(&TerminalOutput::Invalid) {
                                 debug!(
-                                    "Invalid ANSI sequence: recent='{}'",
-                                    self.seq_trace.as_str()
+                                    "Invalid ANSI sequence; recent={}",
+                                    self.current_trace_str()
                                 );
                             }
                         }
                         Ok(None) => (),
                         Err(e) => {
-                            warn!(
-                                "ANSI parser error: {:?}; recent='{}'",
+                            error!(
+                                "ANSI parser error: {}; recent={}",
                                 e,
-                                self.seq_trace.as_str()
+                                self.current_trace_str()
                             );
                             warn!(
-                                "ANSI parser error, resetting state; recent='{}'",
-                                self.seq_trace.as_str()
+                                "ANSI parser error; resetting state; recent={}",
+                                self.current_trace_str()
                             );
-                            debug!(
-                                "Invalid ANSI sequence: recent='{}'",
-                                self.seq_trace.as_str()
-                            );
+                            debug!("Invalid ANSI sequence; recent={}", self.current_trace_str());
                             self.inner = ParserInner::Empty;
                         }
                     }
@@ -453,27 +447,21 @@ impl FreminalAnsiParser {
                     Ok(Some(value)) => {
                         self.inner = value;
                         if output.last() == Some(&TerminalOutput::Invalid) {
-                            debug!(
-                                "Invalid ANSI sequence: recent='{}'",
-                                self.seq_trace.as_str()
-                            );
+                            debug!("Invalid ANSI sequence; recent={}", self.current_trace_str());
                         }
                     }
                     Ok(None) => (),
                     Err(e) => {
-                        warn!(
-                            "ANSI parser error: {:?}; recent='{}'",
+                        error!(
+                            "ANSI parser error: {}; recent={}",
                             e,
-                            self.seq_trace.as_str()
+                            self.current_trace_str()
                         );
                         warn!(
-                            "ANSI parser error, resetting state; recent='{}'",
-                            self.seq_trace.as_str()
+                            "ANSI parser error; resetting state; recent={}",
+                            self.current_trace_str()
                         );
-                        debug!(
-                            "Invalid ANSI sequence: recent='{}'",
-                            self.seq_trace.as_str()
-                        );
+                        debug!("Invalid ANSI sequence; recent={}", self.current_trace_str());
                         self.inner = ParserInner::Empty;
                     }
                 },
@@ -481,27 +469,21 @@ impl FreminalAnsiParser {
                     Ok(Some(value)) => {
                         self.inner = value;
                         if output.last() == Some(&TerminalOutput::Invalid) {
-                            debug!(
-                                "Invalid ANSI sequence: recent='{}'",
-                                self.seq_trace.as_str()
-                            );
+                            debug!("Invalid ANSI sequence; recent={}", self.current_trace_str());
                         }
                     }
                     Ok(None) => (),
                     Err(e) => {
-                        warn!(
-                            "ANSI parser error: {:?}; recent='{}'",
+                        error!(
+                            "ANSI parser error: {}; recent={}",
                             e,
-                            self.seq_trace.as_str()
+                            self.current_trace_str()
                         );
                         warn!(
-                            "ANSI parser error, resetting state; recent='{}'",
-                            self.seq_trace.as_str()
+                            "ANSI parser error; resetting state; recent={}",
+                            self.current_trace_str()
                         );
-                        debug!(
-                            "Invalid ANSI sequence: recent='{}'",
-                            self.seq_trace.as_str()
-                        );
+                        debug!("Invalid ANSI sequence; recent={}", self.current_trace_str());
                         self.inner = ParserInner::Empty;
                     }
                 },
@@ -517,6 +499,17 @@ impl FreminalAnsiParser {
         self.pending_data = data_output;
 
         output
+    }
+
+    /// Retrieve a snapshot of the currently active parser's trace buffer.
+    #[must_use]
+    pub fn current_trace_str(&self) -> String {
+        match &self.inner {
+            ParserInner::Osc(p) => p.trace_str(),
+            ParserInner::Csi(p) => p.trace_str(),
+            ParserInner::Standard(p) => p.trace_str(),
+            _ => self.seq_trace.as_str(),
+        }
     }
 }
 #[cfg(test)]
