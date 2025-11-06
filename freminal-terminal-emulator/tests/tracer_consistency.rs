@@ -29,7 +29,7 @@ fn seq_trace_updates_on_push() {
 
     // Standard
     let mut std = StandardParser::new();
-    std.push(b'C').unwrap();
+    std.push(b'C');
     assert!(
         std.trace_str().contains('C'),
         "Standard parser did not record byte in trace"
@@ -63,8 +63,8 @@ proptest! {
         {
             let mut full = StandardParser::new();
             let mut chunked = StandardParser::new();
-            for &b in &input { full.push(b).ok(); }
-            for chunk in input.chunks(3) { for &b in chunk { chunked.push(b).ok(); } }
+            for &b in &input { full.push(b); }
+            for chunk in input.chunks(3) { for &b in chunk { chunked.push(b); } }
             prop_assert_eq!(full.trace_str(), chunked.trace_str());
         }
     }

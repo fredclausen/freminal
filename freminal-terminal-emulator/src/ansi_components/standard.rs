@@ -3,11 +3,9 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-use crate::ansi::{ParserInner, TerminalOutput};
+use crate::ansi::{ParserOutcome, TerminalOutput};
 use crate::ansi_components::line_draw::DecSpecialGraphics;
 use crate::ansi_components::tracer::SequenceTracer;
-use crate::error::ParserFailures;
-use anyhow::Result;
 
 #[derive(Eq, PartialEq, Debug)]
 pub enum StandardParserState {
@@ -87,11 +85,11 @@ impl StandardParser {
     /// # Errors
     /// Will return an error if the parser is in a finished state
     #[tracing::instrument(level = "trace", skip_all)]
-    pub fn push(&mut self, b: u8) -> Result<()> {
+    pub fn push(&mut self, b: u8) -> ParserOutcome {
         self.seq_trace.push(b);
 
         if let StandardParserState::Finished | StandardParserState::InvalidFinished = &self.state {
-            return Err(ParserFailures::ParsedPushedToOnceFinished.into());
+            return ParserOutcome::Invalid("Parser pushed to after finish".to_string());
         }
 
         self.sequence.push(b);
@@ -102,6 +100,8 @@ impl StandardParser {
                     self.state = StandardParserState::Finished;
                     self.seq_trace.trim_control_tail();
                     self.intermediates.push(b);
+
+                    return ParserOutcome::Finished;
                 } else if is_standard_intermediate_continue(b) {
                     self.state = StandardParserState::Params;
                     self.intermediates.push(b);
@@ -111,9 +111,12 @@ impl StandardParser {
                     } else if b == b'_' {
                         self.apc = true;
                     }
-                } else {
-                    self.state = StandardParserState::Invalid;
+
+                    return ParserOutcome::Continue;
                 }
+
+                self.state = StandardParserState::Invalid;
+                ParserOutcome::Invalid("Invalid intermediate byte".to_string())
             }
             StandardParserState::Params => {
                 if self.dcs || self.apc {
@@ -122,20 +125,24 @@ impl StandardParser {
                     if self.contains_string_terminator() {
                         self.state = StandardParserState::Finished;
                         self.seq_trace.trim_control_tail();
+                        return ParserOutcome::Finished;
                     }
+
+                    return ParserOutcome::Continue;
                 } else if is_standard_param(b) {
                     self.params.push(b);
                     self.state = StandardParserState::Finished;
                     self.seq_trace.trim_control_tail();
-                } else {
-                    self.state = StandardParserState::Invalid;
+
+                    return ParserOutcome::Finished;
                 }
+
+                self.state = StandardParserState::Invalid;
+                ParserOutcome::Invalid("Invalid parameter byte".to_string())
             }
 
-            _ => {}
+            _ => ParserOutcome::Continue,
         }
-
-        Ok(())
     }
 
     /// Push a byte into the parser and return the next state
@@ -147,46 +154,41 @@ impl StandardParser {
         &mut self,
         b: u8,
         output: &mut Vec<TerminalOutput>,
-    ) -> Result<Option<ParserInner>> {
-        self.push(b)?;
+    ) -> ParserOutcome {
+        let return_state = self.push(b);
+
+        if let ParserOutcome::Invalid(_) = return_state {
+            return return_state;
+        }
 
         if self.state == StandardParserState::Finished {
             if self.dcs {
                 output.push(TerminalOutput::DeviceControlString(std::mem::take(
                     &mut self.sequence,
                 )));
-                return Ok(Some(ParserInner::Empty));
             } else if self.apc {
                 output.push(TerminalOutput::ApplicationProgramCommand(std::mem::take(
                     &mut self.sequence,
                 )));
-                return Ok(Some(ParserInner::Empty));
             }
+
+            return ParserOutcome::Finished;
         }
 
         match self.state {
             StandardParserState::Finished => match self.intermediates.first() {
                 None => {
-                    format_error_output(&self.sequence);
-                    {
-                        let recent = self.seq_trace.as_str();
-                        debug!("Invalid sequence detected (standard): recent='{}'", recent);
-                        output.push(TerminalOutput::Invalid);
-                    };
-                    Ok(Some(ParserInner::Empty))
+                    output.push(TerminalOutput::Invalid);
+                    ParserOutcome::Invalid("No intermediates".to_string())
                 }
                 Some(b' ') => {
                     let value = self.params.first();
 
                     match value {
                         None => {
-                            format_error_output(&self.sequence);
-                            {
-                                let recent = self.seq_trace.as_str();
-                                debug!("Invalid sequence detected (standard): recent='{}'", recent);
-                                output.push(TerminalOutput::Invalid);
-                            };
-                            Ok(Some(ParserInner::Empty))
+                            output.push(TerminalOutput::Invalid);
+
+                            ParserOutcome::Invalid("No params".to_string())
                         }
                         Some(value) => {
                             let value = *value as char;
@@ -197,19 +199,14 @@ impl StandardParser {
                                 'M' => output.push(TerminalOutput::AnsiConformanceLevelTwo),
                                 'N' => output.push(TerminalOutput::AnsiConformanceLevelThree),
                                 _ => {
-                                    format_error_output(&self.sequence);
-                                    {
-                                        let recent = self.seq_trace.as_str();
-                                        debug!(
-                                            "Invalid sequence detected (standard): recent='{}'",
-                                            recent
-                                        );
-                                        output.push(TerminalOutput::Invalid);
-                                    };
+                                    output.push(TerminalOutput::Invalid);
+                                    return ParserOutcome::Invalid(
+                                        "Invalid param value".to_string(),
+                                    );
                                 }
                             }
 
-                            Ok(Some(ParserInner::Empty))
+                            ParserOutcome::Finished
                         }
                     }
                 }
@@ -218,13 +215,9 @@ impl StandardParser {
 
                     match value {
                         None => {
-                            format_error_output(&self.sequence);
-                            {
-                                let recent = self.seq_trace.as_str();
-                                debug!("Invalid sequence detected (standard): recent='{}'", recent);
-                                output.push(TerminalOutput::Invalid);
-                            };
-                            Ok(Some(ParserInner::Empty))
+                            output.push(TerminalOutput::Invalid);
+
+                            ParserOutcome::Invalid("No params".to_string())
                         }
                         Some(value) => {
                             let value = *value as char;
@@ -235,19 +228,14 @@ impl StandardParser {
                                 '6' => output.push(TerminalOutput::DoubleWidthLine),
                                 '8' => output.push(TerminalOutput::ScreenAlignmentTest),
                                 _ => {
-                                    format_error_output(&self.sequence);
-                                    {
-                                        let recent = self.seq_trace.as_str();
-                                        debug!(
-                                            "Invalid sequence detected (standard): recent='{}'",
-                                            recent
-                                        );
-                                        output.push(TerminalOutput::Invalid);
-                                    };
+                                    output.push(TerminalOutput::Invalid);
+                                    return ParserOutcome::Invalid(
+                                        "Invalid param value".to_string(),
+                                    );
                                 }
                             }
 
-                            Ok(Some(ParserInner::Empty))
+                            ParserOutcome::Finished
                         }
                     }
                 }
@@ -256,13 +244,8 @@ impl StandardParser {
 
                     match value {
                         None => {
-                            format_error_output(&self.sequence);
-                            {
-                                let recent = self.seq_trace.as_str();
-                                debug!("Invalid sequence detected (standard): recent='{}'", recent);
-                                output.push(TerminalOutput::Invalid);
-                            };
-                            Ok(Some(ParserInner::Empty))
+                            output.push(TerminalOutput::Invalid);
+                            ParserOutcome::Invalid("No params".to_string())
                         }
                         Some(value) => {
                             let value = *value as char;
@@ -270,19 +253,14 @@ impl StandardParser {
                                 '@' => output.push(TerminalOutput::CharsetDefault),
                                 'G' => output.push(TerminalOutput::CharsetUTF8),
                                 _ => {
-                                    format_error_output(&self.sequence);
-                                    {
-                                        let recent = self.seq_trace.as_str();
-                                        debug!(
-                                            "Invalid sequence detected (standard): recent='{}'",
-                                            recent
-                                        );
-                                        output.push(TerminalOutput::Invalid);
-                                    };
+                                    output.push(TerminalOutput::Invalid);
+                                    return ParserOutcome::Invalid(
+                                        "Invalid param value".to_string(),
+                                    );
                                 }
                             }
 
-                            Ok(Some(ParserInner::Empty))
+                            ParserOutcome::Finished
                         }
                     }
                 }
@@ -291,13 +269,8 @@ impl StandardParser {
 
                     match value {
                         None => {
-                            format_error_output(&self.sequence);
-                            {
-                                let recent = self.seq_trace.as_str();
-                                debug!("Invalid sequence detected (standard): recent='{}'", recent);
-                                output.push(TerminalOutput::Invalid);
-                            };
-                            Ok(Some(ParserInner::Empty))
+                            output.push(TerminalOutput::Invalid);
+                            ParserOutcome::Invalid("No params".to_string())
                         }
                         Some(value) => {
                             let value = *value as char;
@@ -311,18 +284,13 @@ impl StandardParser {
                                 )),
                                 'C' => output.push(TerminalOutput::CharsetG0),
                                 _ => {
-                                    format_error_output(&self.sequence);
-                                    {
-                                        let recent = self.seq_trace.as_str();
-                                        debug!(
-                                            "Invalid sequence detected (standard): recent='{}'",
-                                            recent
-                                        );
-                                        output.push(TerminalOutput::Invalid);
-                                    };
+                                    output.push(TerminalOutput::Invalid);
+                                    return ParserOutcome::Invalid(
+                                        "Invalid param value".to_string(),
+                                    );
                                 }
                             }
-                            Ok(Some(ParserInner::Empty))
+                            ParserOutcome::Finished
                         }
                     }
                 }
@@ -331,30 +299,18 @@ impl StandardParser {
 
                     match value {
                         None => {
-                            format_error_output(&self.sequence);
-                            {
-                                let recent = self.seq_trace.as_str();
-                                debug!("Invalid sequence detected (standard): recent='{}'", recent);
-                                output.push(TerminalOutput::Invalid);
-                            };
-                            Ok(Some(ParserInner::Empty))
+                            output.push(TerminalOutput::Invalid);
+                            ParserOutcome::Invalid("No params".to_string())
                         }
                         Some(value) => {
                             if *value == b'C' {
                                 output.push(TerminalOutput::CharsetG1);
                             } else {
-                                format_error_output(&self.sequence);
-                                {
-                                    let recent = self.seq_trace.as_str();
-                                    debug!(
-                                        "Invalid sequence detected (standard): recent='{}'",
-                                        recent
-                                    );
-                                    output.push(TerminalOutput::Invalid);
-                                };
+                                output.push(TerminalOutput::Invalid);
+                                return ParserOutcome::Invalid("Invalid param value".to_string());
                             }
 
-                            Ok(Some(ParserInner::Empty))
+                            ParserOutcome::Finished
                         }
                     }
                 }
@@ -363,29 +319,17 @@ impl StandardParser {
 
                     match value {
                         None => {
-                            format_error_output(&self.sequence);
-                            {
-                                let recent = self.seq_trace.as_str();
-                                debug!("Invalid sequence detected (standard): recent='{}'", recent);
-                                output.push(TerminalOutput::Invalid);
-                            };
-                            Ok(Some(ParserInner::Empty))
+                            output.push(TerminalOutput::Invalid);
+                            ParserOutcome::Invalid("No params".to_string())
                         }
                         Some(value) => {
                             if *value == b'C' {
                                 output.push(TerminalOutput::CharsetG2);
                             } else {
-                                format_error_output(&self.sequence);
-                                {
-                                    let recent = self.seq_trace.as_str();
-                                    debug!(
-                                        "Invalid sequence detected (standard): recent='{}'",
-                                        recent
-                                    );
-                                    output.push(TerminalOutput::Invalid);
-                                };
+                                output.push(TerminalOutput::Invalid);
+                                return ParserOutcome::Invalid("Invalid param value".to_string());
                             }
-                            Ok(Some(ParserInner::Empty))
+                            ParserOutcome::Finished
                         }
                     }
                 }
@@ -394,13 +338,8 @@ impl StandardParser {
 
                     match value {
                         None => {
-                            format_error_output(&self.sequence);
-                            {
-                                let recent = self.seq_trace.as_str();
-                                debug!("Invalid sequence detected (standard): recent='{}'", recent);
-                                output.push(TerminalOutput::Invalid);
-                            };
-                            Ok(Some(ParserInner::Empty))
+                            output.push(TerminalOutput::Invalid);
+                            ParserOutcome::Invalid("No params".to_string())
                         }
                         Some(value) => {
                             match value {
@@ -419,19 +358,14 @@ impl StandardParser {
                                 b'H' | b'7' => output.push(TerminalOutput::CharsetSwedish),
                                 b'=' => output.push(TerminalOutput::CharsetSwiss),
                                 _ => {
-                                    format_error_output(&self.sequence);
-                                    {
-                                        let recent = self.seq_trace.as_str();
-                                        debug!(
-                                            "Invalid sequence detected (standard): recent='{}'",
-                                            recent
-                                        );
-                                        output.push(TerminalOutput::Invalid);
-                                    };
+                                    output.push(TerminalOutput::Invalid);
+                                    return ParserOutcome::Invalid(
+                                        "Invalid param value".to_string(),
+                                    );
                                 }
                             }
 
-                            Ok(Some(ParserInner::Empty))
+                            ParserOutcome::Finished
                         }
                     }
                 }
@@ -470,29 +404,21 @@ impl StandardParser {
                             });
                         }
                         _ => {
-                            format_error_output(&self.sequence);
-                            {
-                                let recent = self.seq_trace.as_str();
-                                debug!("Invalid sequence detected (standard): recent='{}'", recent);
-                                output.push(TerminalOutput::Invalid);
-                            };
+                            output.push(TerminalOutput::Invalid);
+                            return ParserOutcome::Invalid(
+                                "Invalid intermediate value".to_string(),
+                            );
                         }
                     }
 
-                    Ok(Some(ParserInner::Empty))
+                    ParserOutcome::Finished
                 }
             },
             StandardParserState::Invalid => {
-                format_error_output(&self.sequence);
-                {
-                    let recent = self.seq_trace.as_str();
-                    debug!("Invalid sequence detected (standard): recent='{}'", recent);
-                    output.push(TerminalOutput::Invalid);
-                };
-
-                Ok(Some(ParserInner::Empty))
+                output.push(TerminalOutput::Invalid);
+                ParserOutcome::Invalid("Invalid parser state".to_string())
             }
-            _ => Ok(None),
+            _ => ParserOutcome::Continue,
         }
     }
 }
@@ -563,9 +489,4 @@ pub const fn is_standard_param(b: u8) -> bool {
             | 0x37
             | 0x3d
     )
-}
-
-fn format_error_output(sequence: &[u8]) {
-    let params = String::from_utf8_lossy(sequence);
-    warn!("Unhandled Standard sequence: ESC{params}");
 }

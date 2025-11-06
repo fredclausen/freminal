@@ -372,24 +372,20 @@ impl FreminalAnsiParser {
                 let mut parser = StandardParser::new();
 
                 match parser.standard_parser_inner(b, output) {
-                    Ok(value) => match value {
-                        Some(return_value) => {
-                            self.inner = return_value;
-                            // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
+                    ParserOutcome::Finished => {
+                        self.inner = ParserInner::Empty;
+                        // if the last value pushed to output is terminal Invalid, print out the sequence of characters that caused the error
 
-                            if output.last() == Some(&TerminalOutput::Invalid) {
-                                debug!(
-                                    "Invalid ANSI sequence; recent={}",
-                                    self.current_trace_str()
-                                );
-                            }
+                        if output.last() == Some(&TerminalOutput::Invalid) {
+                            debug!("Invalid ANSI sequence; recent={}", self.current_trace_str());
                         }
-                        None => self.inner = ParserInner::Standard(parser),
-                    },
-                    Err(e) => {
+                    }
+                    ParserOutcome::Continue => self.inner = ParserInner::Standard(parser),
+
+                    ParserOutcome::Invalid(message) => {
                         error!(
                             "ANSI parser error: {}; recent={}",
-                            e,
+                            message,
                             self.current_trace_str()
                         );
                         warn!(
@@ -429,8 +425,8 @@ impl FreminalAnsiParser {
                 }
                 ParserInner::Standard(parser) => {
                     match parser.standard_parser_inner(b, &mut output) {
-                        Ok(Some(value)) => {
-                            self.inner = value;
+                        ParserOutcome::Finished => {
+                            self.inner = ParserInner::Empty;
                             if output.last() == Some(&TerminalOutput::Invalid) {
                                 debug!(
                                     "Invalid ANSI sequence; recent={}",
@@ -438,11 +434,11 @@ impl FreminalAnsiParser {
                                 );
                             }
                         }
-                        Ok(None) => (),
-                        Err(e) => {
+                        ParserOutcome::Continue => (),
+                        ParserOutcome::Invalid(message) => {
                             error!(
                                 "ANSI parser error: {}; recent={}",
-                                e,
+                                message,
                                 self.current_trace_str()
                             );
                             warn!(
