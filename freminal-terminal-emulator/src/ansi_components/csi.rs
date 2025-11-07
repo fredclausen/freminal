@@ -26,8 +26,11 @@ use super::{
     },
     mode::{Mode, SetMode},
 };
-use crate::ansi::{ParserOutcome, TerminalOutput};
 use crate::ansi_components::tracer::SequenceTracer;
+use crate::{
+    ansi::{ParserOutcome, TerminalOutput},
+    ansi_components::tracer::SequenceTraceable,
+};
 
 #[derive(Eq, PartialEq, Debug, Default)]
 pub enum AnsiCsiParserState {
@@ -46,6 +49,17 @@ pub struct AnsiCsiParser {
     pub sequence: Vec<u8>,
     /// Internal trace of recent bytes for diagnostics.
     seq_trace: SequenceTracer,
+}
+
+impl SequenceTraceable for AnsiCsiParser {
+    #[inline]
+    fn seq_trace(&mut self) -> &mut SequenceTracer {
+        &mut self.seq_trace
+    }
+    #[inline]
+    fn seq_trace_ref(&self) -> &SequenceTracer {
+        &self.seq_trace
+    }
 }
 
 impl AnsiCsiParser {
@@ -96,11 +110,13 @@ impl AnsiCsiParser {
                 }
 
                 self.state = AnsiCsiParserState::Invalid;
+                self.clear_trace();
                 ParserOutcome::Invalid("Invalid CSI parameter".to_string())
             }
             AnsiCsiParserState::Intermediates => {
                 if is_csi_param(b) {
                     self.state = AnsiCsiParserState::Invalid;
+                    self.clear_trace();
                     return ParserOutcome::Invalid("Invalid CSI intermediate".to_string());
                 } else if is_csi_intermediate(b) {
                     self.intermediates.push(b);
@@ -112,6 +128,7 @@ impl AnsiCsiParser {
                 }
 
                 self.state = AnsiCsiParserState::Invalid;
+                self.clear_trace();
                 ParserOutcome::Invalid("Invalid CSI intermediate".to_string())
             }
             AnsiCsiParserState::Invalid => {

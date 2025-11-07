@@ -9,7 +9,7 @@ use std::str::FromStr;
 //use eframe::egui::Color32;
 
 use crate::ansi::{ParserOutcome, TerminalOutput};
-use crate::ansi_components::tracer::SequenceTracer;
+use crate::ansi_components::tracer::{SequenceTraceable, SequenceTracer};
 use anyhow::{Error, Result};
 
 #[derive(Eq, PartialEq, Debug)]
@@ -222,6 +222,17 @@ pub struct AnsiOscParser {
     pub(crate) seq_trace: SequenceTracer,
 }
 
+impl SequenceTraceable for AnsiOscParser {
+    #[inline]
+    fn seq_trace(&mut self) -> &mut SequenceTracer {
+        &mut self.seq_trace
+    }
+    #[inline]
+    fn seq_trace_ref(&self) -> &SequenceTracer {
+        &self.seq_trace
+    }
+}
+
 // OSC Sequence looks like this:
 // 1b]11;?1b\
 
@@ -267,6 +278,7 @@ impl AnsiOscParser {
                     warn!("Invalid OSC param: {:x}", b);
                     {
                         self.state = AnsiOscParserState::Invalid;
+                        self.clear_trace();
                         self.params.clear();
                         self.intermediates.clear();
 
@@ -276,6 +288,7 @@ impl AnsiOscParser {
 
                 if is_osc_terminator(&self.params) {
                     self.state = AnsiOscParserState::Finished;
+                    self.clear_trace();
                     self.seq_trace.trim_control_tail();
 
                     if !self.params.is_empty() {

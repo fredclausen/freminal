@@ -71,3 +71,28 @@ impl SequenceTracer {
         }
     }
 }
+
+/// A small helper trait that standardizes how parsers collect and present
+/// the raw bytes of the *current* sequence they are parsing.
+#[allow(dead_code)]
+pub(crate) trait SequenceTraceable {
+    /// Mutable access to the underlying sequence trace buffer.
+    fn seq_trace(&mut self) -> &mut SequenceTracer;
+    /// Immutable access to the underlying sequence trace buffer.
+    fn seq_trace_ref(&self) -> &SequenceTracer;
+
+    /// Append a single byte to the sequence trace.
+    fn append_trace(&mut self, b: u8) {
+        self.seq_trace().push(b);
+    }
+
+    /// Clear the current sequence trace (typically on Finished/Invalid/Reset).
+    fn clear_trace(&mut self) {
+        self.seq_trace().clear();
+    }
+
+    /// Render the current trace as a lossy UTF-8 string for diagnostics.
+    fn current_trace_str(&self) -> String {
+        self.seq_trace_ref().as_str()
+    }
+}

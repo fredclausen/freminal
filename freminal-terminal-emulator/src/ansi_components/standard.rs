@@ -5,7 +5,7 @@
 
 use crate::ansi::{ParserOutcome, TerminalOutput};
 use crate::ansi_components::line_draw::DecSpecialGraphics;
-use crate::ansi_components::tracer::SequenceTracer;
+use crate::ansi_components::tracer::{SequenceTraceable, SequenceTracer};
 
 #[derive(Eq, PartialEq, Debug)]
 pub enum StandardParserState {
@@ -55,6 +55,17 @@ impl Default for StandardParser {
     }
 }
 
+impl SequenceTraceable for StandardParser {
+    #[inline]
+    fn seq_trace(&mut self) -> &mut SequenceTracer {
+        &mut self.seq_trace
+    }
+    #[inline]
+    fn seq_trace_ref(&self) -> &SequenceTracer {
+        &self.seq_trace
+    }
+}
+
 impl StandardParser {
     #[must_use]
     pub fn new() -> Self {
@@ -98,6 +109,7 @@ impl StandardParser {
             StandardParserState::Intermediates => {
                 if is_standard_intermediate_final(b) {
                     self.state = StandardParserState::Finished;
+                    self.clear_trace();
                     self.seq_trace.trim_control_tail();
                     self.intermediates.push(b);
 
@@ -116,6 +128,7 @@ impl StandardParser {
                 }
 
                 self.state = StandardParserState::Invalid;
+                self.clear_trace();
                 ParserOutcome::Invalid("Invalid intermediate byte".to_string())
             }
             StandardParserState::Params => {
@@ -124,6 +137,7 @@ impl StandardParser {
 
                     if self.contains_string_terminator() {
                         self.state = StandardParserState::Finished;
+                        self.clear_trace();
                         self.seq_trace.trim_control_tail();
                         return ParserOutcome::Finished;
                     }
@@ -132,12 +146,14 @@ impl StandardParser {
                 } else if is_standard_param(b) {
                     self.params.push(b);
                     self.state = StandardParserState::Finished;
+                    self.clear_trace();
                     self.seq_trace.trim_control_tail();
 
                     return ParserOutcome::Finished;
                 }
 
                 self.state = StandardParserState::Invalid;
+                self.clear_trace();
                 ParserOutcome::Invalid("Invalid parameter byte".to_string())
             }
 
