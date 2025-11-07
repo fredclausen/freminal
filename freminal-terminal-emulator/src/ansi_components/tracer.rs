@@ -2,7 +2,7 @@
 //! Kept fully internal (pub(crate)) and allocation-free on the hot path.
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct SequenceTracer {
+pub struct SequenceTracer {
     buf: [u8; 8192],
     len: usize,
     idx: usize,
@@ -75,7 +75,7 @@ impl SequenceTracer {
 /// A small helper trait that standardizes how parsers collect and present
 /// the raw bytes of the *current* sequence they are parsing.
 #[allow(dead_code)]
-pub(crate) trait SequenceTraceable {
+pub trait SequenceTraceable {
     fn seq_tracer(&mut self) -> &mut SequenceTracer;
     fn seq_tracer_ref(&self) -> &SequenceTracer;
 

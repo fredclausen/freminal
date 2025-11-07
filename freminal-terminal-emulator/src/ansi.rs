@@ -319,6 +319,17 @@ pub struct FreminalAnsiParser {
     seq_trace: SequenceTracer,
 }
 
+impl SequenceTraceable for FreminalAnsiParser {
+    #[inline]
+    fn seq_tracer(&mut self) -> &mut SequenceTracer {
+        &mut self.seq_trace
+    }
+    #[inline]
+    fn seq_tracer_ref(&self) -> &SequenceTracer {
+        &self.seq_trace
+    }
+}
+
 impl Default for FreminalAnsiParser {
     fn default() -> Self {
         Self::new()
@@ -567,17 +578,6 @@ impl FreminalAnsiParser {
             ParserInner::Standard(p) => p.trace_str(),
             _ => self.seq_trace.as_str(),
         }
-    }
-}
-
-impl SequenceTraceable for FreminalAnsiParser {
-    #[inline]
-    fn seq_tracer(&mut self) -> &mut SequenceTracer {
-        &mut self.seq_trace
-    }
-    #[inline]
-    fn seq_tracer_ref(&self) -> &SequenceTracer {
-        &self.seq_trace
     }
 }
 

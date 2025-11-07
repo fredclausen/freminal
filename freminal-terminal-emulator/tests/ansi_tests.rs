@@ -297,3 +297,87 @@ fn ansi_parser_inner_empty_and_data_push_combination() {
         "Expected CR entries"
     );
 }
+
+// ---------- Phase 8: Trace Buffer & Determinism Tests ----------
+
+use freminal_terminal_emulator::ansi_components::tracer::SequenceTraceable;
+
+#[test]
+fn trace_buffer_appends_and_clears() {
+    let mut parser = FreminalAnsiParser::default();
+    parser.append_trace(b'A');
+    parser.append_trace(b'B');
+    assert_eq!(parser.current_trace_str(), "AB");
+    parser.clear_trace();
+    assert_eq!(parser.current_trace_str(), "");
+}
+
+#[test]
+fn trace_buffer_clears_after_state_reset() {
+    let mut parser = FreminalAnsiParser::default();
+    parser.append_trace(b'X');
+    parser.append_trace(b'Y');
+    parser.clear_trace();
+    assert!(parser.current_trace_str().is_empty());
+}
+
+proptest! {
+    #[test]
+    fn trace_never_panics_on_random_bytes(data in proptest::collection::vec(any::<u8>(), 0..256)) {
+        let mut parser = FreminalAnsiParser::default();
+        for b in data {
+            parser.append_trace(b);
+        }
+    }
+}
+
+#[test]
+fn osc_1337_sequence_records_bytes() {
+    use freminal_terminal_emulator::ansi_components::osc::AnsiOscParser;
+    let mut osc = AnsiOscParser::default();
+    let seq = b"\x1b]1337;File=name=test.png;size=1000\x07";
+    for b in seq.iter().copied() {
+        osc.push(b);
+    }
+    let trace = osc.current_trace_str();
+    assert!(
+        trace.contains("1337"),
+        "Trace should contain 1337, got: {trace}"
+    );
+    assert!(
+        trace.len() > 10,
+        "{}",
+        format!("Trace length too short: {}", trace.len())
+    );
+}
+
+#[test]
+fn deterministic_output_across_chunking() {
+    fn parse_all(mut parser: FreminalAnsiParser, bytes: &[u8]) -> Vec<TerminalOutput> {
+        let outputs = Vec::new();
+        for b in bytes.iter().copied() {
+            parser.append_trace(b);
+        }
+        outputs
+    }
+
+    let sequence = b"\x1b[1;2HHello\x1b]1337;URL=test\x07World";
+    let full = parse_all(FreminalAnsiParser::default(), sequence);
+    let mut chunked = Vec::new();
+    for chunk in sequence.chunks(3) {
+        chunked.extend(parse_all(FreminalAnsiParser::default(), chunk));
+    }
+    assert_eq!(
+        full, chunked,
+        "Output should be deterministic across chunking"
+    );
+}
+
+#[test]
+fn fuzz_small_inputs_no_panic() {
+    let mut parser = FreminalAnsiParser::default();
+    for b in 0u8..=255u8 {
+        parser.append_trace(b);
+    }
+    // If we reach here, no panic occurred and the internal trace buffer is safe.
+}
