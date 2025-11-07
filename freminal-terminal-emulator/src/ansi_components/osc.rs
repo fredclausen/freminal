@@ -224,11 +224,11 @@ pub struct AnsiOscParser {
 
 impl SequenceTraceable for AnsiOscParser {
     #[inline]
-    fn seq_trace(&mut self) -> &mut SequenceTracer {
+    fn seq_tracer(&mut self) -> &mut SequenceTracer {
         &mut self.seq_trace
     }
     #[inline]
-    fn seq_trace_ref(&self) -> &SequenceTracer {
+    fn seq_tracer_ref(&self) -> &SequenceTracer {
         &self.seq_trace
     }
 }
@@ -256,6 +256,7 @@ impl AnsiOscParser {
     /// Expose current sequence trace for testing and diagnostics.
     #[must_use]
     pub fn trace_str(&self) -> String {
+        info!("current buffer trace: {}", self.seq_trace.as_str());
         self.seq_trace.as_str()
     }
 
@@ -265,7 +266,7 @@ impl AnsiOscParser {
     /// Will return an error if the parser is in the `Finished` or `InvalidFinished` state
     #[tracing::instrument(level = "trace", skip_all)]
     pub fn push(&mut self, b: u8) -> ParserOutcome {
-        self.seq_trace.push(b);
+        self.append_trace(b);
         if let AnsiOscParserState::Finished | AnsiOscParserState::InvalidFinished = &self.state {
             return ParserOutcome::Invalid("Parsed Pushed To Once Finished".to_string());
         }
@@ -278,7 +279,7 @@ impl AnsiOscParser {
                     warn!("Invalid OSC param: {:x}", b);
                     {
                         self.state = AnsiOscParserState::Invalid;
-                        self.clear_trace();
+
                         self.params.clear();
                         self.intermediates.clear();
 
@@ -288,7 +289,7 @@ impl AnsiOscParser {
 
                 if is_osc_terminator(&self.params) {
                     self.state = AnsiOscParserState::Finished;
-                    self.clear_trace();
+
                     self.seq_trace.trim_control_tail();
 
                     if !self.params.is_empty() {

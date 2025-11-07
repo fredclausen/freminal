@@ -572,11 +572,11 @@ impl FreminalAnsiParser {
 
 impl SequenceTraceable for FreminalAnsiParser {
     #[inline]
-    fn seq_trace(&mut self) -> &mut SequenceTracer {
+    fn seq_tracer(&mut self) -> &mut SequenceTracer {
         &mut self.seq_trace
     }
     #[inline]
-    fn seq_trace_ref(&self) -> &SequenceTracer {
+    fn seq_tracer_ref(&self) -> &SequenceTracer {
         &self.seq_trace
     }
 }

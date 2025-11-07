@@ -3,7 +3,7 @@
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct SequenceTracer {
-    buf: [u8; 128],
+    buf: [u8; 8192],
     len: usize,
     idx: usize,
 }
@@ -17,7 +17,7 @@ impl Default for SequenceTracer {
 impl SequenceTracer {
     pub(crate) const fn new() -> Self {
         Self {
-            buf: [0; 128],
+            buf: [0; 8192],
             len: 0,
             idx: 0,
         }
@@ -76,23 +76,18 @@ impl SequenceTracer {
 /// the raw bytes of the *current* sequence they are parsing.
 #[allow(dead_code)]
 pub(crate) trait SequenceTraceable {
-    /// Mutable access to the underlying sequence trace buffer.
-    fn seq_trace(&mut self) -> &mut SequenceTracer;
-    /// Immutable access to the underlying sequence trace buffer.
-    fn seq_trace_ref(&self) -> &SequenceTracer;
+    fn seq_tracer(&mut self) -> &mut SequenceTracer;
+    fn seq_tracer_ref(&self) -> &SequenceTracer;
 
-    /// Append a single byte to the sequence trace.
     fn append_trace(&mut self, b: u8) {
-        self.seq_trace().push(b);
+        self.seq_tracer().push(b);
     }
 
-    /// Clear the current sequence trace (typically on Finished/Invalid/Reset).
     fn clear_trace(&mut self) {
-        self.seq_trace().clear();
+        self.seq_tracer().clear();
     }
 
-    /// Render the current trace as a lossy UTF-8 string for diagnostics.
     fn current_trace_str(&self) -> String {
-        self.seq_trace_ref().as_str()
+        self.seq_tracer_ref().as_str()
     }
 }

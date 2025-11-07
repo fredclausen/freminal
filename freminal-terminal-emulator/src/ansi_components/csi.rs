@@ -53,11 +53,11 @@ pub struct AnsiCsiParser {
 
 impl SequenceTraceable for AnsiCsiParser {
     #[inline]
-    fn seq_trace(&mut self) -> &mut SequenceTracer {
+    fn seq_tracer(&mut self) -> &mut SequenceTracer {
         &mut self.seq_trace
     }
     #[inline]
-    fn seq_trace_ref(&self) -> &SequenceTracer {
+    fn seq_tracer_ref(&self) -> &SequenceTracer {
         &self.seq_trace
     }
 }
@@ -86,7 +86,7 @@ impl AnsiCsiParser {
     /// Will return an error if the parser is in a finished state
     #[tracing::instrument(level = "trace", skip_all)]
     pub fn push(&mut self, b: u8) -> ParserOutcome {
-        self.seq_trace.push(b);
+        self.append_trace(b);
 
         if let AnsiCsiParserState::Finished(_) | AnsiCsiParserState::InvalidFinished = &self.state {
             return ParserOutcome::Invalid("Parser pushed to once finished".to_string());
@@ -110,13 +110,13 @@ impl AnsiCsiParser {
                 }
 
                 self.state = AnsiCsiParserState::Invalid;
-                self.clear_trace();
+
                 ParserOutcome::Invalid("Invalid CSI parameter".to_string())
             }
             AnsiCsiParserState::Intermediates => {
                 if is_csi_param(b) {
                     self.state = AnsiCsiParserState::Invalid;
-                    self.clear_trace();
+
                     return ParserOutcome::Invalid("Invalid CSI intermediate".to_string());
                 } else if is_csi_intermediate(b) {
                     self.intermediates.push(b);
@@ -128,7 +128,7 @@ impl AnsiCsiParser {
                 }
 
                 self.state = AnsiCsiParserState::Invalid;
-                self.clear_trace();
+
                 ParserOutcome::Invalid("Invalid CSI intermediate".to_string())
             }
             AnsiCsiParserState::Invalid => {
