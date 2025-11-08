@@ -21,6 +21,7 @@ category = "Developer Tools"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ahash.workspace = true
 eframe.workspace = true
 egui.workspace = true
 conv2.workspace = true
