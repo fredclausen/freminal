@@ -23,6 +23,16 @@
           inherit system;
           overlays = [ (import rust-overlay) ];
         };
+
+        libPath = pkgs.lib.makeLibraryPath (
+          with pkgs;
+          [
+            libGL
+            libxkbcommon
+          ]
+          ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ wayland ]
+        );
+
         myRustToolchain = pkgs.rust-bin.fromRustupToolchain {
           channel = "stable";
           components = [
@@ -164,6 +174,8 @@
                 cachix
                 nodePackages.markdownlint-cli2
               ]);
+
+            LD_LIBRARY_PATH = libPath;
 
             shellHook = ''
               export PATH="${myRustToolchain}/bin:$PATH"
