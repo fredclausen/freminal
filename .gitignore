@@ -548,3 +548,4 @@ yarn-error.log*
 freminal_snapshot*.zip
 *.patch
 output.txt
+snapshots/*

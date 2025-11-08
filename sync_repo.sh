@@ -15,6 +15,7 @@ REPO_DIR="${1:-$HOME/GitHub/freminal}"
 # Timestamped output name
 TIMESTAMP="$(date +'%Y-%m-%dT%H-%M-%S')"
 OUT_FILE="freminal_snapshot_${TIMESTAMP}.zip"
+OUTDIR="$REPO_DIR/snapshots"
 
 echo "📦 Creating Freminal source snapshot"
 echo "🗂  Repository: $REPO_DIR"
@@ -29,6 +30,9 @@ if [[ ! -d "$REPO_DIR" ]]; then
 fi
 
 cd "$REPO_DIR"
+
+# Create output directory if it doesn't exist
+mkdir -p "$OUTDIR"
 
 # Exclude patterns (safe defaults)
 EXCLUDES=(
@@ -71,7 +75,7 @@ echo "⚙️  Building archive..."
 echo
 
 # Use zip with exclusion patterns
-zip -r "$OUT_FILE" . \
+zip -r "$OUTDIR/$OUT_FILE" . \
   -x "${EXCLUDES[@]}" >/dev/null
 
 echo
