@@ -125,8 +125,6 @@
               args = [
                 "fmt"
                 "--all"
-                "--"
-                "--check"
               ];
             };
             clippy = {
@@ -172,6 +170,7 @@
                 cargo-profiler
                 typos
                 cachix
+                cargo-llvm-cov
                 nodePackages.markdownlint-cli2
               ]);
 
