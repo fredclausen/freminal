@@ -7,7 +7,6 @@ use core::fmt;
 
 use crate::error::ParserFailures;
 use anyhow::Result;
-use std::fmt::Write;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Clone, Eq)]
@@ -119,10 +118,24 @@ impl TChar {
 
 #[must_use]
 pub fn display_vec_tchar_as_string(v: &[TChar]) -> String {
-    v.iter().fold(String::new(), |mut acc, c| {
-        write!(&mut acc, "{c}").unwrap_or_default();
-        acc
-    })
+    // Reserve exact capacity to avoid repeated reallocations.
+    let mut out = String::with_capacity(v.len() * 4);
+
+    for c in v {
+        match c {
+            TChar::Ascii(b) => out.push(*b as char),
+            TChar::Utf8(bytes) => {
+                // Safe because we already validated UTF-8 when constructing TChar.
+                unsafe {
+                    out.push_str(std::str::from_utf8_unchecked(bytes));
+                }
+            }
+            TChar::Space => out.push(' '),
+            TChar::NewLine => out.push('\n'),
+        }
+    }
+
+    out
 }
 
 impl From<u8> for TChar {
@@ -160,7 +173,7 @@ impl PartialEq<u8> for TChar {
 impl PartialEq<Vec<u8>> for TChar {
     fn eq(&self, other: &Vec<u8>) -> bool {
         match self {
-            Self::Utf8(v) => v == other,
+            Self::Utf8(v) => v.as_slice() == other.as_slice(),
             _ => false,
         }
     }
@@ -190,7 +203,9 @@ impl fmt::Display for TChar {
                 0x00..=0x1F => write!(f, "0x{c:02X}"),
                 _ => write!(f, "{}", *c as char),
             },
-            Self::Utf8(v) => write!(f, "{}", std::str::from_utf8(v).unwrap_or("")),
+            Self::Utf8(v) => {
+                write!(f, "{}", std::str::from_utf8(v).unwrap_or(""))
+            }
             Self::Space => write!(f, " "),
             Self::NewLine => writeln!(f),
         }

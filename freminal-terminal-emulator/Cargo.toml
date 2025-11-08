@@ -12,6 +12,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+#smallvec.workspace = true
 anyhow.workspace = true
 crossbeam-channel.workspace = true
 eframe.workspace = true
