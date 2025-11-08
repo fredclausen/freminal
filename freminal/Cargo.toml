@@ -22,6 +22,7 @@ category = "Developer Tools"
 
 [dependencies]
 eframe.workspace = true
+egui.workspace = true
 conv2.workspace = true
 anyhow.workspace = true
 parking_lot.workspace = true
@@ -31,6 +32,14 @@ tracing.workspace = true
 freminal-terminal-emulator = { path = "../freminal-terminal-emulator" }
 freminal-common = { path = "../freminal-common" }
 
+# dev dependencies
+[dev-dependencies]
+criterion.workspace = true
+
 [features]
 default = []
 validation = []
+
+[[bench]]
+name = "render_loop_bench"
+harness = false

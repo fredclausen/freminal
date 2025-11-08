@@ -1307,7 +1307,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "conv2",
+ "criterion",
  "eframe",
+ "egui",
  "freminal-common",
  "freminal-terminal-emulator",
  "parking_lot",

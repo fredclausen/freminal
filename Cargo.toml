@@ -39,7 +39,6 @@ eframe = { version = "0.33.0", default-features = false, features = [
 egui = { version = "0.33.0", default-features = false, features = [
   "default_fonts",
   "persistence",
-  "log",
 ] }
 parking_lot = "0.12.4"
 portable-pty = "0.9.0"

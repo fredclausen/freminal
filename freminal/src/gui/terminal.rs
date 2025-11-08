@@ -717,7 +717,7 @@ fn process_tags(
     }
 }
 
-fn render_terminal_text(
+pub fn render_terminal_text(
     ui: &mut egui::Ui,
     full_text: &str,
     job: &egui::text::LayoutJob,
