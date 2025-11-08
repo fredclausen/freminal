@@ -37,7 +37,8 @@ impl SequenceTracer {
         }
     }
 
-    pub(crate) fn as_str(&self) -> String {
+    #[must_use]
+    pub fn as_str(&self) -> String {
         if self.len == 0 {
             return String::new();
         }
