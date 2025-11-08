@@ -1039,9 +1039,6 @@ fn add_terminal_data_to_ui(
             // Update render_state text lines
             render_state.lines = data_utf8.lines().map(str::to_string).collect();
 
-            // Mark all dirty for now (until fine-grained tracking is implemented)
-            render_state.mark_all_dirty();
-
             // Use the row-level invalidation renderer
             let response = render_state.render(ui, &job, font_size);
 
@@ -1050,9 +1047,6 @@ fn add_terminal_data_to_ui(
         UiData::PreviousPass(_) => {
             // Update render_state text lines
             render_state.lines = data_utf8.lines().map(str::to_string).collect();
-
-            // Mark all dirty for now (until fine-grained tracking is implemented)
-            render_state.mark_all_dirty();
 
             // Use the row-level invalidation renderer
             let response = render_state.render(ui, &job, font_size);
@@ -1094,6 +1088,17 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                 };
 
             let canvas_response: (Rect, Option<UiJobAction>);
+
+            let dirty_rows = terminal_emulator.take_dirty_rows();
+            if dirty_rows.is_empty() {
+                debug!("No dirty rows detected — full repaint");
+                render_state.mark_all_dirty();
+            } else {
+                debug!("Marking {} dirty rows for repaint", dirty_rows.len());
+                for r in dirty_rows {
+                    render_state.mark_dirty(r);
+                }
+            }
 
             if let Some(previous_pass) = previous_pass {
                 _ = error_logged_rect(add_terminal_data_to_ui(

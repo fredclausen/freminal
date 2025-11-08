@@ -116,6 +116,8 @@ pub struct TerminalState {
     pub window_focused: bool,
     pub window_commands: Vec<WindowManipulation>,
     pub saved_cursor: Option<CursorState>,
+    /// Tracks which screen rows have been modified since the last render.
+    changed_rows: Vec<usize>,
 }
 
 impl Default for TerminalState {
@@ -157,6 +159,7 @@ impl TerminalState {
             window_focused: true,
             window_commands: Vec::new(),
             saved_cursor: None,
+            changed_rows: Vec::new(),
         }
     }
 
@@ -173,6 +176,32 @@ impl TerminalState {
     #[must_use]
     pub const fn show_cursor(&mut self) -> bool {
         self.get_current_buffer().show_cursor()
+    }
+
+    // pub fn mark_row_changed_all(&mut self) {
+    //     for row in 0..self.get_current_buffer().terminal_buffer.) {
+    //         self.mark_row_changed(row);
+    //     }
+    // }
+
+    /// Mark a specific row as changed so the GUI can invalidate it.
+    pub fn mark_row_changed(&mut self, row: usize) {
+        if !self.changed_rows.contains(&row) {
+            debug!("TerminalState: marking row {} as changed", row);
+            self.changed_rows.push(row);
+        }
+    }
+
+    /// Consume and clear the list of changed rows.
+    pub fn take_changed_rows(&mut self) -> Vec<usize> {
+        if self.changed_rows.is_empty() {
+            return Vec::new();
+        }
+        debug!(
+            "TerminalState: taking {} changed rows",
+            self.changed_rows.len()
+        );
+        std::mem::take(&mut self.changed_rows)
     }
 
     #[must_use]

@@ -259,6 +259,18 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
 }
 
 impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
+    /// Returns and clears the list of dirty rows from the internal terminal state.
+    pub fn take_dirty_rows(&mut self) -> Vec<usize> {
+        let rows = self.internal.take_changed_rows();
+        if !rows.is_empty() {
+            debug!(
+                "TerminalEmulator: taking {} dirty rows from internal state",
+                rows.len()
+            );
+        }
+        rows
+    }
+
     pub const fn set_mouse_position_from_move_event(&mut self, pos: &egui::Pos2) {
         self.internal.mouse_position = Some(*pos);
     }
