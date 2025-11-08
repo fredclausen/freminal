@@ -5,13 +5,16 @@
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode};
 use egui::{Context, FontDefinitions, FontFamily, Id, Layout, Ui, UiBuilder};
-use freminal::gui::terminal::render_terminal_text;
 use std::time::Duration;
 
+// --- Freminal render function ---
+use freminal::gui::terminal::render_terminal_text;
+
+/// Create a headless egui Context + Ui for benchmarking.
 fn make_bench_ui() -> (Context, Ui) {
     let ctx = Context::default();
 
-    // --- Load a monospace font for deterministic glyph widths ---
+    // Load deterministic monospace font
     let mut fonts = FontDefinitions::default();
     fonts.font_data.insert(
         "monospace".to_owned(),
@@ -24,9 +27,10 @@ fn make_bench_ui() -> (Context, Ui) {
         .unwrap()
         .insert(0, "monospace".to_owned());
     ctx.set_fonts(fonts);
-    ctx.begin_pass(egui::RawInput::default()); // ensures font atlas is initialized
 
-    // --- Create a dummy Ui for layout/render benchmarking ---
+    // Force font atlas + style system initialization
+    ctx.begin_pass(egui::RawInput::default());
+
     let id = Id::new("bench-ui");
     let builder = UiBuilder::new().layout(Layout::top_down_justified(egui::Align::LEFT));
     let ui = Ui::new(ctx.clone(), id, builder);
@@ -34,38 +38,55 @@ fn make_bench_ui() -> (Context, Ui) {
     (ctx, ui)
 }
 
+/// Benchmark both logic-only and full-render variants.
 fn bench_render(c: &mut Criterion) {
-    // --- Prepare test data ---
-    let text = "abcdefghij\n".repeat(10_000); // ~100k chars
+    let text = "abcdefghij\n".repeat(10_000);
     let font_size = 14.0;
-    //let mut row_cache = Vec::new();
+    let mut row_cache = Vec::new();
     let job = egui::text::LayoutJob::default();
 
-    // --- Create context + ui once ---
-    let (_ctx, mut ui) = make_bench_ui();
+    let (ctx, mut ui) = make_bench_ui();
 
-    // --- Configure benchmark group ---
     let mut group = c.benchmark_group("render_terminal_text");
     group
-        .sampling_mode(SamplingMode::Flat) // fixed iteration cost
-        .sample_size(75) // 75 samples = good balance for ms-level work
+        .sampling_mode(SamplingMode::Flat)
+        .sample_size(75)
         .warm_up_time(Duration::from_secs(1))
         .measurement_time(Duration::from_secs(5))
-        .noise_threshold(0.02); // ignore ≤2% noise
+        .noise_threshold(0.02);
 
+    // ---------- logic-only (no flush) ----------
     group.bench_with_input(
-        BenchmarkId::from_parameter("10k_lines"),
+        BenchmarkId::new("logic_only", "10k_lines"),
         &text,
         |b, data| {
             b.iter(|| {
-                render_terminal_text(&mut ui, data, &job, font_size);
+                // Just build + layout, no frame end
+                render_terminal_text(&mut ui, data, &job, font_size, &mut row_cache);
+            });
+        },
+    );
+
+    // ---------- full-render (layout + paint) ----------
+    group.bench_with_input(
+        BenchmarkId::new("full_render", "10k_lines"),
+        &text,
+        |b, data| {
+            b.iter(|| {
+                // render + flush a simulated frame
+                render_terminal_text(&mut ui, data, &job, font_size, &mut row_cache);
+                let _ = ui.ctx().end_pass(); // triggers paint batching
             });
         },
     );
 
     group.finish();
+
+    // keep ctx alive until after benchmark ends
+    drop(ctx);
 }
 
+/// Criterion configuration (same tuning as before)
 fn criterion_config() -> Criterion {
     Criterion::default()
         .confidence_level(0.95)

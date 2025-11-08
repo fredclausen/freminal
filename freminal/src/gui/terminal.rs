@@ -36,7 +36,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 #[derive(Default, Clone)]
-struct CachedRow {
+pub struct CachedRow {
     text_hash: u64,
     galley: Option<Arc<egui::Galley>>,
 }
