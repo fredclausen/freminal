@@ -717,81 +717,136 @@ fn process_tags(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn render_terminal_text(
     ui: &mut egui::Ui,
     full_text: &str,
     job: &egui::text::LayoutJob,
     font_size: f32,
 ) -> egui::Response {
-    let ctx = ui.ctx();
+    // Compute monospace metrics once
+    let (glyph_width, row_height) = {
+        let font_id = egui::FontId::monospace(font_size);
+        let glyph_w = ui.ctx().fonts_mut(|f| f.glyph_width(&font_id, 'W'));
+        let row_h = ui.ctx().fonts_mut(|f| f.row_height(&font_id));
+        (glyph_w, row_h)
+    };
 
-    let font_id = egui::FontId::monospace(font_size);
+    // Measure text area
+    let total_lines = full_text.split('\n').count().max(1);
+    let total_width = {
+        let longest: f32 = f32::value_from(
+            full_text
+                .split('\n')
+                .map(|l| l.chars().count())
+                .max()
+                .unwrap_or(0),
+        )
+        .unwrap_or_default();
+        longest * glyph_width
+    };
+    let total_height: f32 = f32::value_from(total_lines)
+        .unwrap_or_default()
+        .mul_add(row_height, 0.0);
 
-    // Need mutable access for glyph metrics
-    let glyph_width = ctx.fonts_mut(|f| f.glyph_width(&font_id, 'W'));
-    let row_height = ctx.fonts_mut(|f| f.row_height(&font_id));
-    let baseline_offset = row_height;
+    // Reserve paint area
+    let (response, painter) =
+        ui.allocate_painter(egui::vec2(total_width, total_height), egui::Sense::hover());
 
-    // Compute total size — roughly estimate height based on newlines
-    let num_lines = full_text.chars().filter(|&c| c == '\n').count() + 1;
-    let longest_line_len = full_text
-        .split('\n')
-        .map(|line| line.chars().count())
-        .max()
-        .unwrap_or(0);
+    // Build per-line ranges
+    let mut line_ranges = Vec::new();
+    let mut start = 0usize;
+    for line in full_text.split_inclusive('\n') {
+        let end = start + line.len();
+        line_ranges.push((start, end));
+        start = end;
+    }
+    if line_ranges.is_empty() {
+        line_ranges.push((0, 0));
+    }
 
-    // Safe conversions with fallback baseline
-    let fallback_value = 100.0_f32; // arbitrary safe default if conversion fails
-    let total_width = f32::value_from(longest_line_len).unwrap_or(fallback_value) * glyph_width;
-    let total_height = f32::value_from(num_lines).unwrap_or(fallback_value) * row_height;
+    // Render each row
+    for (row_idx, (row_start, row_end)) in line_ranges.iter().enumerate() {
+        let row_text = &full_text[*row_start..*row_end];
+        let row_origin = response.rect.left_top()
+            + egui::vec2(
+                0.0,
+                f32::value_from(row_idx)
+                    .unwrap_or_default()
+                    .mul_add(row_height, 0.0),
+            );
 
-    let (rect, response) =
-        ui.allocate_exact_size(egui::vec2(total_width, total_height), egui::Sense::hover());
+        // Collect sections overlapping this line
+        let mut row_sections = Vec::new();
+        let mut bg_runs: Vec<(usize, usize, egui::Color32)> = Vec::new();
 
-    let painter = ui.painter();
-
-    let origin = rect.left_top();
-    let mut x = origin.x;
-    let mut y = origin.y;
-    let mut baseline_y = y + baseline_offset;
-
-    for section in &job.sections {
-        let format = &section.format;
-        let font_id = format.font_id.clone();
-        let text_color = format.color;
-        let bg_color = format.background;
-
-        // Text slice for this section
-        let section_text = &full_text[section.byte_range.clone()];
-
-        for c in section_text.chars() {
-            if c == '\n' {
-                // Move to next line
-                x = origin.x;
-                y += row_height;
-                baseline_y = y + baseline_offset;
+        for sec in &job.sections {
+            let s = sec.byte_range.start.max(*row_start);
+            let e = sec.byte_range.end.min(*row_end);
+            if s >= e {
                 continue;
             }
 
-            // Draw background cell
-            if bg_color != egui::Color32::TRANSPARENT {
-                let bg_rect = egui::Rect::from_min_size(
-                    egui::pos2(x, y),
-                    egui::vec2(glyph_width, row_height),
-                );
-                painter.rect_filled(bg_rect, 0.0, bg_color);
+            let rel_start = s - *row_start;
+            let rel_end = e - *row_start;
+            let format = sec.format.clone();
+
+            row_sections.push(egui::text::LayoutSection {
+                leading_space: 0.0,
+                byte_range: rel_start..rel_end,
+                format: format.clone(),
+            });
+
+            // Background run (merge if same color)
+            let slice_str = &row_text[rel_start..rel_end];
+            let cols = slice_str.chars().count();
+            let color = format.background;
+            if color != egui::Color32::TRANSPARENT && cols > 0 {
+                if let Some(last) = bg_runs.last_mut() {
+                    if last.0 + last.1 == rel_start && last.2 == color {
+                        last.1 += cols;
+                    } else {
+                        bg_runs.push((rel_start, cols, color));
+                    }
+                } else {
+                    bg_runs.push((rel_start, cols, color));
+                }
             }
+        }
 
-            // Draw glyph baseline-aligned
-            painter.text(
-                egui::pos2(x, baseline_y),
-                egui::Align2::LEFT_BOTTOM,
-                c.to_string(),
-                font_id.clone(),
-                text_color,
+        // Paint background runs
+        for (col_start, len, color) in bg_runs {
+            let x0 = f32::value_from(col_start)
+                .unwrap_or_default()
+                .mul_add(glyph_width, row_origin.x);
+
+            let rect = egui::Rect::from_min_size(
+                egui::pos2(x0, row_origin.y),
+                egui::vec2(
+                    f32::value_from(len)
+                        .unwrap_or_default()
+                        .mul_add(glyph_width, 0.0),
+                    row_height,
+                ),
             );
+            painter.rect_filled(rect, 0.0, color);
+        }
 
-            x += glyph_width;
+        // Paint row text (one galley)
+        if !row_sections.is_empty() || !row_text.is_empty() {
+            let row_job = egui::text::LayoutJob {
+                text: row_text.to_owned(),
+                sections: row_sections,
+                wrap: egui::text::TextWrapping {
+                    max_width: f32::INFINITY,
+                    break_anywhere: false,
+                    ..Default::default()
+                },
+
+                ..Default::default()
+            };
+            let galley = ui.fonts_mut(|f| f.layout_job(row_job));
+            painter.galley(row_origin, galley, egui::Color32::WHITE);
         }
     }
 
