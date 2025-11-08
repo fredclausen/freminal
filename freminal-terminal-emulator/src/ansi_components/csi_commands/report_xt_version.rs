@@ -25,7 +25,7 @@ pub fn ansi_parser_inner_csi_finished_report_version_q(
     let request = param.unwrap_or(0);
 
     if request == 0 {
-        output.push(TerminalOutput::RequestDeviceNameandVersion);
+        output.push(TerminalOutput::RequestDeviceNameAndVersion);
     } else {
         return ParserOutcome::InvalidParserFailure(ParserFailures::UnhandledXTVERSIONCommand(
             String::from_utf8_lossy(params).to_string(),

@@ -144,7 +144,11 @@ pub enum TerminalOutput {
     MemoryUnlock,
     DeviceControlString(Vec<u8>),
     ApplicationProgramCommand(Vec<u8>),
-    RequestDeviceNameandVersion,
+    RequestDeviceNameAndVersion,
+    RequestSecondaryDeviceAttributes {
+        param: usize,
+    }, // for ESC[>Ps c
+    RequestXtVersion, // for ESC[>c
 }
 
 // impl format display for TerminalOutput
@@ -252,7 +256,11 @@ impl std::fmt::Display for TerminalOutput {
                     String::from_utf8_lossy(data)
                 )
             }
-            Self::RequestDeviceNameandVersion => write!(f, "RequestDeviceNameandVersion"),
+            Self::RequestDeviceNameAndVersion => write!(f, "RequestDeviceNameandVersion"),
+            Self::RequestSecondaryDeviceAttributes { param } => {
+                write!(f, "RequestSecondaryDeviceAttributes({param})")
+            }
+            Self::RequestXtVersion => write!(f, "RequestXtVersion"),
         }
     }
 }
@@ -726,7 +734,7 @@ mod tests {
             MemoryUnlock,
             DeviceControlString(b"abc".to_vec()),
             ApplicationProgramCommand(b"xyz".to_vec()),
-            RequestDeviceNameandVersion,
+            RequestDeviceNameAndVersion,
             EightBitControl,
             SevenBitControl,
             AnsiConformanceLevelOne,

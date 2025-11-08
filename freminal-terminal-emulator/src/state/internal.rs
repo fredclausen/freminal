@@ -1426,7 +1426,7 @@ impl TerminalState {
                         self.get_current_buffer().cursor_state = saved_cursor.clone();
                     }
                 }
-                TerminalOutput::RequestDeviceNameandVersion => {
+                TerminalOutput::RequestDeviceNameAndVersion => {
                     self.report_device_name_and_version();
                 }
                 TerminalOutput::Skipped | TerminalOutput::Bell | _ => (),

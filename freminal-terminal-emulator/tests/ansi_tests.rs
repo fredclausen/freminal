@@ -132,7 +132,7 @@ fn display_exhaustive_variants_short() {
         TerminalOutput::MemoryLock,
         TerminalOutput::MemoryUnlock,
         TerminalOutput::RequestDeviceAttributes,
-        TerminalOutput::RequestDeviceNameandVersion,
+        TerminalOutput::RequestDeviceNameAndVersion,
     ];
     for v in variants {
         write!(&mut buf, "{v}").unwrap();
