@@ -23,7 +23,7 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@v3
 
       - name: Use Determinate Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v2
+        uses: DeterminateSystems/magic-nix-cache-action@v13
 
       # --- Enter your flake's devShell (same behavior as direnv) ---
       - name: Run checks in devShell
