@@ -62,7 +62,7 @@ fn bench_render(c: &mut Criterion) {
         |b, data| {
             b.iter(|| {
                 // Just build + layout, no frame end
-                render_terminal_text(&mut ui, data, &job, font_size, &mut row_cache);
+                render_terminal_text(&mut ui, data, &job, font_size, &mut row_cache, None);
             });
         },
     );
@@ -74,7 +74,7 @@ fn bench_render(c: &mut Criterion) {
         |b, data| {
             b.iter(|| {
                 // render + flush a simulated frame
-                render_terminal_text(&mut ui, data, &job, font_size, &mut row_cache);
+                render_terminal_text(&mut ui, data, &job, font_size, &mut row_cache, None);
                 let _ = ui.ctx().end_pass(); // triggers paint batching
             });
         },
@@ -97,6 +97,46 @@ fn criterion_config() -> Criterion {
 criterion_group! {
     name = benches;
     config = criterion_config();
-    targets = bench_render
+    targets = bench_render, bench_render_dirty_5pct
 }
 criterion_main!(benches);
+
+fn bench_render_dirty_5pct(c: &mut Criterion) {
+    let (_ctx, mut ui) = make_bench_ui();
+    let text = "abcdefghij\n".repeat(10_000);
+    let job = egui::text::LayoutJob::default();
+    let font_size = 14.0f32;
+    let mut row_cache = vec![Default::default(); text.lines().count()];
+
+    // Initially mark all rows dirty to build caches
+    let all_rows: Vec<usize> = (0..row_cache.len()).collect();
+    render_terminal_text(
+        &mut ui,
+        &text,
+        &job,
+        font_size,
+        &mut row_cache,
+        Some(&all_rows),
+    );
+
+    // Precompute a 5%% dirty set (every 20th row)
+    let dirty: Vec<usize> = (0..row_cache.len()).step_by(20).collect();
+
+    c.bench_with_input(
+        BenchmarkId::new("render_terminal_text/dirty_5pct/10k_lines", ""),
+        &"",
+        |b, _| {
+            b.iter(|| {
+                // Only pass the dirty subset
+                render_terminal_text(
+                    &mut ui,
+                    &text,
+                    &job,
+                    font_size,
+                    &mut row_cache,
+                    Some(&dirty),
+                );
+            });
+        },
+    );
+}

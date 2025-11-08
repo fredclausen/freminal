@@ -53,6 +53,7 @@ EXCLUDES=(
   'res/*'
   'Documents/*'
   'speed_tests/*'
+  'snapshots/*'
 )
 
 # Construct zip exclude args

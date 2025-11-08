@@ -8,6 +8,7 @@ use crate::gui::{
         handle_pointer_button, handle_pointer_moved, handle_pointer_scroll, FreminalMousePosition,
         PreviousMouseState,
     },
+    render_state::TerminalRenderState,
     TerminalEmulator,
 };
 
@@ -39,6 +40,8 @@ use std::sync::Arc;
 pub struct CachedRow {
     text_hash: u64,
     galley: Option<Arc<egui::Galley>>,
+    // Cached background runs as (col_start, len, color)
+    bg_runs: Vec<(usize, usize, egui::Color32)>,
 }
 
 fn color32_to_u32(color: egui::Color32) -> u32 {
@@ -753,6 +756,7 @@ pub fn render_terminal_text(
     job: &egui::text::LayoutJob,
     font_size: f32,
     row_cache: &mut Vec<CachedRow>,
+    dirty_rows: Option<&[usize]>,
 ) -> egui::Response {
     // --- Font metrics ---------------------------------------------------------
     let (glyph_width, row_height) = ui.ctx().fonts_mut(|fonts| {
@@ -762,6 +766,10 @@ pub fn render_terminal_text(
         (glyph_width, row_height)
     });
 
+    // Optional dirty-row filter: when provided, we only recompute expensive layout
+    // for rows listed here. Clean rows reuse cached galley+bg runs.
+    let dirty_set: Option<std::collections::HashSet<usize>> =
+        dirty_rows.map(|rows| rows.iter().copied().collect());
     // --- Layout geometry ------------------------------------------------------
     let longest = full_text
         .split('\n')
@@ -802,6 +810,31 @@ pub fn render_terminal_text(
                 0.0,
                 f32::value_from(row_idx).unwrap_or_default() * row_height,
             );
+
+        // Fast path for clean rows: reuse cached background runs and galley
+        if let Some(ds) = &dirty_set {
+            if !ds.contains(&row_idx) {
+                let cache = &row_cache[row_idx];
+                if let Some(gal) = &cache.galley {
+                    // Paint cached backgrounds
+                    for (col_start, len, color) in &cache.bg_runs {
+                        let x0 = row_origin.x
+                            + f32::value_from(*col_start)
+                                .unwrap_or_default()
+                                .mul_add(glyph_width, 0.0);
+                        let len_f = f32::value_from(*len).unwrap_or_default();
+                        let rect = egui::Rect::from_min_size(
+                            egui::pos2(x0, row_origin.y),
+                            egui::vec2(len_f * glyph_width, row_height),
+                        );
+                        painter.rect_filled(rect, 0.0, *color);
+                    }
+                    // Paint cached text galley
+                    painter.galley(row_origin, gal.clone(), egui::Color32::WHITE);
+                    continue;
+                }
+            }
+        }
 
         // --- Byte → column map for multibyte-safe geometry --------------------
         let mut byte_to_col = vec![0usize; row_text.len() + 1];
@@ -913,9 +946,49 @@ pub fn render_terminal_text(
             );
         }
 
-        // --- Cache empty galley marker (for hash) -----------------------------
+        // --- Build and cache galley for fast path next frames -----------------
+        // Construct a row-local LayoutJob mirroring the row_sections
+        let mut row_job = eframe::egui::text::LayoutJob {
+            wrap: eframe::egui::text::TextWrapping {
+                max_width: f32::INFINITY,
+                max_rows: 1,
+                break_anywhere: false,
+                overflow_character: None,
+            },
+            ..Default::default()
+        };
+        row_job.append(row_text, 0.0, TextFormat::default());
+        row_job.sections.clone_from(&row_sections);
+
+        let galley = ui.ctx().fonts_mut(|f| f.layout_job(row_job));
+        // --- Cache new galley + bg runs + hash --------------------------------
         cache.text_hash = row_hash;
-        cache.galley = None;
+        cache.bg_runs = row_sections
+            .iter()
+            .filter_map(|sec| {
+                let color = sec.format.background;
+                if color == egui::Color32::TRANSPARENT {
+                    return None;
+                }
+                let s = sec.byte_range.start.min(row_text.len());
+                let e = sec.byte_range.end.min(row_text.len());
+                if s >= e {
+                    return None;
+                }
+                // compute byte->col map again for start..end
+                let mut col = 0usize;
+                let mut map = vec![0usize; row_text.len() + 1];
+                for (b, _) in row_text.char_indices() {
+                    map[b] = col;
+                    col += 1;
+                }
+                map[row_text.len()] = col;
+                let col_start = map[s];
+                let len = map[e].saturating_sub(col_start);
+                Some((col_start, len, color))
+            })
+            .collect();
+        cache.galley = Some(galley);
     }
 
     response
@@ -925,7 +998,7 @@ fn add_terminal_data_to_ui(
     ui: &mut Ui,
     data: &UiData,
     font_size: f32,
-    row_cache: &mut Vec<CachedRow>,
+    render_state: &mut TerminalRenderState,
 ) -> Result<(egui::Response, Option<UiJobAction>)> {
     let data_utf8: String;
     let adjusted_format_data: Vec<FormatTag>;
@@ -963,11 +1036,27 @@ fn add_terminal_data_to_ui(
                 text: data_utf8.clone(),
                 adjusted_format_data: adjusted_format_data.clone(),
             };
-            let response = render_terminal_text(ui, &data_utf8, &job, font_size, row_cache);
+            // Update render_state text lines
+            render_state.lines = data_utf8.lines().map(str::to_string).collect();
+
+            // Mark all dirty for now (until fine-grained tracking is implemented)
+            render_state.mark_all_dirty();
+
+            // Use the row-level invalidation renderer
+            let response = render_state.render(ui, &job, font_size);
+
             Ok((response, Some(response_data)))
         }
         UiData::PreviousPass(_) => {
-            let response = render_terminal_text(ui, &data_utf8, &job, font_size, row_cache);
+            // Update render_state text lines
+            render_state.lines = data_utf8.lines().map(str::to_string).collect();
+
+            // Mark all dirty for now (until fine-grained tracking is implemented)
+            render_state.mark_all_dirty();
+
+            // Use the row-level invalidation renderer
+            let response = render_state.render(ui, &job, font_size);
+
             Ok((response, None))
         }
     }
@@ -984,7 +1073,7 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
     terminal_emulator: &mut TerminalEmulator<Io>,
     font_size: f32,
     previous_pass: Option<&TerminalOutputRenderResponse>,
-    row_cache: &mut Vec<CachedRow>,
+    render_state: &mut TerminalRenderState,
 ) -> TerminalOutputRenderResponse {
     let response = egui::ScrollArea::new([false, true])
         .auto_shrink([false, false])
@@ -1011,7 +1100,7 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                     ui,
                     &UiData::PreviousPass(previous_pass.canvas.clone()),
                     font_size,
-                    row_cache,
+                    render_state,
                 ));
 
                 (*previous_pass).clone()
@@ -1036,7 +1125,7 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                         format_data: format_data.visible,
                     }),
                     font_size,
-                    row_cache,
+                    render_state,
                 ));
 
                 // We want the program to crash here if we're testing
@@ -1087,7 +1176,7 @@ pub struct FreminalTerminalWidget {
     previous_key: Option<Key>,
     previous_scroll_amount: f32,
     ctx: Context,
-    row_cache: Vec<CachedRow>,
+    render_state: TerminalRenderState,
 }
 
 impl FreminalTerminalWidget {
@@ -1109,7 +1198,7 @@ impl FreminalTerminalWidget {
             previous_key: None,
             previous_scroll_amount: 0.0,
             ctx: ctx.clone(),
-            row_cache: Vec::new(),
+            render_state: TerminalRenderState::default(),
         }
     }
 
@@ -1210,7 +1299,7 @@ impl FreminalTerminalWidget {
                     terminal_emulator,
                     self.font_size,
                     None,
-                    &mut self.row_cache,
+                    &mut self.render_state,
                 );
             } else {
                 debug!("Reusing previous terminal output");
@@ -1219,7 +1308,7 @@ impl FreminalTerminalWidget {
                     terminal_emulator,
                     self.font_size,
                     Some(&self.previous_pass),
-                    &mut self.row_cache,
+                    &mut self.render_state,
                 );
             }
 

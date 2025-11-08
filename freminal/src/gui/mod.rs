@@ -21,6 +21,7 @@ use terminal::FreminalTerminalWidget;
 pub mod colors;
 pub mod fonts;
 pub mod mouse;
+pub mod render_state;
 pub mod terminal;
 
 fn set_egui_options(ctx: &egui::Context) {
