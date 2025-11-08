@@ -32,6 +32,35 @@ use super::{
 use anyhow::Result;
 use conv2::{ConvUtil, ValueFrom};
 use std::borrow::Cow;
+use std::hash::{Hash, Hasher};
+use std::sync::Arc;
+
+#[derive(Default, Clone)]
+struct CachedRow {
+    text_hash: u64,
+    galley: Option<Arc<egui::Galley>>,
+}
+
+fn color32_to_u32(color: egui::Color32) -> u32 {
+    let [red, green, blue, alpha] = color.to_array();
+    (u32::from(alpha) << 24) | (u32::from(red) << 16) | (u32::from(green) << 8) | u32::from(blue)
+}
+
+fn hash_row(text: &str, sections: &[egui::text::LayoutSection], row_len_bytes: usize) -> u64 {
+    use ahash::AHasher;
+    let mut hasher = AHasher::default();
+    text.hash(&mut hasher);
+    for sec in sections {
+        let s = sec.byte_range.start.min(row_len_bytes);
+        let e = sec.byte_range.end.min(row_len_bytes);
+        s.hash(&mut hasher);
+        e.hash(&mut hasher);
+        color32_to_u32(sec.format.color).hash(&mut hasher);
+        color32_to_u32(sec.format.background).hash(&mut hasher);
+        (sec.format.font_id.size.to_bits()).hash(&mut hasher);
+    }
+    hasher.finish()
+}
 
 fn control_key(key: Key) -> Option<Cow<'static, [TerminalInput]>> {
     if key >= Key::A && key <= Key::Z {
@@ -723,131 +752,170 @@ fn render_terminal_text(
     full_text: &str,
     job: &egui::text::LayoutJob,
     font_size: f32,
+    row_cache: &mut Vec<CachedRow>,
 ) -> egui::Response {
-    // Compute monospace metrics once
-    let (glyph_width, row_height) = {
+    // --- Font metrics ---------------------------------------------------------
+    let (glyph_width, row_height) = ui.ctx().fonts_mut(|fonts| {
         let font_id = egui::FontId::monospace(font_size);
-        let glyph_w = ui.ctx().fonts_mut(|f| f.glyph_width(&font_id, 'W'));
-        let row_h = ui.ctx().fonts_mut(|f| f.row_height(&font_id));
-        (glyph_w, row_h)
-    };
+        let glyph_width = fonts.glyph_width(&font_id, 'W');
+        let row_height = fonts.row_height(&font_id);
+        (glyph_width, row_height)
+    });
 
-    // Measure text area
-    let total_lines = full_text.split('\n').count().max(1);
-    let total_width = {
-        let longest: f32 = f32::value_from(
-            full_text
-                .split('\n')
-                .map(|l| l.chars().count())
-                .max()
-                .unwrap_or(0),
-        )
-        .unwrap_or_default();
-        longest * glyph_width
-    };
-    let total_height: f32 = f32::value_from(total_lines)
-        .unwrap_or_default()
-        .mul_add(row_height, 0.0);
+    // --- Layout geometry ------------------------------------------------------
+    let longest = full_text
+        .split('\n')
+        .map(|l| l.chars().count())
+        .max()
+        .unwrap_or(0usize);
 
-    // Reserve paint area
-    let (response, painter) =
-        ui.allocate_painter(egui::vec2(total_width, total_height), egui::Sense::hover());
+    let total_lines = full_text.lines().count();
+    let total_height = f32::value_from(total_lines).unwrap_or_default() * row_height;
+    let width_f32 = f32::value_from(longest).unwrap_or_default();
 
-    // Build per-line ranges
-    let mut line_ranges = Vec::new();
-    let mut start = 0usize;
+    // --- Ensure row cache -----------------------------------------------------
+    if row_cache.len() < total_lines {
+        row_cache.resize_with(total_lines, Default::default);
+    }
+
+    // --- Allocate paint region ------------------------------------------------
+    let (response, painter) = ui.allocate_painter(
+        egui::vec2(glyph_width * width_f32, total_height),
+        egui::Sense::hover(),
+    );
+
+    // --- Compute line byte ranges --------------------------------------------
+    let mut line_ranges = Vec::with_capacity(total_lines);
+    let mut offset = 0usize;
     for line in full_text.split_inclusive('\n') {
-        let end = start + line.len();
-        line_ranges.push((start, end));
-        start = end;
-    }
-    if line_ranges.is_empty() {
-        line_ranges.push((0, 0));
+        let len = line.len();
+        line_ranges.push((offset, offset + len));
+        offset += len;
     }
 
-    // Render each row
+    // --- Render rows ----------------------------------------------------------
     for (row_idx, (row_start, row_end)) in line_ranges.iter().enumerate() {
-        let row_text = &full_text[*row_start..*row_end];
+        let row_text_raw = &full_text[*row_start..*row_end];
+        let row_text = row_text_raw.strip_suffix('\n').unwrap_or(row_text_raw);
         let row_origin = response.rect.left_top()
             + egui::vec2(
                 0.0,
-                f32::value_from(row_idx)
-                    .unwrap_or_default()
-                    .mul_add(row_height, 0.0),
+                f32::value_from(row_idx).unwrap_or_default() * row_height,
             );
 
-        // Collect sections overlapping this line
-        let mut row_sections = Vec::new();
-        let mut bg_runs: Vec<(usize, usize, egui::Color32)> = Vec::new();
+        // --- Byte → column map for multibyte-safe geometry --------------------
+        let mut byte_to_col = vec![0usize; row_text.len() + 1];
+        {
+            let mut col = 0usize;
+            for (b, _) in row_text.char_indices() {
+                byte_to_col[b] = col;
+                col += 1;
+            }
+            byte_to_col[row_text.len()] = col;
+        }
 
-        for sec in &job.sections {
-            let s = sec.byte_range.start.max(*row_start);
-            let e = sec.byte_range.end.min(*row_end);
+        // --- Rebase layout sections (fixes missing colors) --------------------
+        let row_sections: Vec<egui::text::LayoutSection> = job
+            .sections
+            .iter()
+            .filter_map(|sec| {
+                if sec.byte_range.end <= *row_start || sec.byte_range.start >= *row_end {
+                    return None;
+                }
+                let start = sec.byte_range.start.saturating_sub(*row_start);
+                let end = sec.byte_range.end.saturating_sub(*row_start);
+                Some(egui::text::LayoutSection {
+                    leading_space: 0.0,
+                    byte_range: start..end.min(row_text.len()),
+                    format: sec.format.clone(),
+                })
+            })
+            .collect();
+
+        // --- Build background rectangles --------------------------------------
+        let mut bg_runs: Vec<(usize, usize, egui::Color32)> = Vec::new();
+        for sec in &row_sections {
+            let color = sec.format.background;
+            if color == egui::Color32::TRANSPARENT {
+                continue;
+            }
+            let s = sec.byte_range.start.min(row_text.len());
+            let e = sec.byte_range.end.min(row_text.len());
             if s >= e {
                 continue;
             }
+            let col_start = byte_to_col[s];
+            let col_end = byte_to_col[e];
+            let len = col_end.saturating_sub(col_start);
 
-            let rel_start = s - *row_start;
-            let rel_end = e - *row_start;
-            let format = sec.format.clone();
-
-            row_sections.push(egui::text::LayoutSection {
-                leading_space: 0.0,
-                byte_range: rel_start..rel_end,
-                format: format.clone(),
-            });
-
-            // Background run (merge if same color)
-            let slice_str = &row_text[rel_start..rel_end];
-            let cols = slice_str.chars().count();
-            let color = format.background;
-            if color != egui::Color32::TRANSPARENT && cols > 0 {
-                if let Some(last) = bg_runs.last_mut() {
-                    if last.0 + last.1 == rel_start && last.2 == color {
-                        last.1 += cols;
-                    } else {
-                        bg_runs.push((rel_start, cols, color));
-                    }
-                } else {
-                    bg_runs.push((rel_start, cols, color));
+            if let Some(last) = bg_runs.last_mut() {
+                if last.0 + last.1 == col_start && last.2 == color {
+                    last.1 += len;
+                    continue;
                 }
             }
+            bg_runs.push((col_start, len, color));
         }
 
-        // Paint background runs
+        // --- Paint backgrounds ------------------------------------------------
         for (col_start, len, color) in bg_runs {
-            let x0 = f32::value_from(col_start)
-                .unwrap_or_default()
-                .mul_add(glyph_width, row_origin.x);
-
+            let x0 = row_origin.x
+                + f32::value_from(col_start)
+                    .unwrap_or_default()
+                    .mul_add(glyph_width, 0.0);
+            let len_f = f32::value_from(len).unwrap_or_default();
             let rect = egui::Rect::from_min_size(
                 egui::pos2(x0, row_origin.y),
-                egui::vec2(
-                    f32::value_from(len)
-                        .unwrap_or_default()
-                        .mul_add(glyph_width, 0.0),
-                    row_height,
-                ),
+                egui::vec2(len_f * glyph_width, row_height),
             );
             painter.rect_filled(rect, 0.0, color);
         }
 
-        // Paint row text (one galley)
-        if !row_sections.is_empty() || !row_text.is_empty() {
-            let row_job = egui::text::LayoutJob {
-                text: row_text.to_owned(),
-                sections: row_sections,
-                wrap: egui::text::TextWrapping {
-                    max_width: f32::INFINITY,
-                    break_anywhere: false,
-                    ..Default::default()
-                },
-
-                ..Default::default()
-            };
-            let galley = ui.fonts_mut(|f| f.layout_job(row_job));
-            painter.galley(row_origin, galley, egui::Color32::WHITE);
+        // --- Cache check ------------------------------------------------------
+        let row_hash = hash_row(row_text, &row_sections, row_text.len());
+        let cache = &mut row_cache[row_idx];
+        if cache.text_hash == row_hash {
+            if let Some(gal) = &cache.galley {
+                painter.galley(row_origin, gal.clone(), egui::Color32::WHITE);
+                continue;
+            }
         }
+
+        // --- Draw glyphs manually (no egui spacing) ---------------------------
+        // --- Draw text per-foreground run (fast, no kerning bleed) -------------------
+        let font_id = egui::FontId::monospace(font_size);
+
+        // Render each section's substring at the exact cell-aligned x
+        for sec in &row_sections {
+            let fg = sec.format.color;
+            let s = sec.byte_range.start.min(row_text.len());
+            let e = sec.byte_range.end.min(row_text.len());
+            if s >= e {
+                continue;
+            }
+
+            // Slice the row's text for this section
+            let piece = &row_text[s..e];
+
+            // Column-aligned x based on byte→column map (multi-byte safe)
+            let col_start = byte_to_col[s];
+            let x0 = row_origin.x
+                + f32::value_from(col_start)
+                    .unwrap_or_default()
+                    .mul_add(glyph_width, 0.0);
+
+            painter.text(
+                egui::pos2(x0, row_origin.y),
+                egui::Align2::LEFT_TOP,
+                piece.to_owned(),
+                font_id.clone(),
+                fg,
+            );
+        }
+
+        // --- Cache empty galley marker (for hash) -----------------------------
+        cache.text_hash = row_hash;
+        cache.galley = None;
     }
 
     response
@@ -857,6 +925,7 @@ fn add_terminal_data_to_ui(
     ui: &mut Ui,
     data: &UiData,
     font_size: f32,
+    row_cache: &mut Vec<CachedRow>,
 ) -> Result<(egui::Response, Option<UiJobAction>)> {
     let data_utf8: String;
     let adjusted_format_data: Vec<FormatTag>;
@@ -894,11 +963,11 @@ fn add_terminal_data_to_ui(
                 text: data_utf8.clone(),
                 adjusted_format_data: adjusted_format_data.clone(),
             };
-            let response = render_terminal_text(ui, &data_utf8, &job, font_size);
+            let response = render_terminal_text(ui, &data_utf8, &job, font_size, row_cache);
             Ok((response, Some(response_data)))
         }
         UiData::PreviousPass(_) => {
-            let response = render_terminal_text(ui, &data_utf8, &job, font_size);
+            let response = render_terminal_text(ui, &data_utf8, &job, font_size, row_cache);
             Ok((response, None))
         }
     }
@@ -915,6 +984,7 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
     terminal_emulator: &mut TerminalEmulator<Io>,
     font_size: f32,
     previous_pass: Option<&TerminalOutputRenderResponse>,
+    row_cache: &mut Vec<CachedRow>,
 ) -> TerminalOutputRenderResponse {
     let response = egui::ScrollArea::new([false, true])
         .auto_shrink([false, false])
@@ -941,6 +1011,7 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                     ui,
                     &UiData::PreviousPass(previous_pass.canvas.clone()),
                     font_size,
+                    row_cache,
                 ));
 
                 (*previous_pass).clone()
@@ -965,6 +1036,7 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                         format_data: format_data.visible,
                     }),
                     font_size,
+                    row_cache,
                 ));
 
                 // We want the program to crash here if we're testing
@@ -1015,6 +1087,7 @@ pub struct FreminalTerminalWidget {
     previous_key: Option<Key>,
     previous_scroll_amount: f32,
     ctx: Context,
+    row_cache: Vec<CachedRow>,
 }
 
 impl FreminalTerminalWidget {
@@ -1036,6 +1109,7 @@ impl FreminalTerminalWidget {
             previous_key: None,
             previous_scroll_amount: 0.0,
             ctx: ctx.clone(),
+            row_cache: Vec::new(),
         }
     }
 
@@ -1131,8 +1205,13 @@ impl FreminalTerminalWidget {
             self.previous_scroll_amount = scroll_amount;
 
             if terminal_emulator.needs_redraw() {
-                self.previous_pass =
-                    render_terminal_output(ui, terminal_emulator, self.font_size, None);
+                self.previous_pass = render_terminal_output(
+                    ui,
+                    terminal_emulator,
+                    self.font_size,
+                    None,
+                    &mut self.row_cache,
+                );
             } else {
                 debug!("Reusing previous terminal output");
                 let _response = render_terminal_output(
@@ -1140,6 +1219,7 @@ impl FreminalTerminalWidget {
                     terminal_emulator,
                     self.font_size,
                     Some(&self.previous_pass),
+                    &mut self.row_cache,
                 );
             }
 
