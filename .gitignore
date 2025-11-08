@@ -546,3 +546,4 @@ wheels/
 yarn-debug.log*
 yarn-error.log*
 freminal_snapshot_*.zip
+*.patch
