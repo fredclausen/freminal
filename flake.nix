@@ -173,6 +173,7 @@
                   cargo-bundle
                   typos
                   cachix
+                  vttest
                   nodePackages.markdownlint-cli2
                 ]
                 ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ cargo-llvm-cov ]
