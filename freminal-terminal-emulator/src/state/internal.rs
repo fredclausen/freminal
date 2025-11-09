@@ -255,14 +255,61 @@ impl TerminalState {
         TerminalSections<Vec<TChar>>,
         TerminalSections<Vec<FormatTag>>,
     ) {
-        let (data, offset, end) = self.get_current_buffer().terminal_buffer.data_for_gui();
+        let (mut data, offset, end) = self.get_current_buffer().terminal_buffer.data_for_gui();
 
-        let format_data = split_format_data_for_scrollback(
+        let mut added_newlines_indices = Vec::new();
+
+        {
+            let buffer = self.get_current_buffer();
+            let visible_ranges = buffer.terminal_buffer.get_visible_line_ranges();
+            let mut rebuilt_visible: Vec<TChar> =
+                Vec::with_capacity(buffer.terminal_buffer.height * buffer.terminal_buffer.width);
+
+            for (i, range) in visible_ranges.iter().enumerate() {
+                rebuilt_visible.extend_from_slice(&buffer.terminal_buffer.buf[range.clone()]);
+                if i + 1 < visible_ranges.len()
+                    && buffer.terminal_buffer.buf[range.end + 1] != TChar::NewLine
+                    // && rebuilt_visible.last() != Some(&TChar::NewLine)
+                    && range.end < buffer.terminal_buffer.buf.len()
+                {
+                    rebuilt_visible.push(TChar::NewLine);
+                    added_newlines_indices.push(rebuilt_visible.len() - 1);
+                }
+            }
+
+            data.visible = rebuilt_visible;
+        }
+
+        let mut format_data = split_format_data_for_scrollback(
             self.get_current_buffer().format_tracker.tags(),
             offset,
             end,
             false,
         );
+
+        if !added_newlines_indices.is_empty() {
+            // iterate through the format data and adjust the start and end ranges based on the added newlines prior to their positions
+
+            for section in &mut format_data.visible {
+                info!("Adjusting format tag: {:?}", section);
+                // figure out how many tags in added_newlines_indices are before section.start
+                let mut adjustment = 0;
+
+                for index in &added_newlines_indices {
+                    if *index < section.start {
+                        adjustment += 1;
+                    }
+                }
+
+                if adjustment == 0 {
+                    continue;
+                }
+
+                info!("Adjusting by {}", adjustment);
+                section.start += adjustment;
+                section.end += adjustment;
+            }
+        }
 
         (data, format_data)
     }

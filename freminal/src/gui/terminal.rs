@@ -425,6 +425,7 @@ fn paint_cursor(
     ui: &Ui,
     color: Color32,
 ) {
+    info!("Painting cursor at position: {:?}", cursor_pos);
     let painter = ui.painter();
 
     let top = label_rect.top();
@@ -899,6 +900,8 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                 }
 
                 let mut canvas_data = terminal_data.visible;
+
+                info!("Visible data length: {}", canvas_data.len());
 
                 if canvas_data.ends_with(&[TChar::NewLine]) {
                     canvas_data = canvas_data[0..canvas_data.len() - 1].to_vec();
