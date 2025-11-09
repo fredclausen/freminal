@@ -170,6 +170,7 @@
                   cargo-machete
                   cargo-make
                   cargo-profiler
+                  cargo-bundle
                   typos
                   cachix
                   nodePackages.markdownlint-cli2
