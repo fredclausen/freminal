@@ -927,9 +927,9 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
 name = "duct"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7478638a31d1f1f3d6c9f5e57c76b906a04ac4879d6fd0fb6245bc88f73fd0b"
+checksum = "7e66e9c0c03d094e1a0ba1be130b849034aa80c3a2ab8ee94316bc809f3fa684"
 dependencies = [
  "libc",
  "os_pipe",
@@ -3802,9 +3802,9 @@ dependencies = [
 
 [[package]]
 name = "weezl"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a751b3277700db47d3e574514de2eced5e54dc8a5436a3bf7a0b248b2cee16f3"
+checksum = "009936b22a61d342859b5f0ea64681cbb35a358ab548e2a44a8cf0dac2d980b8"
 
 [[package]]
 name = "wgpu"
