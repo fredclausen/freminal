@@ -7,6 +7,7 @@ use std::borrow::Cow;
 
 use crate::ansi_components::modes::dectcem::Dectcem;
 use crate::format_tracker::FormatTag;
+use crate::io::DummyIo;
 use crate::io::FreminalPtyInputOutput;
 use crate::io::{FreminalTermInputOutput, FreminalTerminalSize, PtyRead, PtyWrite};
 use crate::state::{
@@ -220,6 +221,27 @@ pub struct TerminalEmulator<Io: FreminalTermInputOutput> {
     write_tx: crossbeam_channel::Sender<PtyWrite>,
     ctx: Option<egui::Context>,
     previous_pass_valid: bool,
+}
+
+impl TerminalEmulator<DummyIo> {
+    /// Creates a dummy terminal emulator for headless benchmarks or UI tests.
+    ///
+    /// This version skips PTY setup and I/O threads, initializing only the
+    /// fields required for GUI rendering.
+    #[must_use]
+    pub fn dummy_for_bench() -> Self {
+        use crossbeam_channel::unbounded;
+
+        let (write_tx, _write_rx) = unbounded();
+
+        Self {
+            internal: TerminalState::default(),
+            _io: DummyIo,
+            write_tx,
+            ctx: None,
+            previous_pass_valid: false,
+        }
+    }
 }
 
 impl TerminalEmulator<FreminalPtyInputOutput> {

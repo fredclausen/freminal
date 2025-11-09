@@ -3,6 +3,8 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
+pub mod dummy;
+pub use dummy::DummyIo;
 mod pty;
 use anyhow::{Error, Result};
 use conv2::ValueFrom;
