@@ -6,24 +6,6 @@
 [![GitHub pull-requests](https://img.shields.io/github/issues-pr/Naereen/StrapDown.js.svg)](https://GitHub.com/fredclausen/freminal/pull/)
 [![made-with-rust](https://img.shields.io/badge/Made%20with-Rust-1f425f.svg)](https://www.rust-lang.org/)
 
-````
-
-```bash
-
-
-
-```shell
-
-Alternatively, if you have pre-commit installed, you can run the following command:
-
-And ensure that all tests pass. If you're adding a new feature, please add tests for it. If you're fixing a bug, please add a test that would have caught the bug. And lastly, please ensure your commits are signed.
-
-As of now, I would consider this mostly stable, but hardly performant. Please see the [TODO](TODO.md) for a list of features that are planned. Please see [Supported Control Codes](SUPPORTED_CONTROL_CODES.md) for a list of control codes that are currently supported.
-
-Before you submit a PR, please run the following commands:
-cargo install cargo-docs-rs typos-cli cargo-deny cargo-xtask
-cargo xtask ci
-
 ## SSH or why does the terminal act weird?
 
 For remote sessions, like SSH, you may see odd things like duplicated input characters and such. This is because there are no termcaps installed on the remote host for freminal. Maybe, eventually, the termcaps can be included in distributions, but in the mean time the following command (run inside of freminal) will install the termcaps on the remote host:
@@ -47,4 +29,3 @@ PRs are welcome. To make sure that your PR is accepted, there are a few things I
 ## Credit
 
 This was originally forked from [sphaerophoria/termie](https://github.com/sphaerophoria/termie). Sphaerophoria's project was my introduction to his youtube and twitch channels, and this project really intrigued me.
-````
