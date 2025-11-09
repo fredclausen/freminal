@@ -330,8 +330,9 @@ impl eframe::App for FreminalGui {
         // log the frame time
         // time now
         debug!("Starting new frame");
-        #[cfg(debug_assertions)]
+        //#[cfg(debug_assertions)]
         let now = std::time::Instant::now();
+        let mut waited = std::time::Duration::ZERO;
 
         let panel_response = CentralPanel::default().show(ctx, |ui| {
             let (width_chars, height_chars) = self.terminal_widget.calculate_available_size(ui);
@@ -351,7 +352,10 @@ impl eframe::App for FreminalGui {
                     12
                 });
 
+            let t_wait = std::time::Instant::now();
             let mut lock = self.terminal_emulator.lock();
+            waited = t_wait.elapsed();
+
             if let Err(e) = lock.set_win_size(width_chars, height_chars, font_width, font_height) {
                 error!("failed to set window size {e}");
             }
@@ -395,16 +399,24 @@ impl eframe::App for FreminalGui {
             self.terminal_widget.show_options(ui);
         });
 
-        #[cfg(debug_assertions)]
+        //#[cfg(debug_assertions)]
         // log the frame time
         let elapsed = now.elapsed();
-        #[cfg(debug_assertions)]
+        //#[cfg(debug_assertions)]
         // show either elapsed as micros or millis, depending on the duration
-        if elapsed.as_millis() > 0 {
-            debug!("Frame time: {}ms", elapsed.as_millis());
+        let frame_time = if elapsed.as_millis() > 0 {
+            format!("Frame time={}ms", elapsed.as_millis())
         } else {
-            debug!("Frame time: {}μs", elapsed.as_micros());
-        }
+            format!("Frame time={}μs", elapsed.as_micros())
+        };
+
+        let lock_time = if waited.as_millis() > 0 {
+            format!(" Lock time={}ms", waited.as_millis())
+        } else {
+            format!(" Lock time={}μs", waited.as_micros())
+        };
+
+        debug!("{}{}", frame_time, lock_time);
     }
 }
 
