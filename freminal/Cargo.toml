@@ -32,6 +32,7 @@ tracing-subscriber.workspace = true
 tracing.workspace = true
 freminal-terminal-emulator = { path = "../freminal-terminal-emulator" }
 freminal-common = { path = "../freminal-common" }
+unicode-segmentation.workspace = true
 
 # dev dependencies
 [dev-dependencies]

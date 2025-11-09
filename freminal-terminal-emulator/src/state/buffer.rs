@@ -160,8 +160,6 @@ impl TerminalBufferHolder {
         }
     }
 
-    // FIXME: I think this is a clippy bug, or I'm stupid. It wants this to be a const fn, but it fails because of a deref error?
-    #[allow(clippy::missing_const_for_fn)]
     #[must_use]
     pub fn get_visible_line_ranges(&self) -> &[Range<usize>] {
         &self.visible_line_ranges
@@ -171,8 +169,6 @@ impl TerminalBufferHolder {
         self.visible_line_ranges = visible_line_ranges;
     }
 
-    // FIXME: I think this is a clippy bug, or I'm stupid. It wants this to be a const fn, but it fails because of a deref error?
-    #[allow(clippy::missing_const_for_fn)]
     #[must_use]
     pub fn get_line_ranges(&self) -> &[Range<usize>] {
         &self.buffer_line_ranges

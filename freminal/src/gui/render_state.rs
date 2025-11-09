@@ -5,6 +5,7 @@
 
 use crate::gui::terminal::{render_terminal_text, CachedRow};
 use std::collections::HashSet;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Tracks terminal text lines and which rows require redraw.
 #[derive(Default)]
@@ -57,4 +58,31 @@ impl TerminalRenderState {
             dirty_opt,
         )
     }
+}
+
+#[must_use]
+pub fn wrap_line_to_width(line: &str, width: usize) -> Vec<String> {
+    if width == 0 {
+        return vec![line.to_string()];
+    }
+
+    let mut wrapped = Vec::new();
+    let mut current = String::new();
+    let mut count = 0;
+
+    for grapheme in line.graphemes(true) {
+        current.push_str(grapheme);
+        count += 1;
+
+        if count >= width {
+            wrapped.push(std::mem::take(&mut current));
+            count = 0;
+        }
+    }
+
+    if !current.is_empty() {
+        wrapped.push(current);
+    }
+
+    wrapped
 }

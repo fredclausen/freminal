@@ -8,7 +8,7 @@ use crate::gui::{
         handle_pointer_button, handle_pointer_moved, handle_pointer_scroll, FreminalMousePosition,
         PreviousMouseState,
     },
-    render_state::TerminalRenderState,
+    render_state::{wrap_line_to_width, TerminalRenderState},
     TerminalEmulator,
 };
 
@@ -25,6 +25,7 @@ use eframe::egui::{
     DragValue, Event, InputState, Key, Modifiers, OpenUrl, OutputCommand, PointerButton, Pos2,
     Rect, Stroke, TextFormat, TextStyle, Ui,
 };
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     colors::internal_color_to_egui,
@@ -47,6 +48,60 @@ pub struct CachedRow {
 fn color32_to_u32(color: egui::Color32) -> u32 {
     let [red, green, blue, alpha] = color.to_array();
     (u32::from(alpha) << 24) | (u32::from(red) << 16) | (u32::from(green) << 8) | u32::from(blue)
+}
+
+#[inline]
+fn clamp_to_char_boundary(s: &str, idx: usize) -> usize {
+    let mut i = idx.min(s.len());
+    while i > 0 && !s.is_char_boundary(i) {
+        i -= 1;
+    }
+    i
+}
+
+fn sanitize_layout_job(text: &str, job: &mut egui::text::LayoutJob) {
+    // Clamp every section to valid UTF-8 boundaries and legal range.
+    for sec in &mut job.sections {
+        let mut s = sec.byte_range.start;
+        let mut e = sec.byte_range.end;
+
+        if s > text.len() {
+            s = text.len();
+        }
+        if e > text.len() {
+            e = text.len();
+        }
+
+        s = clamp_to_char_boundary(text, s);
+        e = clamp_to_char_boundary(text, e);
+
+        // Always set the start to s
+        sec.byte_range.start = s;
+
+        if s >= e {
+            // Collapse invalid/empty ranges to an empty range at s so egui ignores it.
+            sec.byte_range.end = s;
+        } else {
+            sec.byte_range.end = e;
+        }
+    }
+
+    // Drop any zero-length sections to be extra safe.
+    job.sections
+        .retain(|sec| sec.byte_range.start < sec.byte_range.end);
+
+    // Optional: ensure sections are sorted and non-overlapping.
+    job.sections.sort_by_key(|sec| sec.byte_range.start);
+    let mut last_end = 0usize;
+    for sec in &mut job.sections {
+        if sec.byte_range.start < last_end {
+            sec.byte_range.start = last_end; // trim overlap
+        }
+        if sec.byte_range.end < sec.byte_range.start {
+            sec.byte_range.end = sec.byte_range.start;
+        }
+        last_end = sec.byte_range.end.max(last_end);
+    }
 }
 
 fn hash_row(text: &str, sections: &[egui::text::LayoutSection], row_len_bytes: usize) -> u64 {
@@ -667,83 +722,66 @@ fn setup_job(ui: &Ui, data_utf8: &str) -> (egui::text::LayoutJob, egui::TextForm
     (job, textformat)
 }
 
-fn process_tags(
-    adjusted_format_data: &Vec<FormatTag>,
-    data_len: usize,
+pub fn process_tags(
+    adjusted_format_data: &[FormatTag],
+    text: &str, // <-- new
     textformat: &mut TextFormat,
     font_size: f32,
     job: &mut LayoutJob,
-    #[cfg(feature = "validation")] buffer: &[u8],
 ) {
+    let text_len = text.len();
     let terminal_fonts = TerminalFont::new();
 
-    let mut range;
-    let mut color;
-    let mut background_color;
-    let mut underline_color;
-
     for tag in adjusted_format_data {
-        range = tag.start..tag.end;
-        color = tag.colors.get_color();
-        background_color = tag.colors.get_background_color();
-        underline_color = tag.colors.get_underline_color();
-
+        let mut range = tag.start..tag.end;
         if range.end == usize::MAX {
-            range.end = data_len;
+            range.end = text_len;
         }
 
-        match range.start.cmp(&data_len) {
-            std::cmp::Ordering::Greater => {
-                #[cfg(feature = "validation")]
-                warn!("Skipping unusable format data");
-                continue;
-            }
-            std::cmp::Ordering::Equal => {
-                continue;
-            }
-            std::cmp::Ordering::Less => (),
+        if range.start >= text_len {
+            continue;
+        }
+        if range.end > text_len {
+            range.end = text_len;
         }
 
-        if range.end > data_len {
-            #[cfg(feature = "validation")]
-            warn!("Truncating format data end");
-            range.end = data_len;
+        // --- clamp to valid UTF-8 boundaries --------------------------
+        let start = clamp_to_char_boundary(text, range.start);
+        let end = clamp_to_char_boundary(text, range.end);
+        if start >= end {
+            continue;
         }
 
+        // --- build TextFormat -----------------------------------------
         textformat.font_id.family =
             terminal_fonts.get_family(&tag.font_decorations, &tag.font_weight);
         textformat.font_id.size = font_size;
         let make_faint = tag.font_decorations.contains(&FontDecorations::Faint);
-        textformat.color = internal_color_to_egui(color, make_faint);
-        // FIXME: ????? should background be faint? I feel like no, but....
-        textformat.background = internal_color_to_egui(background_color, make_faint);
-        if tag.font_decorations.contains(&FontDecorations::Underline) {
-            let underline_color_converted = internal_color_to_egui(underline_color, make_faint);
+        textformat.color = internal_color_to_egui(tag.colors.get_color(), make_faint);
+        textformat.background =
+            internal_color_to_egui(tag.colors.get_background_color(), make_faint);
 
-            textformat.underline = Stroke::new(1.0, underline_color_converted);
+        if tag.font_decorations.contains(&FontDecorations::Underline) {
+            let underline_color =
+                internal_color_to_egui(tag.colors.get_underline_color(), make_faint);
+            textformat.underline = Stroke::new(1.0, underline_color);
         } else {
             textformat.underline = Stroke::new(0.0, textformat.color);
         }
 
-        if tag
+        textformat.strikethrough = if tag
             .font_decorations
             .contains(&FontDecorations::Strikethrough)
         {
-            textformat.strikethrough = Stroke::new(1.0, textformat.color);
+            Stroke::new(1.0, textformat.color)
         } else {
-            textformat.strikethrough = Stroke::new(0.0, textformat.color);
-        }
+            Stroke::new(0.0, textformat.color)
+        };
 
-        // Validate the range is valid utf8
-        #[cfg(feature = "validation")]
-        if std::str::from_utf8(&buffer[range.clone()]).is_err() {
-            warn!("Range is not valid utf8");
-            continue;
-        }
-
+        // --- push safe section ----------------------------------------
         job.sections.push(egui::text::LayoutSection {
-            leading_space: 0.0f32,
-            byte_range: range,
+            leading_space: 0.0,
+            byte_range: start..end,
             format: textformat.clone(),
         });
     }
@@ -840,9 +878,15 @@ pub fn render_terminal_text(
         let mut byte_to_col = vec![0usize; row_text.len() + 1];
         {
             let mut col = 0usize;
-            for (b, _) in row_text.char_indices() {
+            for (b, g) in row_text.grapheme_indices(true) {
                 byte_to_col[b] = col;
                 col += 1;
+                // Fill interior bytes (if any) to same col index to avoid gaps
+                for i in 1..g.len() {
+                    if b + i < byte_to_col.len() {
+                        byte_to_col[b + i] = col - 1;
+                    }
+                }
             }
             byte_to_col[row_text.len()] = col;
         }
@@ -855,11 +899,23 @@ pub fn render_terminal_text(
                 if sec.byte_range.end <= *row_start || sec.byte_range.start >= *row_end {
                     return None;
                 }
-                let start = sec.byte_range.start.saturating_sub(*row_start);
-                let end = sec.byte_range.end.saturating_sub(*row_start);
+                let start_raw = sec.byte_range.start.saturating_sub(*row_start);
+                let end_raw = sec
+                    .byte_range
+                    .end
+                    .saturating_sub(*row_start)
+                    .min(row_text.len());
+
+                // clamp to char boundaries within row_text
+                let start = clamp_to_char_boundary(row_text, start_raw);
+                let end = clamp_to_char_boundary(row_text, end_raw);
+                if start >= end {
+                    return None;
+                }
+
                 Some(egui::text::LayoutSection {
                     leading_space: 0.0,
-                    byte_range: start..end.min(row_text.len()),
+                    byte_range: start..end,
                     format: sec.format.clone(),
                 })
             })
@@ -921,8 +977,10 @@ pub fn render_terminal_text(
         // Render each section's substring at the exact cell-aligned x
         for sec in &row_sections {
             let fg = sec.format.color;
-            let s = sec.byte_range.start.min(row_text.len());
-            let e = sec.byte_range.end.min(row_text.len());
+            let s_raw = sec.byte_range.start.min(row_text.len());
+            let e_raw = sec.byte_range.end.min(row_text.len());
+            let s = clamp_to_char_boundary(row_text, s_raw);
+            let e = clamp_to_char_boundary(row_text, e_raw);
             if s >= e {
                 continue;
             }
@@ -959,6 +1017,8 @@ pub fn render_terminal_text(
         };
         row_job.append(row_text, 0.0, TextFormat::default());
         row_job.sections.clone_from(&row_sections);
+
+        sanitize_layout_job(row_text, &mut row_job);
 
         let galley = ui.ctx().fonts_mut(|f| f.layout_job(row_job));
         // --- Cache new galley + bg runs + hash --------------------------------
@@ -1002,33 +1062,38 @@ fn add_terminal_data_to_ui(
 ) -> Result<(egui::Response, Option<UiJobAction>)> {
     let data_utf8: String;
     let adjusted_format_data: Vec<FormatTag>;
-    let data_len: usize;
 
     match data {
         UiData::NewPass(data) => {
             let (data_utf8_new, adjusted_format_data_new) =
                 create_terminal_output_layout_job(data.text, &data.format_data)?;
-            data_len = data_utf8_new.len();
             data_utf8 = data_utf8_new;
             adjusted_format_data = adjusted_format_data_new;
         }
         UiData::PreviousPass(data) => {
             data_utf8 = data.text.clone();
             adjusted_format_data = data.adjusted_format_data.clone();
-            data_len = data_utf8.len();
         }
     }
 
     let (mut job, mut textformat) = setup_job(ui, &data_utf8);
     process_tags(
         &adjusted_format_data,
-        data_len,
+        &data_utf8,
         &mut textformat,
         font_size,
         &mut job,
-        #[cfg(feature = "validation")]
-        data_utf8.as_bytes(),
     );
+
+    let character_size = get_char_size(ui.ctx(), font_size);
+    let width_chars = match ((ui.available_width() / character_size.0).floor()).approx_as::<usize>()
+    {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Failed to calculate width chars: {}", e);
+            10
+        }
+    };
 
     match data {
         UiData::NewPass(_) => {
@@ -1037,7 +1102,11 @@ fn add_terminal_data_to_ui(
                 adjusted_format_data: adjusted_format_data.clone(),
             };
             // Update render_state text lines
-            render_state.lines = data_utf8.lines().map(str::to_string).collect();
+            // make sure to wrap at newlines AND at the max width of the terminal
+            render_state.lines = data_utf8
+                .lines()
+                .flat_map(|line| wrap_line_to_width(line, width_chars))
+                .collect();
 
             // Use the row-level invalidation renderer
             let response = render_state.render(ui, &job, font_size);
@@ -1046,7 +1115,10 @@ fn add_terminal_data_to_ui(
         }
         UiData::PreviousPass(_) => {
             // Update render_state text lines
-            render_state.lines = data_utf8.lines().map(str::to_string).collect();
+            render_state.lines = data_utf8
+                .lines()
+                .flat_map(|line| wrap_line_to_width(line, width_chars))
+                .collect();
 
             // Use the row-level invalidation renderer
             let response = render_state.render(ui, &job, font_size);

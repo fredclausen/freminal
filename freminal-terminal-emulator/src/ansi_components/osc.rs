@@ -67,6 +67,8 @@ enum OscTarget {
     Url,
     ResetCursorColor,
     Unknown,
+    #[allow(dead_code)]
+    ITerm2,
 }
 
 // A list of command we may need to handle. I'm sure there is more.
@@ -372,9 +374,15 @@ impl AnsiOscParser {
                             )));
                         }
                         OscTarget::Ftcs => {
+                            output.push(TerminalOutput::SkipCarriageReturn);
                             output.push(TerminalOutput::OscResponse(AnsiOscType::Ftcs(
                                 osc_internal_type.to_string(),
                             )));
+                        }
+                        OscTarget::ITerm2 => {
+                            // Currently, we do not handle iTerm2 specific sequences
+                            output.push(TerminalOutput::SkipCarriageReturn);
+                            output.push(TerminalOutput::Invalid);
                         }
                         OscTarget::RemoteHost => {
                             output.push(TerminalOutput::OscResponse(AnsiOscType::RemoteHost(

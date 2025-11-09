@@ -118,6 +118,7 @@ pub struct TerminalState {
     pub saved_cursor: Option<CursorState>,
     /// Tracks which screen rows have been modified since the last render.
     changed_rows: Vec<usize>,
+    skip_next_carriage_return: bool,
 }
 
 impl Default for TerminalState {
@@ -160,6 +161,7 @@ impl TerminalState {
             window_commands: Vec::new(),
             saved_cursor: None,
             changed_rows: Vec::new(),
+            skip_next_carriage_return: false,
         }
     }
 
@@ -607,7 +609,16 @@ impl TerminalState {
         self.get_current_buffer().cursor_state.pos.x = 0;
     }
 
+    pub(crate) const fn skip_carriage_return(&mut self) {
+        self.skip_next_carriage_return = true;
+    }
+
     pub(crate) fn new_line(&mut self) {
+        if self.skip_next_carriage_return {
+            self.skip_next_carriage_return = false;
+            return;
+        }
+
         self.get_current_buffer().cursor_state.pos.y += 1;
 
         if self.modes.line_feed_mode == Lnm::NewLine {
@@ -1418,6 +1429,7 @@ impl TerminalState {
                 TerminalOutput::ClearLineBackwards => self.clear_line_backwards(),
                 TerminalOutput::ClearLine => self.clear_line(),
                 TerminalOutput::CarriageReturn => self.carriage_return(),
+                TerminalOutput::SkipCarriageReturn => self.skip_carriage_return(),
                 TerminalOutput::Newline => self.new_line(),
                 TerminalOutput::Backspace => self.backspace(),
                 TerminalOutput::InsertLines(num_lines) => self.insert_lines(num_lines),
