@@ -160,19 +160,22 @@
               ++ [
                 myRustToolchain
               ]
-              ++ (with pkgs; [
-                pre-commit
-                check-jsonschema
-                codespell
-                cargo-deny
-                cargo-machete
-                cargo-make
-                cargo-profiler
-                typos
-                cachix
-                cargo-llvm-cov
-                nodePackages.markdownlint-cli2
-              ]);
+              ++ (
+                with pkgs;
+                [
+                  pre-commit
+                  check-jsonschema
+                  codespell
+                  cargo-deny
+                  cargo-machete
+                  cargo-make
+                  cargo-profiler
+                  typos
+                  cachix
+                  nodePackages.markdownlint-cli2
+                ]
+                ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ cargo-llvm-cov ]
+              );
 
             LD_LIBRARY_PATH = libPath;
 
