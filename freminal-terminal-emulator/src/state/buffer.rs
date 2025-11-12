@@ -259,20 +259,6 @@ impl TerminalBufferHolder {
             self.buf_to_cursor_pos(write_range.end)
         };
 
-        if new_cursor_pos.y > cursor_pos.y + 1 {
-            info!(
-                "Cursor position moved a lot down a line after insert_data. Delta {}. Write range: {:?}, inserted padding: {:?}, cursor_pos: {:?}, new_cursor_pos: {:?}, width {}",
-                new_cursor_pos.y.saturating_sub(cursor_pos.y),
-                write_range,
-                inserted_padding,
-                cursor_pos,
-                new_cursor_pos,
-                self.width
-            );
-
-            info!("Visible line ranges: {:?}", self.visible_line_ranges);
-        }
-
         Ok(TerminalBufferInsertResponse {
             written_range: write_range,
             insertion_range: inserted_padding,

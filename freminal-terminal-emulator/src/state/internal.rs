@@ -101,6 +101,7 @@ impl Buffer {
 }
 
 #[derive(Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct TerminalState {
     pub parser: FreminalAnsiParser,
     pub current_buffer: BufferType,
@@ -116,6 +117,8 @@ pub struct TerminalState {
     pub window_focused: bool,
     pub window_commands: Vec<WindowManipulation>,
     pub saved_cursor: Option<CursorState>,
+    pub skip_cr: bool,
+    pub skip_lf: bool,
 }
 
 impl Default for TerminalState {
@@ -157,6 +160,8 @@ impl TerminalState {
             window_focused: true,
             window_commands: Vec::new(),
             saved_cursor: None,
+            skip_cr: false,
+            skip_lf: false,
         }
     }
 
@@ -256,8 +261,7 @@ impl TerminalState {
         TerminalSections<Vec<FormatTag>>,
     ) {
         let (mut data, offset, end) = self.get_current_buffer().terminal_buffer.data_for_gui();
-
-        let mut added_newlines_indices = Vec::new();
+        let mut extended_ranges = Vec::new();
 
         {
             let buffer = self.get_current_buffer();
@@ -267,13 +271,18 @@ impl TerminalState {
 
             for (i, range) in visible_ranges.iter().enumerate() {
                 rebuilt_visible.extend_from_slice(&buffer.terminal_buffer.buf[range.clone()]);
+
                 if i + 1 < visible_ranges.len()
-                    && buffer.terminal_buffer.buf[range.end + 1] != TChar::NewLine
-                    // && rebuilt_visible.last() != Some(&TChar::NewLine)
-                    && range.end < buffer.terminal_buffer.buf.len()
+                // && buffer.terminal_buffer.buf[range.end + 1] == TChar::NewLine
                 {
+                    // just ensuring the line always has a new line
                     rebuilt_visible.push(TChar::NewLine);
-                    added_newlines_indices.push(rebuilt_visible.len() - 1);
+                }
+
+                if buffer.terminal_buffer.buf[range.end] != TChar::NewLine {
+                    // this is for large lines that wrap around
+
+                    extended_ranges.push(range.end);
                 }
             }
 
@@ -287,28 +296,29 @@ impl TerminalState {
             false,
         );
 
-        if !added_newlines_indices.is_empty() {
-            // iterate through the format data and adjust the start and end ranges based on the added newlines prior to their positions
+        if !extended_ranges.is_empty() {
+            let inserted = &extended_ranges;
 
-            for section in &mut format_data.visible {
-                info!("Adjusting format tag: {:?}", section);
-                // figure out how many tags in added_newlines_indices are before section.start
-                let mut adjustment = 0;
+            for tag in &mut format_data.visible {
+                let offset_start = inserted.iter().filter(|&&p| p <= tag.start).count();
+                let offset_end = inserted.iter().filter(|&&p| p < tag.end).count();
 
-                for index in &added_newlines_indices {
-                    if *index < section.start {
-                        adjustment += 1;
-                    }
-                }
+                // Expand tag if any insertion falls inside its span
+                let crossings = inserted
+                    .iter()
+                    .filter(|&&p| (tag.start..tag.end).contains(&p))
+                    .count();
+                tag.end += crossings;
 
-                if adjustment == 0 {
-                    continue;
-                }
-
-                info!("Adjusting by {}", adjustment);
-                section.start += adjustment;
-                section.end += adjustment;
+                // Now shift entire tag forward for prior insertions
+                tag.start += offset_start;
+                tag.end += offset_end;
             }
+
+            // info!(
+            //     "original buffer: {:?}",
+            //     self.get_current_buffer().terminal_buffer.buf
+            // );
         }
 
         (data, format_data)
@@ -621,11 +631,19 @@ impl TerminalState {
         }
     }
 
-    pub(crate) const fn carriage_return(&mut self) {
+    pub(crate) const fn carriage_return(&mut self, skip: bool) {
+        if skip {
+            return;
+        }
+
         self.get_current_buffer().cursor_state.pos.x = 0;
     }
 
-    pub(crate) fn new_line(&mut self) {
+    pub(crate) fn new_line(&mut self, skip: bool) {
+        if skip {
+            return;
+        }
+
         self.get_current_buffer().cursor_state.pos.y += 1;
 
         if self.modes.line_feed_mode == Lnm::NewLine {
@@ -1170,6 +1188,9 @@ impl TerminalState {
             AnsiOscType::ResetCursorColor => {
                 self.get_current_buffer().cursor_color = TerminalColor::DefaultCursorColor;
             }
+            AnsiOscType::ITerm2 => {
+                debug!("iTerm2 OSC codes are not supported yet");
+            }
         }
     }
 
@@ -1424,6 +1445,14 @@ impl TerminalState {
                 debug!("Incoming segment: {segment}");
             }
 
+            if segment != TerminalOutput::SkipNextCRLF
+                && segment != TerminalOutput::Newline
+                && segment != TerminalOutput::CarriageReturn
+            {
+                self.skip_cr = false;
+                self.skip_lf = false;
+            }
+
             match segment {
                 TerminalOutput::Data(data) => self.handle_data(&data),
                 TerminalOutput::SetCursorPos { x, y } => self.set_cursor_pos(x, y),
@@ -1435,8 +1464,27 @@ impl TerminalState {
                 TerminalOutput::ClearLineForwards => self.clear_line_forwards(),
                 TerminalOutput::ClearLineBackwards => self.clear_line_backwards(),
                 TerminalOutput::ClearLine => self.clear_line(),
-                TerminalOutput::CarriageReturn => self.carriage_return(),
-                TerminalOutput::Newline => self.new_line(),
+                TerminalOutput::CarriageReturn => {
+                    let skip = self.skip_cr;
+                    self.carriage_return(skip);
+                    if skip {
+                        self.skip_cr = false;
+                    }
+                }
+                TerminalOutput::Newline => {
+                    let skip = self.skip_lf;
+                    self.new_line(skip);
+                    if skip {
+                        self.skip_lf = false;
+                    }
+                }
+
+                TerminalOutput::SkipNextCRLF => {
+                    if !self.skip_cr && !self.skip_lf {
+                        self.skip_cr = true;
+                        self.skip_lf = true;
+                    }
+                }
                 TerminalOutput::Backspace => self.backspace(),
                 TerminalOutput::InsertLines(num_lines) => self.insert_lines(num_lines),
                 TerminalOutput::Delete(num_chars) => self.delete(num_chars),
@@ -1493,22 +1541,6 @@ impl TerminalState {
         } else {
             debug!("Data processing time: {}μs", elapsed.as_micros());
         }
-
-        // Leave this in. Can be uncommented for debugging
-        // debug!(
-        //     "Visible lines: {:?}",
-        //     self.get_current_buffer()
-        //         .terminal_buffer
-        //         .get_visible_line_ranges()
-        // );
-        // let current_buffer = self.get_current_buffer();
-        // let lines = current_buffer.terminal_buffer.get_visible_line_ranges();
-        // for line in lines {
-        //     debug!(
-        //         "{}",
-        //         display_vec_tchar_as_string(&current_buffer.terminal_buffer.buf[line.clone()])
-        //     );
-        // }
 
         self.set_state_changed();
         self.request_redraw();
