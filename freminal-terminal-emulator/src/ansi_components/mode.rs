@@ -5,6 +5,8 @@
 
 use std::fmt;
 
+use crate::ansi_components::modes::sync_updates::SynchronizedUpdatesAlternative;
+
 use super::modes::{
     allow_column_mode_switch::AllowColumnModeSwitch, decarm::Decarm, decawm::Decawm,
     decckm::Decckm, deccolm::Deccolm, decom::Decom, decsclm::Decsclm, decscnm::Decscnm,
@@ -69,11 +71,13 @@ pub enum Mode {
     MouseMode(MouseTrack),
     ReverseWrapAround(ReverseWrapAround),
     SynchronizedUpdates(SynchronizedUpdates),
+    SynchronizedUpdatesAlternative(SynchronizedUpdatesAlternative),
     UnknownQuery(Vec<u8>),
     Unknown(UnknownMode),
 }
 
 impl Mode {
+    #[allow(clippy::too_many_lines)]
     #[must_use]
     pub fn terminal_mode_from_params(params: &[u8], mode: &SetMode) -> Self {
         match params {
@@ -178,6 +182,16 @@ impl Mode {
             b"?1049" => Self::XtExtscrn(XtExtscrn::new(mode)),
             b"?2004" => Self::BracketedPaste(RlBracket::new(mode)),
             b"?2026" => Self::SynchronizedUpdates(SynchronizedUpdates::new(mode)),
+            b"?2027" => {
+                if mode == &SetMode::DecSet || mode == &SetMode::DecRst {
+                    // Ignored according to documentation
+
+                    error!("DEC2027 is ignored according to documentation");
+                    Self::NoOp
+                } else {
+                    Self::SynchronizedUpdatesAlternative(SynchronizedUpdatesAlternative::new(mode))
+                }
+            }
             _ => {
                 let output_params = params
                     .to_vec()
@@ -221,6 +235,9 @@ impl ReportMode for Mode {
                 reverse_wrap_around.report(override_mode)
             }
             Self::SynchronizedUpdates(sync_updates) => sync_updates.report(override_mode),
+            Self::SynchronizedUpdatesAlternative(sync_updates_alternative) => {
+                sync_updates_alternative.report(override_mode)
+            }
             Self::Unknown(mode) => mode.report(override_mode),
             Self::UnknownQuery(v) => {
                 // convert each digit to a char
@@ -254,6 +271,9 @@ impl fmt::Display for Mode {
             Self::BracketedPaste(bracketed_paste) => write!(f, "{bracketed_paste}"),
             Self::ReverseWrapAround(reverse_wrap_around) => write!(f, "{reverse_wrap_around}"),
             Self::SynchronizedUpdates(sync_updates) => write!(f, "{sync_updates}"),
+            Self::SynchronizedUpdatesAlternative(sync_updates_alternative) => {
+                write!(f, "{sync_updates_alternative}")
+            }
             Self::Unknown(params) => write!(f, "{params}"),
             Self::UnknownQuery(v) => write!(f, "Unknown Query({v:?})"),
         }
