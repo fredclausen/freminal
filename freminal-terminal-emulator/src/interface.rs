@@ -330,6 +330,11 @@ impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
     pub const fn set_previous_pass_valid(&mut self) {
         self.previous_pass_valid = true;
     }
+
+    pub fn skip_draw_always(&self) -> bool {
+        self.internal.skip_draw_always()
+    }
+
     pub fn needs_redraw(&mut self) -> bool {
         let internal = if self.internal.is_changed() {
             self.internal.clear_changed();

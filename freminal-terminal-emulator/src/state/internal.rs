@@ -21,9 +21,10 @@ use crate::{
         modes::{
             allow_column_mode_switch::AllowColumnModeSwitch, decarm::Decarm, decawm::Decawm,
             decckm::Decckm, deccolm::Deccolm, decom::Decom, decsclm::Decsclm, decscnm::Decscnm,
-            dectcem::Dectcem, lnm::Lnm, mouse::MouseTrack, reverse_wrap_around::ReverseWrapAround,
-            rl_bracket::RlBracket, sync_updates::SynchronizedUpdates, xtcblink::XtCBlink,
-            xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
+            dectcem::Dectcem, grapheme::GraphemeClustering, lnm::Lnm, mouse::MouseTrack,
+            reverse_wrap_around::ReverseWrapAround, rl_bracket::RlBracket,
+            sync_updates::SynchronizedUpdates, xtcblink::XtCBlink, xtextscrn::XtExtscrn,
+            xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
         },
         osc::{AnsiOscInternalType, AnsiOscType, UrlResponse},
         sgr::SelectGraphicRendition,
@@ -174,6 +175,11 @@ impl TerminalState {
     #[must_use]
     pub const fn show_cursor(&mut self) -> bool {
         self.get_current_buffer().show_cursor()
+    }
+
+    #[must_use]
+    pub fn skip_draw_always(&self) -> bool {
+        self.modes.synchronized_updates == SynchronizedUpdates::DontDraw
     }
 
     #[must_use]
@@ -1013,6 +1019,12 @@ impl TerminalState {
             }
             Mode::LineFeedMode(line_feed_new_line) => {
                 self.modes.line_feed_mode = line_feed_new_line.clone();
+            }
+            Mode::GraphemeClustering(GraphemeClustering::Query) => {
+                self.report_mode(&GraphemeClustering::Query.report(None));
+            }
+            Mode::GraphemeClustering(grapheme_clustering) => {
+                warn!("Received GraphemeClustering({grapheme_clustering}), but it's not supported");
             }
         }
     }

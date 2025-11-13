@@ -1091,7 +1091,7 @@ impl FreminalTerminalWidget {
             self.previous_key = previous_key;
             self.previous_scroll_amount = scroll_amount;
 
-            if terminal_emulator.needs_redraw() {
+            if terminal_emulator.needs_redraw() && !terminal_emulator.skip_draw_always() {
                 self.previous_pass = render_terminal_output(
                     ui,
                     terminal_emulator,
@@ -1100,7 +1100,6 @@ impl FreminalTerminalWidget {
                     self.max_line_width,
                 );
             } else {
-                debug!("Reusing previous terminal output");
                 let _response = render_terminal_output(
                     ui,
                     terminal_emulator,
