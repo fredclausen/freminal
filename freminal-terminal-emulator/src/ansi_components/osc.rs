@@ -67,6 +67,7 @@ enum OscTarget {
     Url,
     ResetCursorColor,
     Unknown,
+    ITerm2,
 }
 
 // A list of command we may need to handle. I'm sure there is more.
@@ -101,14 +102,15 @@ enum OscTarget {
 impl From<&AnsiOscToken> for OscTarget {
     fn from(value: &AnsiOscToken) -> Self {
         match value {
-            AnsiOscToken::U8(0 | 2) => Self::TitleBar,
-            AnsiOscToken::U8(1) => Self::IconName,
-            AnsiOscToken::U8(7) => Self::RemoteHost,
-            AnsiOscToken::U8(8) => Self::Url,
-            AnsiOscToken::U8(11) => Self::Background,
-            AnsiOscToken::U8(10) => Self::Foreground,
-            AnsiOscToken::U8(112) => Self::ResetCursorColor,
-            AnsiOscToken::U8(133) => Self::Ftcs,
+            AnsiOscToken::OscValue(0 | 2) => Self::TitleBar,
+            AnsiOscToken::OscValue(1) => Self::IconName,
+            AnsiOscToken::OscValue(7) => Self::RemoteHost,
+            AnsiOscToken::OscValue(8) => Self::Url,
+            AnsiOscToken::OscValue(11) => Self::Background,
+            AnsiOscToken::OscValue(10) => Self::Foreground,
+            AnsiOscToken::OscValue(112) => Self::ResetCursorColor,
+            AnsiOscToken::OscValue(133) => Self::Ftcs,
+            AnsiOscToken::OscValue(1337) => Self::ITerm2,
             _ => Self::Unknown,
         }
     }
@@ -136,16 +138,18 @@ impl From<Vec<Option<AnsiOscToken>>> for UrlResponse {
 
         // Otherwise, the first token is the ID, and the second token is the URL
         match value.as_slice() {
-            [Some(AnsiOscToken::U8(8)), Some(AnsiOscToken::String(id)), Some(AnsiOscToken::String(url))] => {
+            [Some(AnsiOscToken::OscValue(8)), Some(AnsiOscToken::String(id)), Some(AnsiOscToken::String(url))] => {
                 Self::Url(Url {
                     id: Some(id.clone()),
                     url: url.clone(),
                 })
             }
-            [Some(AnsiOscToken::U8(8)), None, Some(AnsiOscToken::String(url))] => Self::Url(Url {
-                id: None,
-                url: url.clone(),
-            }),
+            [Some(AnsiOscToken::OscValue(8)), None, Some(AnsiOscToken::String(url))] => {
+                Self::Url(Url {
+                    id: None,
+                    url: url.clone(),
+                })
+            }
             _ => Self::End,
         }
     }
@@ -184,6 +188,7 @@ pub enum AnsiOscType {
     Url(UrlResponse),
     RemoteHost(String),
     ResetCursorColor,
+    ITerm2,
 }
 
 impl std::fmt::Display for AnsiOscType {
@@ -201,6 +206,7 @@ impl std::fmt::Display for AnsiOscType {
             Self::Ftcs(value) => write!(f, "Ftcs ({value:?})"),
             Self::RemoteHost(value) => write!(f, "RemoteHost ({value:?})"),
             Self::ResetCursorColor => write!(f, "ResetCursorColor"),
+            Self::ITerm2 => write!(f, "ITerm2"),
         }
     }
 }
@@ -390,6 +396,9 @@ impl AnsiOscParser {
                         OscTarget::ResetCursorColor => {
                             output.push(TerminalOutput::OscResponse(AnsiOscType::ResetCursorColor));
                         }
+                        OscTarget::ITerm2 => {
+                            output.push(TerminalOutput::OscResponse(AnsiOscType::ITerm2));
+                        }
                         OscTarget::Unknown => {
                             // `type_number` reused here → must keep the clone above
                             output.push(TerminalOutput::Invalid);
@@ -433,7 +442,7 @@ fn is_valid_osc_param(b: u8) -> bool {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AnsiOscToken {
-    U8(u8),
+    OscValue(u16),
     String(String),
 }
 
@@ -441,9 +450,9 @@ impl FromStr for AnsiOscToken {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        s.parse::<u8>().map_or_else(
+        s.parse::<u16>().map_or_else(
             |_| Ok(Self::String(s.to_string())),
-            |value| Ok(Self::U8(value)),
+            |value| Ok(Self::OscValue(value)),
         )
     }
 }

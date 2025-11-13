@@ -101,6 +101,7 @@ impl Buffer {
 }
 
 #[derive(Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct TerminalState {
     pub parser: FreminalAnsiParser,
     pub current_buffer: BufferType,
@@ -1123,6 +1124,9 @@ impl TerminalState {
             AnsiOscType::ResetCursorColor => {
                 self.get_current_buffer().cursor_color = TerminalColor::DefaultCursorColor;
             }
+            AnsiOscType::ITerm2 => {
+                debug!("iTerm2 OSC codes are not supported yet");
+            }
         }
     }
 
@@ -1368,7 +1372,7 @@ impl TerminalState {
             // if segment is not data, we want to print out the segment
             if let TerminalOutput::Data(data) = &segment {
                 debug!(
-                    "Incoming segment (data): {}",
+                    "Incoming segment (data): \"{}\"",
                     str::from_utf8(data).unwrap_or(&format!(
                         "Failed to parse data for display as string: {data:?}"
                     ))
@@ -1446,22 +1450,6 @@ impl TerminalState {
         } else {
             debug!("Data processing time: {}μs", elapsed.as_micros());
         }
-
-        // Leave this in. Can be uncommented for debugging
-        // debug!(
-        //     "Visible lines: {:?}",
-        //     self.get_current_buffer()
-        //         .terminal_buffer
-        //         .get_visible_line_ranges()
-        // );
-        // let current_buffer = self.get_current_buffer();
-        // let lines = current_buffer.terminal_buffer.get_visible_line_ranges();
-        // for line in lines {
-        //     debug!(
-        //         "{}",
-        //         display_vec_tchar_as_string(&current_buffer.terminal_buffer.buf[line.clone()])
-        //     );
-        // }
 
         self.set_state_changed();
         self.request_redraw();
