@@ -5,7 +5,7 @@
 
 use std::fmt;
 
-use crate::ansi_components::modes::grapheme::GraphemeClustering;
+use crate::ansi_components::modes::{grapheme::GraphemeClustering, theme::Theming};
 
 use super::modes::{
     allow_column_mode_switch::AllowColumnModeSwitch, decarm::Decarm, decawm::Decawm,
@@ -72,6 +72,7 @@ pub enum Mode {
     ReverseWrapAround(ReverseWrapAround),
     SynchronizedUpdates(SynchronizedUpdates),
     GraphemeClustering(GraphemeClustering),
+    Theming(Theming),
     UnknownQuery(Vec<u8>),
     Unknown(UnknownMode),
 }
@@ -185,6 +186,10 @@ impl Mode {
                 // Grapheme Clustering Mode
                 Self::GraphemeClustering(GraphemeClustering::new(mode))
             }
+            b"?2031" => {
+                // Theming Mode
+                Self::Theming(Theming::new(mode))
+            }
             _ => {
                 let output_params = params
                     .to_vec()
@@ -231,6 +236,7 @@ impl ReportMode for Mode {
             Self::GraphemeClustering(grapheme_clustering) => {
                 grapheme_clustering.report(override_mode)
             }
+            Self::Theming(theming) => theming.report(override_mode),
             Self::Unknown(mode) => mode.report(override_mode),
             Self::UnknownQuery(v) => {
                 // convert each digit to a char
@@ -265,6 +271,7 @@ impl fmt::Display for Mode {
             Self::ReverseWrapAround(reverse_wrap_around) => write!(f, "{reverse_wrap_around}"),
             Self::SynchronizedUpdates(sync_updates) => write!(f, "{sync_updates}"),
             Self::GraphemeClustering(grapheme_clustering) => write!(f, "{grapheme_clustering}"),
+            Self::Theming(theming) => write!(f, "{theming}"),
             Self::Unknown(params) => write!(f, "{params}"),
             Self::UnknownQuery(v) => write!(f, "Unknown Query({v:?})"),
         }

@@ -23,8 +23,8 @@ use crate::{
             decckm::Decckm, deccolm::Deccolm, decom::Decom, decsclm::Decsclm, decscnm::Decscnm,
             dectcem::Dectcem, grapheme::GraphemeClustering, lnm::Lnm, mouse::MouseTrack,
             reverse_wrap_around::ReverseWrapAround, rl_bracket::RlBracket,
-            sync_updates::SynchronizedUpdates, xtcblink::XtCBlink, xtextscrn::XtExtscrn,
-            xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
+            sync_updates::SynchronizedUpdates, theme::Theming, xtcblink::XtCBlink,
+            xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
         },
         osc::{AnsiOscInternalType, AnsiOscType, UrlResponse},
         sgr::SelectGraphicRendition,
@@ -101,6 +101,23 @@ impl Buffer {
     }
 }
 
+#[derive(Debug, Default)]
+pub enum Theme {
+    Light,
+    #[default]
+    Dark,
+}
+
+impl From<bool> for Theme {
+    fn from(dark_mode: bool) -> Self {
+        if dark_mode {
+            Self::Dark
+        } else {
+            Self::Light
+        }
+    }
+}
+
 #[derive(Debug)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct TerminalState {
@@ -118,6 +135,7 @@ pub struct TerminalState {
     pub window_focused: bool,
     pub window_commands: Vec<WindowManipulation>,
     pub saved_cursor: Option<CursorState>,
+    pub theme: Theme,
 }
 
 impl Default for TerminalState {
@@ -159,7 +177,12 @@ impl TerminalState {
             window_focused: true,
             window_commands: Vec::new(),
             saved_cursor: None,
+            theme: Theme::default(),
         }
+    }
+
+    pub const fn set_theme(&mut self, theme: Theme) {
+        self.theme = theme;
     }
 
     #[must_use]
@@ -1025,6 +1048,17 @@ impl TerminalState {
             }
             Mode::GraphemeClustering(grapheme_clustering) => {
                 warn!("Received GraphemeClustering({grapheme_clustering}), but it's not supported");
+            }
+            Mode::Theming(Theming::Query) => {
+                let theme = match self.theme {
+                    Theme::Light => SetMode::DecSet,
+                    Theme::Dark => SetMode::DecRst,
+                };
+
+                self.report_mode(&Theming::Query.report(Some(theme)));
+            }
+            Mode::Theming(theming) => {
+                warn!("Received Theming({theming}), but it's not supported");
             }
         }
     }

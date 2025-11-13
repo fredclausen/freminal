@@ -20,6 +20,7 @@ pub mod mouse;
 pub mod reverse_wrap_around;
 pub mod rl_bracket;
 pub mod sync_updates;
+pub mod theme;
 pub mod unknown;
 pub mod xtcblink;
 pub mod xtextscrn;

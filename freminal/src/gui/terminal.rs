@@ -16,7 +16,7 @@ use freminal_terminal_emulator::{
     format_tracker::FormatTag,
     interface::{collect_text, TerminalInput},
     io::FreminalTermInputOutput,
-    state::{cursor::CursorPos, fonts::FontDecorations, term_char::TChar},
+    state::{cursor::CursorPos, fonts::FontDecorations, internal::Theme, term_char::TChar},
 };
 
 use eframe::egui::{
@@ -1049,6 +1049,10 @@ impl FreminalTerminalWidget {
                 debug!("Font size changed, updating character size");
                 self.character_size = get_char_size(ui.ctx(), self.font_size);
                 terminal_emulator.set_egui_ctx_if_missing(self.ctx.clone());
+
+                let theme = Theme::from(ui.style().visuals.clone().dark_mode);
+
+                terminal_emulator.internal.set_theme(theme);
 
                 let (width_chars, height_chars) = terminal_emulator.get_win_size();
                 let width_chars = match f32::value_from(width_chars) {
