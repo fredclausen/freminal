@@ -30,7 +30,7 @@ use super::{
     fonts::{get_char_size, setup_font_files, TerminalFont},
 };
 use anyhow::Result;
-use conv2::{ConvUtil, ValueFrom};
+use conv2::{ApproxFrom, ConvUtil, RoundToZero, ValueFrom};
 use std::borrow::Cow;
 
 fn control_key(key: Key) -> Option<Cow<'static, [TerminalInput]>> {
@@ -722,7 +722,11 @@ pub fn render_terminal_text(
     full_text: &str,
     job: &egui::text::LayoutJob,
     font_size: f32,
+    max_line_width: f32,
 ) -> egui::Response {
+    // convert max_line_width to usize
+    let max_line_width: usize =
+        <usize as ApproxFrom<f32, RoundToZero>>::approx_from(max_line_width).unwrap_or(80);
     let ctx = ui.ctx();
 
     let font_id = egui::FontId::monospace(font_size);
@@ -754,6 +758,7 @@ pub fn render_terminal_text(
     let mut x = origin.x;
     let mut y = origin.y;
     let mut baseline_y = y + baseline_offset;
+    let mut char_line_count: usize = 0;
 
     for section in &job.sections {
         let format = &section.format;
@@ -765,12 +770,11 @@ pub fn render_terminal_text(
         let section_text = &full_text[section.byte_range.clone()];
 
         for c in section_text.chars() {
-            if c == '\n' {
-                // Move to next line
+            if c == '\n' || char_line_count > max_line_width {
                 x = origin.x;
                 y += row_height;
                 baseline_y = y + baseline_offset;
-                continue;
+                char_line_count = 0;
             }
 
             // Draw background cell
@@ -792,6 +796,7 @@ pub fn render_terminal_text(
             );
 
             x += glyph_width;
+            char_line_count += 1;
         }
     }
 
@@ -802,6 +807,7 @@ fn add_terminal_data_to_ui(
     ui: &mut Ui,
     data: &UiData,
     font_size: f32,
+    max_line_width: f32,
 ) -> Result<(egui::Response, Option<UiJobAction>)> {
     let data_utf8: String;
     let adjusted_format_data: Vec<FormatTag>;
@@ -839,11 +845,11 @@ fn add_terminal_data_to_ui(
                 text: data_utf8.clone(),
                 adjusted_format_data: adjusted_format_data.clone(),
             };
-            let response = render_terminal_text(ui, &data_utf8, &job, font_size);
+            let response = render_terminal_text(ui, &data_utf8, &job, font_size, max_line_width);
             Ok((response, Some(response_data)))
         }
         UiData::PreviousPass(_) => {
-            let response = render_terminal_text(ui, &data_utf8, &job, font_size);
+            let response = render_terminal_text(ui, &data_utf8, &job, font_size, max_line_width);
             Ok((response, None))
         }
     }
@@ -860,6 +866,7 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
     terminal_emulator: &mut TerminalEmulator<Io>,
     font_size: f32,
     previous_pass: Option<&TerminalOutputRenderResponse>,
+    max_line_width: f32,
 ) -> TerminalOutputRenderResponse {
     let response = egui::ScrollArea::new([false, true])
         .auto_shrink([false, false])
@@ -886,6 +893,7 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                     ui,
                     &UiData::PreviousPass(previous_pass.canvas.clone()),
                     font_size,
+                    max_line_width,
                 ));
 
                 (*previous_pass).clone()
@@ -910,6 +918,7 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                         format_data: format_data.visible,
                     }),
                     font_size,
+                    max_line_width,
                 ));
 
                 // We want the program to crash here if we're testing
@@ -952,6 +961,7 @@ impl DebugRenderer {
 
 pub struct FreminalTerminalWidget {
     font_size: f32,
+    max_line_width: f32,
     character_size: (f32, f32),
     previous_font_size: Option<f32>,
     debug_renderer: DebugRenderer,
@@ -970,6 +980,7 @@ impl FreminalTerminalWidget {
 
         Self {
             font_size: 12.0,
+            max_line_width: 80.0,
             character_size: (0.0, 0.0),
             previous_font_size: None,
             debug_renderer: DebugRenderer::new(),
@@ -1055,6 +1066,7 @@ impl FreminalTerminalWidget {
                 ui.set_width((width_chars + 0.5) * self.character_size.0);
                 ui.set_height((height_chars + 0.5) * self.character_size.1);
                 self.previous_font_size = Some(self.font_size);
+                self.max_line_width = width_chars;
             }
 
             let repeat_characters = terminal_emulator.internal.should_repeat_keys();
@@ -1076,8 +1088,13 @@ impl FreminalTerminalWidget {
             self.previous_scroll_amount = scroll_amount;
 
             if terminal_emulator.needs_redraw() {
-                self.previous_pass =
-                    render_terminal_output(ui, terminal_emulator, self.font_size, None);
+                self.previous_pass = render_terminal_output(
+                    ui,
+                    terminal_emulator,
+                    self.font_size,
+                    None,
+                    self.max_line_width,
+                );
             } else {
                 debug!("Reusing previous terminal output");
                 let _response = render_terminal_output(
@@ -1085,6 +1102,7 @@ impl FreminalTerminalWidget {
                     terminal_emulator,
                     self.font_size,
                     Some(&self.previous_pass),
+                    self.max_line_width,
                 );
             }
 

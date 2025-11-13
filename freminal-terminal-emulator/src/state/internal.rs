@@ -260,66 +260,66 @@ impl TerminalState {
         TerminalSections<Vec<TChar>>,
         TerminalSections<Vec<FormatTag>>,
     ) {
-        let (mut data, offset, end) = self.get_current_buffer().terminal_buffer.data_for_gui();
-        let mut extended_ranges = Vec::new();
+        let (data, offset, end) = self.get_current_buffer().terminal_buffer.data_for_gui();
+        // let mut extended_ranges = Vec::new();
 
-        {
-            let buffer = self.get_current_buffer();
-            let visible_ranges = buffer.terminal_buffer.get_visible_line_ranges();
-            let mut rebuilt_visible: Vec<TChar> =
-                Vec::with_capacity(buffer.terminal_buffer.height * buffer.terminal_buffer.width);
+        // {
+        //     let buffer = self.get_current_buffer();
+        //     let visible_ranges = buffer.terminal_buffer.get_visible_line_ranges();
+        //     let mut rebuilt_visible: Vec<TChar> =
+        //         Vec::with_capacity(buffer.terminal_buffer.height * buffer.terminal_buffer.width);
 
-            for (i, range) in visible_ranges.iter().enumerate() {
-                rebuilt_visible.extend_from_slice(&buffer.terminal_buffer.buf[range.clone()]);
+        //     for (i, range) in visible_ranges.iter().enumerate() {
+        //         rebuilt_visible.extend_from_slice(&buffer.terminal_buffer.buf[range.clone()]);
 
-                if i + 1 < visible_ranges.len()
-                // && buffer.terminal_buffer.buf[range.end + 1] == TChar::NewLine
-                {
-                    // just ensuring the line always has a new line
-                    rebuilt_visible.push(TChar::NewLine);
-                }
+        //         if i + 1 < visible_ranges.len()
+        //         // && buffer.terminal_buffer.buf[range.end + 1] == TChar::NewLine
+        //         {
+        //             // just ensuring the line always has a new line
+        //             rebuilt_visible.push(TChar::NewLine);
+        //         }
 
-                if buffer.terminal_buffer.buf[range.end] != TChar::NewLine {
-                    // this is for large lines that wrap around
+        //         if buffer.terminal_buffer.buf[range.end] != TChar::NewLine {
+        //             // this is for large lines that wrap around
 
-                    extended_ranges.push(range.end);
-                }
-            }
+        //             extended_ranges.push(range.end);
+        //         }
+        //     }
 
-            data.visible = rebuilt_visible;
-        }
+        //     data.visible = rebuilt_visible;
+        // }
 
-        let mut format_data = split_format_data_for_scrollback(
+        let format_data = split_format_data_for_scrollback(
             self.get_current_buffer().format_tracker.tags(),
             offset,
             end,
             false,
         );
 
-        if !extended_ranges.is_empty() {
-            let inserted = &extended_ranges;
+        // if !extended_ranges.is_empty() {
+        //     let inserted = &extended_ranges;
 
-            for tag in &mut format_data.visible {
-                let offset_start = inserted.iter().filter(|&&p| p <= tag.start).count();
-                let offset_end = inserted.iter().filter(|&&p| p < tag.end).count();
+        //     for tag in &mut format_data.visible {
+        //         let offset_start = inserted.iter().filter(|&&p| p <= tag.start).count();
+        //         let offset_end = inserted.iter().filter(|&&p| p < tag.end).count();
 
-                // Expand tag if any insertion falls inside its span
-                let crossings = inserted
-                    .iter()
-                    .filter(|&&p| (tag.start..tag.end).contains(&p))
-                    .count();
-                tag.end += crossings;
+        //         // Expand tag if any insertion falls inside its span
+        //         let crossings = inserted
+        //             .iter()
+        //             .filter(|&&p| (tag.start..tag.end).contains(&p))
+        //             .count();
+        //         tag.end += crossings;
 
-                // Now shift entire tag forward for prior insertions
-                tag.start += offset_start;
-                tag.end += offset_end;
-            }
+        //         // Now shift entire tag forward for prior insertions
+        //         tag.start += offset_start;
+        //         tag.end += offset_end;
+        //     }
 
-            // info!(
-            //     "original buffer: {:?}",
-            //     self.get_current_buffer().terminal_buffer.buf
-            // );
-        }
+        //     // info!(
+        //     //     "original buffer: {:?}",
+        //     //     self.get_current_buffer().terminal_buffer.buf
+        //     // );
+        // }
 
         (data, format_data)
     }
