@@ -425,7 +425,6 @@ fn paint_cursor(
     ui: &Ui,
     color: Color32,
 ) {
-    info!("Cursor pos: {}", cursor_pos);
     let painter = ui.painter();
 
     let top = label_rect.top();
@@ -761,8 +760,6 @@ pub fn render_terminal_text(
     let mut baseline_y = y + baseline_offset;
     let mut char_line_count: usize = 0;
 
-    info!("Initial x: {}, y: {}", x, y);
-
     for section in &job.sections {
         let format = &section.format;
         let font_id = format.font_id.clone();
@@ -778,8 +775,6 @@ pub fn render_terminal_text(
                 y += row_height;
                 baseline_y = y + baseline_offset;
                 char_line_count = 0;
-
-                info!("new x: {}, y: {}", x, y);
 
                 if c == '\n' {
                     continue;

@@ -1371,14 +1371,14 @@ impl TerminalState {
         for segment in parsed {
             // if segment is not data, we want to print out the segment
             if let TerminalOutput::Data(data) = &segment {
-                info!(
+                debug!(
                     "Incoming segment (data): \"{}\"",
                     str::from_utf8(data).unwrap_or(&format!(
                         "Failed to parse data for display as string: {data:?}"
                     ))
                 );
             } else {
-                info!("Incoming segment: {segment}");
+                debug!("Incoming segment: {segment}");
             }
 
             match segment {
