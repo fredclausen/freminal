@@ -19,24 +19,11 @@ use crate::{
         line_draw::DecSpecialGraphics,
         mode::{Mode, SetMode, TerminalModes},
         modes::{
-            allow_column_mode_switch::AllowColumnModeSwitch,
-            decarm::Decarm,
-            decawm::Decawm,
-            decckm::Decckm,
-            deccolm::Deccolm,
-            decom::Decom,
-            decsclm::Decsclm,
-            decscnm::Decscnm,
-            dectcem::Dectcem,
-            lnm::Lnm,
-            mouse::MouseTrack,
-            reverse_wrap_around::ReverseWrapAround,
-            rl_bracket::RlBracket,
-            sync_updates::{SynchronizedUpdates, SynchronizedUpdatesAlternative},
-            xtcblink::XtCBlink,
-            xtextscrn::XtExtscrn,
-            xtmsewin::XtMseWin,
-            MouseModeNumber, ReportMode,
+            allow_column_mode_switch::AllowColumnModeSwitch, decarm::Decarm, decawm::Decawm,
+            decckm::Decckm, deccolm::Deccolm, decom::Decom, decsclm::Decsclm, decscnm::Decscnm,
+            dectcem::Dectcem, lnm::Lnm, mouse::MouseTrack, reverse_wrap_around::ReverseWrapAround,
+            rl_bracket::RlBracket, sync_updates::SynchronizedUpdates, xtcblink::XtCBlink,
+            xtextscrn::XtExtscrn, xtmsewin::XtMseWin, MouseModeNumber, ReportMode,
         },
         osc::{AnsiOscInternalType, AnsiOscType, UrlResponse},
         sgr::SelectGraphicRendition,
@@ -602,6 +589,7 @@ impl TerminalState {
 
     pub(crate) fn backspace(&mut self) {
         let current_buffer = self.get_current_buffer();
+        debug!("Backspace at {}", current_buffer.cursor_state.pos);
 
         if current_buffer.cursor_state.pos.x >= 1 {
             if current_buffer.cursor_state.pos.x == current_buffer.terminal_buffer.width {
@@ -613,6 +601,8 @@ impl TerminalState {
             // FIXME: this is not correct, we should move to the end of the previous line
             warn!("FIXME: Backspace at the beginning of the line. Not wrapping");
         }
+
+        debug!("Backspace moved to {}", current_buffer.cursor_state.pos);
     }
 
     pub(crate) fn insert_lines(&mut self, num_lines: usize) {
@@ -920,6 +910,7 @@ impl TerminalState {
                 self.report_mode(&self.modes.focus_reporting.report(None));
             }
             Mode::XtMseWin(XtMseWin::Enabled) => {
+                debug!("Setting focus reporting");
                 self.modes.focus_reporting = XtMseWin::Enabled;
 
                 let to_write = if self.window_focused {
@@ -931,6 +922,8 @@ impl TerminalState {
                 if let Err(e) = self.write(&to_write) {
                     error!("Failed to write focus change: {e}");
                 }
+
+                debug!("Reported current focus {:?} to terminal", to_write);
             }
             Mode::XtMseWin(XtMseWin::Disabled) => {
                 self.modes.focus_reporting = XtMseWin::Disabled;
@@ -952,7 +945,7 @@ impl TerminalState {
                 | MouseTrack::XtMseAny
                 | MouseTrack::XtMseSgr = mode
                 {
-                    debug!("Setting mouse mode to: {mode}");
+                    debug!("Setting mode to: {mode}");
                     self.modes.mouse_tracking = mode.clone();
                 } else {
                     warn!("Unhandled mouse mode: {mode}");
@@ -963,17 +956,6 @@ impl TerminalState {
             }
             Mode::SynchronizedUpdates(sync) => {
                 self.modes.synchronized_updates = sync.clone();
-            }
-            Mode::SynchronizedUpdatesAlternative(SynchronizedUpdatesAlternative::Query) => {
-                let mode =
-                    SynchronizedUpdatesAlternative::from(self.modes.synchronized_updates.clone());
-
-                self.report_mode(&mode.report(None));
-            }
-            Mode::SynchronizedUpdatesAlternative(sync) => {
-                error!(
-                    "Received SynchronizedUpdatesAlternative({sync}). Never should end up here."
-                );
             }
             Mode::UnknownQuery(m) => {
                 let query = String::from_utf8(m.clone())
@@ -1130,7 +1112,7 @@ impl TerminalState {
                     .push(WindowManipulation::SetTitleBarText(title));
             }
             AnsiOscType::Ftcs(value) => {
-                warn!("Ftcs is not supported: {value}");
+                debug!("Ftcs is not supported: {value}");
             }
             // FIXME: I think once we get in to muxxing we'll need to handle this
             // I think the idea here is that OSC 7 is emitted to inform the terminal of the current working directory
@@ -1143,7 +1125,7 @@ impl TerminalState {
                 self.get_current_buffer().cursor_color = TerminalColor::DefaultCursorColor;
             }
             AnsiOscType::ITerm2 => {
-                warn!("iTerm2 OSC codes are not supported yet");
+                debug!("iTerm2 OSC codes are not supported yet");
             }
         }
     }
@@ -1153,7 +1135,7 @@ impl TerminalState {
 
         let x = current_buffer.cursor_state.pos.x + 1;
         let y = current_buffer.cursor_state.pos.y + 1;
-
+        debug!("Reporting cursor position: {y}, {x}");
         let output = collect_text(&format!("\x1b[{y};{x}R"));
 
         for input in output.iter() {
@@ -1429,7 +1411,7 @@ impl TerminalState {
                 }
                 TerminalOutput::NormalKeypadMode => self.modes.cursor_key = Decckm::Ansi,
                 TerminalOutput::CursorVisualStyle(style) => {
-                    warn!("Ignoring cursor visual style: {style:?}");
+                    debug!("Ignoring cursor visual style: {style:?}");
                 }
                 TerminalOutput::WindowManipulation(manip) => self.window_commands.push(manip),
                 TerminalOutput::SetTopAndBottomMargins {
