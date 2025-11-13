@@ -117,8 +117,6 @@ pub struct TerminalState {
     pub window_focused: bool,
     pub window_commands: Vec<WindowManipulation>,
     pub saved_cursor: Option<CursorState>,
-    pub skip_cr: bool,
-    pub skip_lf: bool,
 }
 
 impl Default for TerminalState {
@@ -160,8 +158,6 @@ impl TerminalState {
             window_focused: true,
             window_commands: Vec::new(),
             saved_cursor: None,
-            skip_cr: false,
-            skip_lf: false,
         }
     }
 
@@ -261,33 +257,6 @@ impl TerminalState {
         TerminalSections<Vec<FormatTag>>,
     ) {
         let (data, offset, end) = self.get_current_buffer().terminal_buffer.data_for_gui();
-        // let mut extended_ranges = Vec::new();
-
-        // {
-        //     let buffer = self.get_current_buffer();
-        //     let visible_ranges = buffer.terminal_buffer.get_visible_line_ranges();
-        //     let mut rebuilt_visible: Vec<TChar> =
-        //         Vec::with_capacity(buffer.terminal_buffer.height * buffer.terminal_buffer.width);
-
-        //     for (i, range) in visible_ranges.iter().enumerate() {
-        //         rebuilt_visible.extend_from_slice(&buffer.terminal_buffer.buf[range.clone()]);
-
-        //         if i + 1 < visible_ranges.len()
-        //         // && buffer.terminal_buffer.buf[range.end + 1] == TChar::NewLine
-        //         {
-        //             // just ensuring the line always has a new line
-        //             rebuilt_visible.push(TChar::NewLine);
-        //         }
-
-        //         if buffer.terminal_buffer.buf[range.end] != TChar::NewLine {
-        //             // this is for large lines that wrap around
-
-        //             extended_ranges.push(range.end);
-        //         }
-        //     }
-
-        //     data.visible = rebuilt_visible;
-        // }
 
         let format_data = split_format_data_for_scrollback(
             self.get_current_buffer().format_tracker.tags(),
@@ -295,31 +264,6 @@ impl TerminalState {
             end,
             false,
         );
-
-        // if !extended_ranges.is_empty() {
-        //     let inserted = &extended_ranges;
-
-        //     for tag in &mut format_data.visible {
-        //         let offset_start = inserted.iter().filter(|&&p| p <= tag.start).count();
-        //         let offset_end = inserted.iter().filter(|&&p| p < tag.end).count();
-
-        //         // Expand tag if any insertion falls inside its span
-        //         let crossings = inserted
-        //             .iter()
-        //             .filter(|&&p| (tag.start..tag.end).contains(&p))
-        //             .count();
-        //         tag.end += crossings;
-
-        //         // Now shift entire tag forward for prior insertions
-        //         tag.start += offset_start;
-        //         tag.end += offset_end;
-        //     }
-
-        //     // info!(
-        //     //     "original buffer: {:?}",
-        //     //     self.get_current_buffer().terminal_buffer.buf
-        //     // );
-        // }
 
         (data, format_data)
     }
@@ -631,19 +575,11 @@ impl TerminalState {
         }
     }
 
-    pub(crate) const fn carriage_return(&mut self, skip: bool) {
-        if skip {
-            return;
-        }
-
+    pub(crate) const fn carriage_return(&mut self) {
         self.get_current_buffer().cursor_state.pos.x = 0;
     }
 
-    pub(crate) fn new_line(&mut self, skip: bool) {
-        if skip {
-            return;
-        }
-
+    pub(crate) fn new_line(&mut self) {
         self.get_current_buffer().cursor_state.pos.y += 1;
 
         if self.modes.line_feed_mode == Lnm::NewLine {
@@ -1435,22 +1371,14 @@ impl TerminalState {
         for segment in parsed {
             // if segment is not data, we want to print out the segment
             if let TerminalOutput::Data(data) = &segment {
-                debug!(
-                    "Incoming segment (data): {}",
+                info!(
+                    "Incoming segment (data): \"{}\"",
                     str::from_utf8(data).unwrap_or(&format!(
                         "Failed to parse data for display as string: {data:?}"
                     ))
                 );
             } else {
-                debug!("Incoming segment: {segment}");
-            }
-
-            if segment != TerminalOutput::SkipNextCRLF
-                && segment != TerminalOutput::Newline
-                && segment != TerminalOutput::CarriageReturn
-            {
-                self.skip_cr = false;
-                self.skip_lf = false;
+                info!("Incoming segment: {segment}");
             }
 
             match segment {
@@ -1464,27 +1392,8 @@ impl TerminalState {
                 TerminalOutput::ClearLineForwards => self.clear_line_forwards(),
                 TerminalOutput::ClearLineBackwards => self.clear_line_backwards(),
                 TerminalOutput::ClearLine => self.clear_line(),
-                TerminalOutput::CarriageReturn => {
-                    let skip = self.skip_cr;
-                    self.carriage_return(skip);
-                    if skip {
-                        self.skip_cr = false;
-                    }
-                }
-                TerminalOutput::Newline => {
-                    let skip = self.skip_lf;
-                    self.new_line(skip);
-                    if skip {
-                        self.skip_lf = false;
-                    }
-                }
-
-                TerminalOutput::SkipNextCRLF => {
-                    if !self.skip_cr && !self.skip_lf {
-                        self.skip_cr = true;
-                        self.skip_lf = true;
-                    }
-                }
+                TerminalOutput::CarriageReturn => self.carriage_return(),
+                TerminalOutput::Newline => self.new_line(),
                 TerminalOutput::Backspace => self.backspace(),
                 TerminalOutput::InsertLines(num_lines) => self.insert_lines(num_lines),
                 TerminalOutput::Delete(num_chars) => self.delete(num_chars),

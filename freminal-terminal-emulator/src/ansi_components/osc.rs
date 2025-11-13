@@ -381,7 +381,6 @@ impl AnsiOscParser {
                             output.push(TerminalOutput::OscResponse(AnsiOscType::Ftcs(
                                 osc_internal_type.to_string(),
                             )));
-                            output.push(TerminalOutput::SkipNextCRLF);
                         }
                         OscTarget::RemoteHost => {
                             output.push(TerminalOutput::OscResponse(AnsiOscType::RemoteHost(

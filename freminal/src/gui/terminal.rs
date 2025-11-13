@@ -425,6 +425,7 @@ fn paint_cursor(
     ui: &Ui,
     color: Color32,
 ) {
+    info!("cursor_pos: {}", cursor_pos);
     let painter = ui.painter();
 
     let top = label_rect.top();
