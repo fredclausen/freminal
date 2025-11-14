@@ -31,6 +31,11 @@ pub fn ansi_parser_inner_csi_finished_sgr_ansi(
     params: &[u8],
     output: &mut Vec<TerminalOutput>,
 ) -> ParserOutcome {
+    if params.first() == Some(&b'>') {
+        output.push(TerminalOutput::Skipped);
+        return ParserOutcome::Finished;
+    }
+
     let (params, split_by_colon) = if params.contains(&b':') {
         (split_params_into_colon_delimited_usize(params), true)
     } else {

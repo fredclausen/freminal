@@ -253,6 +253,7 @@ fn is_csi_param(b: u8) -> bool {
 fn is_csi_terminator(b: u8) -> bool {
     (0x40..=0x7e).contains(&b)
 }
+
 fn is_csi_intermediate(b: u8) -> bool {
     (0x20..=0x2f).contains(&b)
 }
