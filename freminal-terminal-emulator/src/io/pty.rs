@@ -62,7 +62,11 @@ pub fn run_terminal(
     let mut cmd = shell.map_or_else(CommandBuilder::new_default_prog, CommandBuilder::new);
 
     cmd.env("TERMINFO", termcaps);
-    cmd.env("TERM", "freminal");
+    // We're setting this to xterm-256color because it's the most compatible
+    // nvim, and probably others, lose their fucking mind and don't send all
+    // escapes we support if they don't know the terminal. Unless and until
+    // we go main stream this is the best bet
+    cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
 
     // get the version of freminal
@@ -73,7 +77,7 @@ pub fn run_terminal(
     );
     cmd.env("TERM_PROGRAM", "freminal");
     cmd.env("TERM_PROGRAM_VERSION", version);
-    cmd.env("__CFBundleIdentifier", "com.fredclausen.freminal");
+    cmd.env("__CFBundleIdentifier", "io.github.fredclausen.freminal");
 
     // FIXME: I don't know if this works for all locales
     // the problem here is some programs (like ohmyposh and zsh)

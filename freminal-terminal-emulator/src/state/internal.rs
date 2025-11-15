@@ -1457,7 +1457,7 @@ impl TerminalState {
                 }
                 TerminalOutput::NormalKeypadMode => self.modes.cursor_key = Decckm::Ansi,
                 TerminalOutput::CursorVisualStyle(style) => {
-                    debug!("Ignoring cursor visual style: {style:?}");
+                    warn!("Ignoring cursor visual style: {style:?}");
                 }
                 TerminalOutput::WindowManipulation(manip) => self.window_commands.push(manip),
                 TerminalOutput::SetTopAndBottomMargins {
