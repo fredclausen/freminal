@@ -8,7 +8,8 @@ use conv2::ConvUtil;
 use core::str;
 use eframe::egui::{self, Color32, Context};
 use freminal_common::{
-    colors::TerminalColor, scroll::ScrollDirection, window_manipulation::WindowManipulation,
+    colors::TerminalColor, cursor::CursorVisualStyle, scroll::ScrollDirection,
+    window_manipulation::WindowManipulation,
 };
 #[cfg(debug_assertions)]
 use std::time::Instant;
@@ -136,6 +137,7 @@ pub struct TerminalState {
     pub window_commands: Vec<WindowManipulation>,
     pub saved_cursor: Option<CursorState>,
     pub theme: Theme,
+    pub cursor_visual_style: CursorVisualStyle,
 }
 
 impl Default for TerminalState {
@@ -178,7 +180,13 @@ impl TerminalState {
             window_commands: Vec::new(),
             saved_cursor: None,
             theme: Theme::default(),
+            cursor_visual_style: CursorVisualStyle::default(),
         }
+    }
+
+    #[must_use]
+    pub fn get_cursor_visual_style(&self) -> CursorVisualStyle {
+        self.cursor_visual_style.clone()
     }
 
     pub const fn set_theme(&mut self, theme: Theme) {
@@ -896,6 +904,35 @@ impl TerminalState {
             }
             Mode::XtCBlink(xtcblink) => {
                 self.modes.cursor_blinking = xtcblink.clone();
+
+                // also set the cursor visual style so the UI gets the new state
+                if self.modes.cursor_blinking == XtCBlink::Blinking {
+                    match self.cursor_visual_style {
+                        CursorVisualStyle::BlockCursorSteady => {
+                            self.cursor_visual_style = CursorVisualStyle::BlockCursorBlink;
+                        }
+                        CursorVisualStyle::UnderlineCursorSteady => {
+                            self.cursor_visual_style = CursorVisualStyle::UnderlineCursorBlink;
+                        }
+                        CursorVisualStyle::VerticalLineCursorSteady => {
+                            self.cursor_visual_style = CursorVisualStyle::VerticalLineCursorBlink;
+                        }
+                        _ => (),
+                    }
+                } else {
+                    match self.cursor_visual_style {
+                        CursorVisualStyle::BlockCursorBlink => {
+                            self.cursor_visual_style = CursorVisualStyle::BlockCursorSteady;
+                        }
+                        CursorVisualStyle::UnderlineCursorBlink => {
+                            self.cursor_visual_style = CursorVisualStyle::UnderlineCursorSteady;
+                        }
+                        CursorVisualStyle::VerticalLineCursorBlink => {
+                            self.cursor_visual_style = CursorVisualStyle::VerticalLineCursorSteady;
+                        }
+                        _ => (),
+                    }
+                }
             }
             Mode::XtExtscrn(XtExtscrn::Query) => {
                 let to_write = match self.current_buffer {
@@ -1457,7 +1494,8 @@ impl TerminalState {
                 }
                 TerminalOutput::NormalKeypadMode => self.modes.cursor_key = Decckm::Ansi,
                 TerminalOutput::CursorVisualStyle(style) => {
-                    warn!("Ignoring cursor visual style: {style:?}");
+                    self.cursor_visual_style = style;
+                    info!("Cursor visual style set to {:?}", self.cursor_visual_style);
                 }
                 TerminalOutput::WindowManipulation(manip) => self.window_commands.push(manip),
                 TerminalOutput::SetTopAndBottomMargins {

@@ -4,10 +4,10 @@
 // https://opensource.org/licenses/MIT.
 
 #[allow(clippy::module_name_repetitions)]
-#[derive(Default, Debug, Eq, PartialEq)]
+#[derive(Default, Debug, Eq, PartialEq, Clone)]
 pub enum CursorVisualStyle {
-    #[default]
     BlockCursorBlink,
+    #[default]
     BlockCursorSteady,
     UnderlineCursorBlink,
     UnderlineCursorSteady,

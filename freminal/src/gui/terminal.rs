@@ -11,6 +11,7 @@ use crate::gui::{
     TerminalEmulator,
 };
 
+use freminal_common::cursor::CursorVisualStyle;
 use freminal_terminal_emulator::{
     ansi_components::modes::rl_bracket::RlBracket,
     format_tracker::FormatTag,
@@ -424,9 +425,45 @@ fn paint_cursor(
     cursor_pos: &CursorPos,
     ui: &Ui,
     color: Color32,
+    cursor_style: &CursorVisualStyle,
 ) {
+    // 0.50s on, 0.50s off
+    const BLINK_TICK_SECONDS: f64 = 0.50;
+
     let painter = ui.painter();
 
+    // --------------------------
+    // Blink Logic
+    // --------------------------
+    let is_blinking = matches!(
+        cursor_style,
+        CursorVisualStyle::BlockCursorBlink
+            | CursorVisualStyle::UnderlineCursorBlink
+            | CursorVisualStyle::VerticalLineCursorBlink
+    );
+
+    let time = ui.input(|i| i.time); // f64, seconds since app start
+
+    let ticks = match <i64 as ApproxFrom<f64, RoundToZero>>::approx_from(
+        (time / BLINK_TICK_SECONDS).floor(),
+    ) {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Failed to convert blink ticks to i64: {e}");
+            0
+        }
+    };
+
+    // even tick = visible, odd tick = invisible
+    let visible = ticks % 2 == 0;
+
+    if is_blinking && !visible {
+        return; // don't paint the cursor this frame
+    }
+
+    // --------------------------
+    // Positioning
+    // --------------------------
     let top = label_rect.top();
     let left = label_rect.left();
 
@@ -446,16 +483,38 @@ fn paint_cursor(
         }
     };
 
-    let y_offset: f32 = cursor_y * character_size.1;
-    let x_offset: f32 = cursor_x * character_size.0;
-    painter.rect_filled(
-        Rect::from_min_size(
-            egui::pos2(left + x_offset, top + y_offset),
-            egui::vec2(character_size.0, character_size.1),
-        ),
-        0.0,
-        color,
-    );
+    let cell_w = character_size.0;
+    let cell_h = character_size.1;
+
+    let x_offset: f32 = cursor_x * cell_w;
+    let y_offset: f32 = cursor_y * cell_h;
+
+    let cell_min = egui::pos2(left + x_offset, top + y_offset);
+
+    // --------------------------
+    // Cursor Shape Logic
+    // --------------------------
+    let rect = match cursor_style {
+        CursorVisualStyle::BlockCursorBlink | CursorVisualStyle::BlockCursorSteady => {
+            Rect::from_min_size(cell_min, egui::vec2(cell_w, cell_h))
+        }
+
+        CursorVisualStyle::UnderlineCursorBlink | CursorVisualStyle::UnderlineCursorSteady => {
+            let underline_height = cell_h * 0.20;
+            Rect::from_min_size(
+                egui::pos2(cell_min.x, cell_min.y + (cell_h - underline_height)),
+                egui::vec2(cell_w, underline_height),
+            )
+        }
+
+        CursorVisualStyle::VerticalLineCursorBlink
+        | CursorVisualStyle::VerticalLineCursorSteady => {
+            let bar_width = (cell_w * 0.12).max(1.0);
+            Rect::from_min_size(cell_min, egui::vec2(bar_width, cell_h))
+        }
+    };
+
+    painter.rect_filled(rect, 0.0, color);
 }
 
 fn setup_bg_fill(ctx: &egui::Context) {
@@ -1122,12 +1181,16 @@ impl FreminalTerminalWidget {
                     terminal_emulator.internal.get_current_buffer().cursor_color,
                     false,
                 );
+
+                let cursor_style = terminal_emulator.get_cursor_visual_style();
+
                 paint_cursor(
                     self.previous_pass.canvas_area,
                     self.character_size,
                     &terminal_emulator.cursor_pos(),
                     ui,
                     color,
+                    &cursor_style,
                 );
             }
 

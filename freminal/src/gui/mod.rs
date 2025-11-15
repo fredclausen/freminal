@@ -393,6 +393,9 @@ impl eframe::App for FreminalGui {
             }
 
             self.terminal_widget.show(ui, &mut lock);
+
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(16));
         });
 
         panel_response.response.context_menu(|ui| {

@@ -21,6 +21,7 @@ use crossbeam_channel::{unbounded, Receiver};
 use eframe::egui;
 
 use freminal_common::args::Args;
+use freminal_common::cursor::CursorVisualStyle;
 
 const fn char_to_ctrl_code(c: u8) -> u8 {
     // https://catern.com/posts/terminal_quirks.html
@@ -281,6 +282,10 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
 }
 
 impl<Io: FreminalTermInputOutput> TerminalEmulator<Io> {
+    pub fn get_cursor_visual_style(&self) -> CursorVisualStyle {
+        self.internal.get_cursor_visual_style()
+    }
+
     pub const fn set_mouse_position_from_move_event(&mut self, pos: &egui::Pos2) {
         self.internal.mouse_position = Some(*pos);
     }
