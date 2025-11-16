@@ -4,6 +4,7 @@
 // https://opensource.org/licenses/MIT.
 
 use crate::gui::{
+    fonts::FontConfig,
     mouse::{
         handle_pointer_button, handle_pointer_moved, handle_pointer_scroll, FreminalMousePosition,
         PreviousMouseState,
@@ -698,12 +699,11 @@ fn process_tags(
     adjusted_format_data: &Vec<FormatTag>,
     data_len: usize,
     textformat: &mut TextFormat,
-    font_size: f32,
     job: &mut LayoutJob,
+    terminal_fonts: &TerminalFont,
+    font_defs: &FontConfig,
     #[cfg(feature = "validation")] buffer: &[u8],
 ) {
-    let terminal_fonts = TerminalFont::new();
-
     let mut range;
     let mut color;
     let mut background_color;
@@ -739,7 +739,7 @@ fn process_tags(
 
         textformat.font_id.family =
             terminal_fonts.get_family(&tag.font_decorations, &tag.font_weight);
-        textformat.font_id.size = font_size;
+        textformat.font_id.size = font_defs.size;
         let make_faint = tag.font_decorations.contains(&FontDecorations::Faint);
         textformat.color = internal_color_to_egui(color, make_faint);
         // FIXME: ????? should background be faint? I feel like no, but....
@@ -869,8 +869,9 @@ pub fn render_terminal_text(
 fn add_terminal_data_to_ui(
     ui: &mut Ui,
     data: &UiData,
-    font_size: f32,
     max_line_width: f32,
+    terminal_fonts: &TerminalFont,
+    font_defs: &FontConfig,
 ) -> Result<(egui::Response, Option<UiJobAction>)> {
     let data_utf8: String;
     let adjusted_format_data: Vec<FormatTag>;
@@ -896,8 +897,9 @@ fn add_terminal_data_to_ui(
         &adjusted_format_data,
         data_len,
         &mut textformat,
-        font_size,
         &mut job,
+        terminal_fonts,
+        font_defs,
         #[cfg(feature = "validation")]
         data_utf8.as_bytes(),
     );
@@ -908,11 +910,13 @@ fn add_terminal_data_to_ui(
                 text: data_utf8.clone(),
                 adjusted_format_data: adjusted_format_data.clone(),
             };
-            let response = render_terminal_text(ui, &data_utf8, &job, font_size, max_line_width);
+            let response =
+                render_terminal_text(ui, &data_utf8, &job, font_defs.size, max_line_width);
             Ok((response, Some(response_data)))
         }
         UiData::PreviousPass(_) => {
-            let response = render_terminal_text(ui, &data_utf8, &job, font_size, max_line_width);
+            let response =
+                render_terminal_text(ui, &data_utf8, &job, font_defs.size, max_line_width);
             Ok((response, None))
         }
     }
@@ -927,9 +931,10 @@ struct TerminalOutputRenderResponse {
 fn render_terminal_output<Io: FreminalTermInputOutput>(
     ui: &mut egui::Ui,
     terminal_emulator: &mut TerminalEmulator<Io>,
-    font_size: f32,
     previous_pass: Option<&TerminalOutputRenderResponse>,
     max_line_width: f32,
+    terminal_fonts: &TerminalFont,
+    font_config: &FontConfig,
 ) -> TerminalOutputRenderResponse {
     let response = egui::ScrollArea::new([false, true])
         .auto_shrink([false, false])
@@ -955,8 +960,9 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                 _ = error_logged_rect(add_terminal_data_to_ui(
                     ui,
                     &UiData::PreviousPass(previous_pass.canvas.clone()),
-                    font_size,
                     max_line_width,
+                    terminal_fonts,
+                    font_config,
                 ));
 
                 (*previous_pass).clone()
@@ -980,8 +986,9 @@ fn render_terminal_output<Io: FreminalTermInputOutput>(
                         text: &canvas_data,
                         format_data: format_data.visible,
                     }),
-                    font_size,
                     max_line_width,
+                    terminal_fonts,
+                    font_config,
                 ));
 
                 // We want the program to crash here if we're testing
@@ -1023,7 +1030,8 @@ impl DebugRenderer {
 }
 
 pub struct FreminalTerminalWidget {
-    font_size: f32,
+    font_defs: FontConfig,
+    terminal_fonts: TerminalFont,
     max_line_width: f32,
     character_size: (f32, f32),
     previous_font_size: Option<f32>,
@@ -1038,11 +1046,12 @@ pub struct FreminalTerminalWidget {
 impl FreminalTerminalWidget {
     #[must_use]
     pub fn new(ctx: &Context) -> Self {
-        setup_font_files(ctx);
+        setup_font_files(ctx, &FontConfig::default());
         setup_bg_fill(ctx);
 
         Self {
-            font_size: 12.0,
+            font_defs: FontConfig::default(),
+            terminal_fonts: TerminalFont::new(FontConfig::default().size),
             max_line_width: 80.0,
             character_size: (0.0, 0.0),
             previous_font_size: None,
@@ -1060,12 +1069,17 @@ impl FreminalTerminalWidget {
 
     #[must_use]
     pub const fn get_font_size(&self) -> f32 {
-        self.font_size
+        self.font_defs.size
     }
 
     #[must_use]
-    pub fn calculate_available_size(&self, ui: &Ui) -> (usize, usize) {
-        let character_size = get_char_size(ui.ctx(), self.font_size);
+    pub fn get_terminal_fonts(&self) -> TerminalFont {
+        self.terminal_fonts.clone()
+    }
+
+    #[must_use]
+    pub fn calculate_available_size(&self, ui: &Ui, font: &TerminalFont) -> (usize, usize) {
+        let character_size = get_char_size(ui.ctx(), font);
         let width_chars =
             match ((ui.available_width() / character_size.0).floor()).approx_as::<usize>() {
                 Ok(v) => v,
@@ -1102,11 +1116,11 @@ impl FreminalTerminalWidget {
         let frame_response = egui::Frame::new().show(ui, |ui| {
             // if the previous font size is None, or the font size has changed, we need to update the font size
             if self.previous_font_size.is_none()
-                || (self.previous_font_size.unwrap_or_default() - self.font_size).abs()
+                || (self.previous_font_size.unwrap_or_default() - self.font_defs.size).abs()
                     > f32::EPSILON
             {
-                debug!("Font size changed, updating character size");
-                self.character_size = get_char_size(ui.ctx(), self.font_size);
+                info!("Font size changed, updating character size");
+                self.character_size = get_char_size(ui.ctx(), &self.terminal_fonts);
                 terminal_emulator.set_egui_ctx_if_missing(self.ctx.clone());
 
                 let theme = Theme::from(ui.style().visuals.clone().dark_mode);
@@ -1132,8 +1146,9 @@ impl FreminalTerminalWidget {
 
                 ui.set_width((width_chars + 0.5) * self.character_size.0);
                 ui.set_height((height_chars + 0.5) * self.character_size.1);
-                self.previous_font_size = Some(self.font_size);
+                self.previous_font_size = Some(self.font_defs.size);
                 self.max_line_width = width_chars;
+                terminal_emulator.set_previous_pass_invalid();
             }
 
             let repeat_characters = terminal_emulator.internal.should_repeat_keys();
@@ -1158,17 +1173,19 @@ impl FreminalTerminalWidget {
                 self.previous_pass = render_terminal_output(
                     ui,
                     terminal_emulator,
-                    self.font_size,
                     None,
                     self.max_line_width,
+                    &self.get_terminal_fonts(),
+                    &self.font_defs.clone(),
                 );
             } else {
                 let _response = render_terminal_output(
                     ui,
                     terminal_emulator,
-                    self.font_size,
                     Some(&self.previous_pass),
                     self.max_line_width,
+                    &self.get_terminal_fonts(),
+                    &self.font_defs.clone(),
                 );
             }
 
@@ -1243,7 +1260,7 @@ impl FreminalTerminalWidget {
     pub fn show_options(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.label("Font size:");
-            ui.add(DragValue::new(&mut self.font_size).range(1.0..=100.0));
+            ui.add(DragValue::new(&mut self.get_font_size()).range(1.0..=100.0));
         });
         #[cfg(debug_assertions)]
         ui.checkbox(&mut self.debug_renderer.enable, "Debug render");

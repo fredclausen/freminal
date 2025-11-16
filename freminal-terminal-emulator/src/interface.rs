@@ -11,10 +11,7 @@ use crate::io::DummyIo;
 use crate::io::FreminalPtyInputOutput;
 use crate::io::{FreminalTermInputOutput, FreminalTerminalSize, PtyRead, PtyWrite};
 use crate::state::{
-    cursor::CursorPos,
-    data::TerminalSections,
-    internal::{TerminalState, TERMINAL_HEIGHT, TERMINAL_WIDTH},
-    term_char::TChar,
+    cursor::CursorPos, data::TerminalSections, internal::TerminalState, term_char::TChar,
 };
 use anyhow::Result;
 use crossbeam_channel::{unbounded, Receiver};
@@ -22,6 +19,8 @@ use eframe::egui;
 
 use freminal_common::args::Args;
 use freminal_common::cursor::CursorVisualStyle;
+use freminal_common::terminal_size::DEFAULT_HEIGHT;
+use freminal_common::terminal_size::DEFAULT_WIDTH;
 
 const fn char_to_ctrl_code(c: u8) -> u8 {
     // https://catern.com/posts/terminal_quirks.html
@@ -262,8 +261,8 @@ impl TerminalEmulator<FreminalPtyInputOutput> {
         )?;
 
         if let Err(e) = write_tx.send(PtyWrite::Resize(FreminalTerminalSize {
-            width: TERMINAL_WIDTH,
-            height: TERMINAL_HEIGHT,
+            width: DEFAULT_WIDTH as usize,
+            height: DEFAULT_HEIGHT as usize,
             pixel_width: 0,
             pixel_height: 0,
         })) {

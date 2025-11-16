@@ -8,7 +8,10 @@ use conv2::ConvUtil;
 use core::str;
 use eframe::egui::{self, Color32, Context};
 use freminal_common::{
-    colors::TerminalColor, cursor::CursorVisualStyle, scroll::ScrollDirection,
+    colors::TerminalColor,
+    cursor::CursorVisualStyle,
+    scroll::ScrollDirection,
+    terminal_size::{DEFAULT_HEIGHT, DEFAULT_WIDTH},
     window_manipulation::WindowManipulation,
 };
 #[cfg(debug_assertions)]
@@ -46,9 +49,6 @@ use super::{
     term_char::TChar,
 };
 
-pub const TERMINAL_WIDTH: usize = 999;
-pub const TERMINAL_HEIGHT: usize = 16;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BufferType {
     #[default]
@@ -75,8 +75,8 @@ impl Default for Buffer {
             saved_cursor_position: None,
             show_cursor: Dectcem::default(),
             terminal_buffer: TerminalBufferHolder::new(
-                TERMINAL_WIDTH,
-                TERMINAL_HEIGHT,
+                DEFAULT_WIDTH as usize,
+                DEFAULT_HEIGHT as usize,
                 BufferType::Primary,
             ),
         }
@@ -167,8 +167,16 @@ impl TerminalState {
         Self {
             parser: FreminalAnsiParser::new(),
             current_buffer: BufferType::Primary,
-            primary_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT, BufferType::Primary),
-            alternate_buffer: Buffer::new(TERMINAL_WIDTH, TERMINAL_HEIGHT, BufferType::Alternate),
+            primary_buffer: Buffer::new(
+                DEFAULT_WIDTH as usize,
+                DEFAULT_HEIGHT as usize,
+                BufferType::Primary,
+            ),
+            alternate_buffer: Buffer::new(
+                DEFAULT_WIDTH as usize,
+                DEFAULT_HEIGHT as usize,
+                BufferType::Alternate,
+            ),
             modes: TerminalModes::default(),
             write_tx,
             changed: false,

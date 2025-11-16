@@ -398,6 +398,19 @@ impl FreminalAnsiParser {
         data_output: &mut Vec<u8>,
         output: &mut Vec<TerminalOutput>,
     ) {
+        // Allow ESC ESC sequences (common in DCS/OSC passthrough)
+        if b == 0x1B {
+            self.inner = ParserInner::Escape;
+            return;
+        }
+
+        // String Terminator (ESC \)
+        if b == b'\\' {
+            self.inner = ParserInner::Empty;
+            self.clear_trace();
+            return;
+        }
+
         push_data_if_non_empty(data_output, output);
 
         match b {
@@ -406,6 +419,10 @@ impl FreminalAnsiParser {
             }
             b']' => {
                 self.inner = ParserInner::Osc(AnsiOscParser::new());
+            }
+            b'\x1b' => {
+                // ESC followed by ESC is invalid; reset to Empty
+                info!("ANSI parser: ESC followed by ESC");
             }
             _ => {
                 let mut parser = StandardParser::new();

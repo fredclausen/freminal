@@ -335,9 +335,11 @@ impl eframe::App for FreminalGui {
         let mut waited = std::time::Duration::ZERO;
 
         let panel_response = CentralPanel::default().show(ctx, |ui| {
-            let (width_chars, height_chars) = self.terminal_widget.calculate_available_size(ui);
+            let (width_chars, height_chars) = self
+                .terminal_widget
+                .calculate_available_size(ui, &self.terminal_widget.get_terminal_fonts());
             let (font_width, font_height) =
-                get_char_size(ui.ctx(), self.terminal_widget.get_font_size());
+                get_char_size(ui.ctx(), &self.terminal_widget.get_terminal_fonts());
 
             let font_width = font_width.round().approx_as::<usize>().unwrap_or_else(|e| {
                 error!("Failed to convert font width to usize: {e}. Using 12 as default");
