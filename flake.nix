@@ -172,11 +172,13 @@
                   cargo-profiler
                   cargo-bundle
                   typos
-                  cachix
                   vttest
                   nodePackages.markdownlint-cli2
                 ]
-                ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ cargo-llvm-cov ]
+                ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+                  cargo-llvm-cov
+                  cachix
+                ]
               );
 
             LD_LIBRARY_PATH = libPath;
