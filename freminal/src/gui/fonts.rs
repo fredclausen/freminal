@@ -59,7 +59,7 @@ pub struct FontConfig {
 impl Default for FontConfig {
     fn default() -> Self {
         Self {
-            user_font: Some("Jetbrains Mono".into()),
+            user_font: None,
             size: 12.0,
             enable_emoji_fallback: true,
             enable_system_last_resort: true,

@@ -17,6 +17,7 @@
 
 pub mod args;
 pub mod colors;
+pub mod config;
 pub mod cursor;
 pub mod scroll;
 pub mod terminal_size;

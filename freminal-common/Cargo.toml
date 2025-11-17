@@ -18,6 +18,10 @@ rust-version.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 conv2.workspace = true
+serde.workspace = true
+toml.workspace = true
+thiserror.workspace = true
+directories.workspace = true
 
 [dev-dependencies]
 test-log.workspace = true

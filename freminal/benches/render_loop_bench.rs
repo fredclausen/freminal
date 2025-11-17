@@ -25,7 +25,7 @@ pub fn render_loop_benchmarks(c: &mut Criterion) {
     // Prepare shared objects reused across all benches
     let mut terminal = make_empty_terminal();
     let ctx = Context::default();
-    let mut widget = FreminalTerminalWidget::new(&ctx);
+    let mut widget = FreminalTerminalWidget::new(&ctx, &freminal_common::config::Config::default());
 
     // ---------- 1. Feed Data (incremental) ----------
     //

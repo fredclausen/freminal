@@ -1,0 +1,43 @@
+# Freminal Configuration File
+# This file controls fonts, cursor behavior, theme, and more.
+# All values are optional; missing items fall back to sensible defaults.
+#
+# To customize, copy this file to:
+#   Linux:   ~/.config/freminal/config.toml
+#   macOS:   ~/Library/Application Support/Freminal/config.toml
+#   Windows: %APPDATA%\Freminal\config.toml
+#
+# Schema version (incremented when breaking changes occur)
+version = 1
+
+################################################################################
+# FONT SETTINGS
+################################################################################
+[font]
+# Primary terminal font family
+family = "CaskaydiaCove Nerd Font"
+
+# Font size in points
+size = 12.0
+
+################################################################################
+# CURSOR SETTINGS
+################################################################################
+[cursor]
+# Cursor shape:
+#   block
+#   underline
+#   bar
+shape = "block"
+
+# Whether the cursor should blink
+blink = true
+
+
+################################################################################
+# THEME SETTINGS
+################################################################################
+[theme]
+# Name of your color scheme
+# You can later support built-in themes or custom theme files
+name = "catppuccin-mocha"

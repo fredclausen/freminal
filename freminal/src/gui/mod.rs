@@ -13,6 +13,7 @@ use anyhow::Result;
 use conv2::ConvUtil;
 use eframe::egui::{self, CentralPanel, Pos2, Vec2, ViewportCommand};
 use fonts::get_char_size;
+use freminal_common::config::Config;
 use freminal_common::window_manipulation::WindowManipulation;
 use freminal_terminal_emulator::interface::TerminalEmulator;
 use freminal_terminal_emulator::io::FreminalPtyInputOutput;
@@ -44,19 +45,22 @@ struct FreminalGui {
     terminal_emulator: Arc<FairMutex<TerminalEmulator<FreminalPtyInputOutput>>>,
     terminal_widget: FreminalTerminalWidget,
     window_title_stack: Vec<String>,
+    _config: Config,
 }
 
 impl FreminalGui {
     fn new(
         cc: &eframe::CreationContext<'_>,
         terminal_emulator: Arc<FairMutex<TerminalEmulator<FreminalPtyInputOutput>>>,
+        config: Config,
     ) -> Self {
         set_egui_options(&cc.egui_ctx);
 
         Self {
             terminal_emulator,
-            terminal_widget: FreminalTerminalWidget::new(&cc.egui_ctx),
+            terminal_widget: FreminalTerminalWidget::new(&cc.egui_ctx, &config),
             window_title_stack: Vec::new(),
+            _config: config,
         }
     }
 }
@@ -431,13 +435,14 @@ impl eframe::App for FreminalGui {
 /// Will return an error if the GUI fails to run
 pub fn run(
     terminal_emulator: Arc<FairMutex<TerminalEmulator<FreminalPtyInputOutput>>>,
+    config: Config,
 ) -> Result<()> {
     let native_options = eframe::NativeOptions::default();
 
     match eframe::run_native(
         "Freminal",
         native_options,
-        Box::new(move |cc| Ok(Box::new(FreminalGui::new(cc, terminal_emulator)))),
+        Box::new(move |cc| Ok(Box::new(FreminalGui::new(cc, terminal_emulator, config)))),
     ) {
         Ok(()) => Ok(()),
         Err(e) => Err(anyhow::anyhow!(e.to_string())),

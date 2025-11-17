@@ -12,7 +12,7 @@ use crate::gui::{
     TerminalEmulator,
 };
 
-use freminal_common::cursor::CursorVisualStyle;
+use freminal_common::{config::Config, cursor::CursorVisualStyle};
 use freminal_terminal_emulator::{
     ansi_components::modes::rl_bracket::RlBracket,
     format_tracker::FormatTag,
@@ -1045,13 +1045,18 @@ pub struct FreminalTerminalWidget {
 
 impl FreminalTerminalWidget {
     #[must_use]
-    pub fn new(ctx: &Context) -> Self {
-        setup_font_files(ctx, &FontConfig::default());
+    pub fn new(ctx: &Context, config: &Config) -> Self {
+        let font_config = FontConfig {
+            size: config.font.size,
+            user_font: config.font.family.clone(),
+            ..FontConfig::default()
+        };
+        setup_font_files(ctx, &font_config);
         setup_bg_fill(ctx);
 
         Self {
-            font_defs: FontConfig::default(),
-            terminal_fonts: TerminalFont::new(FontConfig::default().size),
+            font_defs: font_config,
+            terminal_fonts: TerminalFont::new(config.font.size),
             max_line_width: 80.0,
             character_size: (0.0, 0.0),
             previous_font_size: None,
