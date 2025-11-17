@@ -7,7 +7,10 @@ use crate::ansi_components::modes::decawm::Decawm;
 
 use super::{cursor::CursorPos, data::TerminalSections, internal::BufferType, term_char::TChar};
 use anyhow::Result;
-use freminal_common::scroll::ScrollDirection;
+use freminal_common::{
+    scroll::ScrollDirection,
+    terminal_size::{DEFAULT_HEIGHT, DEFAULT_WIDTH},
+};
 use std::ops::Range;
 
 pub struct PadBufferForWriteResponse {
@@ -58,8 +61,8 @@ impl Default for TerminalBufferHolder {
     fn default() -> Self {
         Self {
             buf: Vec::with_capacity(500_000),
-            width: 80,
-            height: 24,
+            width: DEFAULT_WIDTH as usize,
+            height: DEFAULT_HEIGHT as usize,
             visible_line_ranges: Vec::with_capacity(24),
             buffer_line_ranges: Vec::with_capacity(5000),
             viewable_index_bottom: usize::MAX,

@@ -9,10 +9,10 @@ use proptest::prelude::*;
 /// ---------- Deterministic Unit Tests ----------
 
 #[test]
-fn default_is_block_cursor_blink() {
+fn default_is_block_cursor_steady() {
     assert_eq!(
         CursorVisualStyle::default(),
-        CursorVisualStyle::BlockCursorBlink
+        CursorVisualStyle::BlockCursorSteady
     );
 }
 

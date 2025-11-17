@@ -549,3 +549,4 @@ freminal_snapshot*.zip
 *.patch
 output.txt
 snapshots/*
+dump.txt

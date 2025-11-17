@@ -8,7 +8,10 @@ use std::{io::Write, path::Path};
 use super::{FreminalTermInputOutput, PtyRead, PtyWrite};
 use anyhow::Result;
 use crossbeam_channel::{Receiver, Sender};
-use freminal_common::terminfo::TERMINFO;
+use freminal_common::{
+    terminal_size::{DEFAULT_HEIGHT, DEFAULT_WIDTH},
+    terminfo::TERMINFO,
+};
 use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use sys_locale::get_locale;
 use tempfile::TempDir;
@@ -47,8 +50,8 @@ pub fn run_terminal(
     let pty_system = NativePtySystem::default();
 
     let pair = match pty_system.openpty(PtySize {
-        rows: 24,
-        cols: 999,
+        rows: DEFAULT_HEIGHT,
+        cols: DEFAULT_WIDTH,
         pixel_width: 0,
         pixel_height: 0,
     }) {
