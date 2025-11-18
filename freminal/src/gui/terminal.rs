@@ -837,6 +837,8 @@ pub fn render_terminal_text(
                 if c == '\n' {
                     continue;
                 }
+
+                info!("soft wrap");
             }
 
             // 1) Draw background cell
@@ -1147,42 +1149,35 @@ impl FreminalTerminalWidget {
         terminal_emulator: &mut TerminalEmulator<Io>,
     ) {
         let frame_response = egui::Frame::new().show(ui, |ui| {
-            // if the previous font size is None, or the font size has changed, we need to update the font size
-            if self.previous_font_size.is_none()
-                || (self.previous_font_size.unwrap_or_default() - self.font_defs.size).abs()
-                    > f32::EPSILON
-            {
-                info!("Font size changed, updating character size");
-                self.character_size = get_char_size(ui.ctx(), &self.terminal_fonts);
-                terminal_emulator.set_egui_ctx_if_missing(self.ctx.clone());
+            self.character_size = get_char_size(ui.ctx(), &self.terminal_fonts);
+            terminal_emulator.set_egui_ctx_if_missing(self.ctx.clone());
 
-                let theme = Theme::from(ui.style().visuals.clone().dark_mode);
+            let theme = Theme::from(ui.style().visuals.clone().dark_mode);
 
-                terminal_emulator.internal.set_theme(theme);
+            terminal_emulator.internal.set_theme(theme);
 
-                let (width_chars, height_chars) = terminal_emulator.get_win_size();
-                let width_chars = match f32::value_from(width_chars) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        error!("Failed to convert width chars to f32: {}", e);
-                        10.0
-                    }
-                };
+            let (width_chars, height_chars) = terminal_emulator.get_win_size();
+            let width_chars = match f32::value_from(width_chars) {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("Failed to convert width chars to f32: {}", e);
+                    10.0
+                }
+            };
 
-                let height_chars = match f32::value_from(height_chars) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        error!("Failed to convert height chars to f32: {}", e);
-                        10.0
-                    }
-                };
+            let height_chars = match f32::value_from(height_chars) {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("Failed to convert height chars to f32: {}", e);
+                    10.0
+                }
+            };
 
-                ui.set_width((width_chars + 0.5) * self.character_size.0);
-                ui.set_height((height_chars + 0.5) * self.character_size.1);
-                self.previous_font_size = Some(self.font_defs.size);
-                self.max_line_width = width_chars;
-                terminal_emulator.set_previous_pass_invalid();
-            }
+            ui.set_width((width_chars + 0.5) * self.character_size.0);
+            ui.set_height((height_chars + 0.5) * self.character_size.1);
+            self.previous_font_size = Some(self.font_defs.size);
+            self.max_line_width = width_chars;
+            terminal_emulator.set_previous_pass_invalid();
 
             let repeat_characters = terminal_emulator.internal.should_repeat_keys();
             let (left_mouse_button_pressed, new_mouse_pos, previous_key, scroll_amount) =
