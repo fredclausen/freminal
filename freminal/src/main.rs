@@ -33,8 +33,9 @@ use tracing_subscriber::{
 
 pub mod gui;
 
-use freminal_common::args::Args;
+use freminal_common::{args::Args, config::load_config};
 
+#[allow(clippy::too_many_lines)]
 fn main() {
     // use env for filtering
     // example
@@ -127,6 +128,16 @@ fn main() {
 
     info!("Starting freminal");
 
+    let cfg = match load_config(None) {
+        Ok(cfg) => cfg,
+        Err(err) => {
+            error!("Failed to load config: {:#}", err);
+            std::process::exit(1);
+        }
+    };
+
+    debug!("Loaded config: {:#?}", cfg);
+
     let res = match TerminalEmulator::new(&args) {
         Ok((terminal, rx)) => {
             let terminal = Arc::new(FairMutex::new(terminal));
@@ -141,7 +152,7 @@ fn main() {
                 }
             });
 
-            gui::run(terminal_clone)
+            gui::run(terminal_clone, cfg)
         }
         Err(e) => {
             error!("Failed to create terminal emulator: {}", e);

@@ -12,7 +12,7 @@ use crate::gui::{
     TerminalEmulator,
 };
 
-use freminal_common::cursor::CursorVisualStyle;
+use freminal_common::{config::Config, cursor::CursorVisualStyle};
 use freminal_terminal_emulator::{
     ansi_components::modes::rl_bracket::RlBracket,
     format_tracker::FormatTag,
@@ -786,13 +786,12 @@ pub fn render_terminal_text(
     // convert max_line_width to usize
     let max_line_width: usize =
         <usize as ApproxFrom<f32, RoundToZero>>::approx_from(max_line_width).unwrap_or(80);
-    let ctx = ui.ctx();
 
     let font_id = egui::FontId::monospace(font_size);
 
     // Need mutable access for glyph metrics
-    let glyph_width = ctx.fonts_mut(|f| f.glyph_width(&font_id, 'W'));
-    let row_height = ctx.fonts_mut(|f| f.row_height(&font_id));
+    let glyph_width = ui.ctx().fonts_mut(|f| f.glyph_width(&font_id, 'W'));
+    let row_height = ui.ctx().fonts_mut(|f| f.row_height(&font_id));
     let baseline_offset = row_height;
 
     // Compute total size — roughly estimate height based on newlines
@@ -840,7 +839,7 @@ pub fn render_terminal_text(
                 }
             }
 
-            // Draw background cell
+            // 1) Draw background cell
             if bg_color != egui::Color32::TRANSPARENT {
                 let bg_rect = egui::Rect::from_min_size(
                     egui::pos2(x, y),
@@ -849,14 +848,43 @@ pub fn render_terminal_text(
                 painter.rect_filled(bg_rect, 0.0, bg_color);
             }
 
-            // Draw glyph baseline-aligned
+            // 2) Start from section font
+            let mut glyph_font = font_id.clone();
+
+            // 3) Measure natural width
+            let natural_width = ui.ctx().fonts_mut(|f| f.glyph_width(&glyph_font, c));
+
+            let mut draw_x = x;
+            let mut draw_y = baseline_y;
+
+            // 4) If it wants to be wider than our cell, scale AND center it
+            if natural_width > glyph_width && natural_width > 0.0 {
+                let scale = glyph_width / natural_width;
+                glyph_font.size *= scale;
+
+                // --- Horizontal centering ---
+                let scaled_width = natural_width * scale;
+                let dx = (glyph_width - scaled_width) * 0.5;
+                draw_x += dx;
+
+                // --- Vertical centering ---
+                let full_height = font_id.size; // original unscaled glyph height
+                let scaled_height = glyph_font.size; // after scaling
+                let dy = (full_height - scaled_height) * 0.5;
+
+                draw_y -= dy; // baseline_y is bottom anchor; move up half the difference
+            }
+
+            // 5) Draw glyph
             painter.text(
-                egui::pos2(x, baseline_y),
+                egui::pos2(draw_x, draw_y),
                 egui::Align2::LEFT_BOTTOM,
                 c.to_string(),
-                font_id.clone(),
+                glyph_font,
                 text_color,
             );
+
+            // 6) Advance by one cell
 
             x += glyph_width;
             char_line_count += 1;
@@ -1045,13 +1073,18 @@ pub struct FreminalTerminalWidget {
 
 impl FreminalTerminalWidget {
     #[must_use]
-    pub fn new(ctx: &Context) -> Self {
-        setup_font_files(ctx, &FontConfig::default());
+    pub fn new(ctx: &Context, config: &Config) -> Self {
+        let font_config = FontConfig {
+            size: config.font.size,
+            user_font: config.font.family.clone(),
+            ..FontConfig::default()
+        };
+        setup_font_files(ctx, &font_config);
         setup_bg_fill(ctx);
 
         Self {
-            font_defs: FontConfig::default(),
-            terminal_fonts: TerminalFont::new(FontConfig::default().size),
+            font_defs: font_config,
+            terminal_fonts: TerminalFont::new(config.font.size),
             max_line_width: 80.0,
             character_size: (0.0, 0.0),
             previous_font_size: None,
