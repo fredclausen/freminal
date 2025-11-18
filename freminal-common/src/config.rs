@@ -233,7 +233,7 @@ fn load_partial(path: &Path) -> Result<ConfigPartial, ConfigError> {
 /// ---------------------------------------------------------------------------------------------
 ///  Platform-specific config paths
 /// ---------------------------------------------------------------------------------------------
-#[allow(clippy::missing_const_for_fn)]
+#[allow(clippy::missing_const_for_fn, clippy::unnecessary_wraps)]
 fn system_config_path() -> Option<PathBuf> {
     #[cfg(target_os = "linux")]
     {
