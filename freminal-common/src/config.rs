@@ -233,7 +233,8 @@ fn load_partial(path: &Path) -> Result<ConfigPartial, ConfigError> {
 /// ---------------------------------------------------------------------------------------------
 ///  Platform-specific config paths
 /// ---------------------------------------------------------------------------------------------
-const fn system_config_path() -> Option<PathBuf> {
+#[allow(clippy::missing_const_for_fn)]
+fn system_config_path() -> Option<PathBuf> {
     #[cfg(target_os = "linux")]
     {
         Some(PathBuf::from("/etc/freminal/config.toml"))
