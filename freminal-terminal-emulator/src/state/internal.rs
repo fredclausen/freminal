@@ -9,6 +9,7 @@ use core::str;
 use eframe::egui::{self, Color32, Context};
 use freminal_common::{
     buffer_states::{
+        buffer_type::BufferType,
         cursor::{CursorPos, CursorState, ReverseVideo},
         fonts::{FontDecorations, FontWeight},
         format_tag::FormatTag,
@@ -52,13 +53,6 @@ use super::{
     buffer::{TerminalBufferHolder, TerminalBufferSetWinSizeResponse},
     data::TerminalSections,
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum BufferType {
-    #[default]
-    Primary,
-    Alternate,
-}
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Buffer {

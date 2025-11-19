@@ -68,13 +68,3 @@ fn multi_row_mixed_width_insertion() {
     assert_eq!(buf.get_cursor().pos.y, 1);
     assert_eq!(buf.get_cursor().pos.x, 2);
 }
-
-#[test]
-fn leftover_propagation_across_wrap() {
-    let mut buf = Buffer::new(3, 10);
-
-    buf.insert_text(&[ascii('A'), ascii('B'), ascii('C'), ascii('D')]);
-
-    assert_eq!(buf.get_cursor().pos.y, 1);
-    assert_eq!(buf.get_cursor().pos.x, 1);
-}

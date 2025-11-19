@@ -7,6 +7,7 @@ use freminal_common::buffer_states::{format_tag::FormatTag, tchar::TChar};
 
 use crate::{cell::Cell, response::InsertResponse};
 
+#[derive(Debug, Clone)]
 pub struct Row {
     characters: Vec<Cell>,
     width: usize,

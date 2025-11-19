@@ -3,11 +3,9 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-pub mod buffer_type;
-pub mod cursor;
-pub mod error;
-pub mod fonts;
-pub mod format_tag;
-pub mod line_wrap;
-pub mod tchar;
-pub mod url;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BufferType {
+    #[default]
+    Primary,
+    Alternate,
+}
