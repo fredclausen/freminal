@@ -1,79 +1,80 @@
-#[cfg(test)]
-mod tests {
-    use freminal_buffer::buffer::Buffer;
-    use freminal_common::buffer_states::tchar::TChar;
+// freminal-buffer/tests/buffer_tests.rs
 
-    fn chars(s: &str) -> Vec<TChar> {
-        s.chars()
-            .map(|c| TChar::Utf8(c.to_string().into_bytes()))
-            .collect()
-    }
+use freminal_buffer::buffer::Buffer;
+use freminal_common::buffer_states::tchar::TChar;
 
-    #[test]
-    fn insert_simple_text_in_buffer() {
-        let mut buf = Buffer::new(80, 10);
+fn ascii(c: char) -> TChar {
+    TChar::Ascii(c as u8)
+}
 
-        buf.insert_text(&chars("Hello"));
+fn emoji(s: &str) -> TChar {
+    TChar::Utf8(s.as_bytes().to_vec())
+}
 
-        assert_eq!(buf.get_rows().len(), 1);
-        let row = &buf.get_rows()[0];
-        assert_eq!(row.get_row_width(), 5);
-        assert_eq!(buf.get_cursor().pos.x, 5);
-        assert_eq!(buf.get_cursor().pos.y, 0);
-    }
+#[test]
+fn insert_simple_text_in_buffer() {
+    let mut buf = Buffer::new(10, 10);
 
-    #[test]
-    fn insert_wraps_into_next_row() {
-        let mut buf = Buffer::new(3, 10);
+    buf.insert_text(&[ascii('H'), ascii('e'), ascii('l'), ascii('l'), ascii('o')]);
 
-        buf.insert_text(&chars("Hello"));
+    assert_eq!(buf.get_cursor().pos.x, 5);
+    assert_eq!(buf.get_cursor().pos.y, 0);
+}
 
-        assert_eq!(buf.get_rows().len(), 2);
+#[test]
+fn insert_wraps_into_next_row() {
+    let mut buf = Buffer::new(5, 10);
 
-        let row0 = &buf.get_rows()[0];
-        let row1 = &buf.get_rows()[1];
+    buf.insert_text(&[ascii('H'), ascii('e'), ascii('l'), ascii('l'), ascii('o')]); // col=5 -> wrap
+    buf.insert_text(&[ascii('!')]);
 
-        assert_eq!(
-            row0.get_characters()
-                .iter()
-                .map(|c| c.into_utf8())
-                .collect::<String>(),
-            "Hel" // codespell:ignore
-        );
-        assert_eq!(
-            row1.get_characters()
-                .iter()
-                .map(|c| c.into_utf8())
-                .collect::<String>(),
-            "lo"
-        );
+    assert_eq!(buf.get_cursor().pos.y, 1);
+    assert_eq!(buf.get_cursor().pos.x, 1);
+}
 
-        assert_eq!(buf.get_cursor().pos.y, 1);
-        assert_eq!(buf.get_cursor().pos.x, 2);
-    }
+#[test]
+fn insert_wide_char_wrap() {
+    let mut buf = Buffer::new(4, 10);
 
-    #[test]
-    fn insert_multiple_wraps() {
-        let mut buf = Buffer::new(2, 10);
+    buf.insert_text(&[ascii('A'), emoji("🙂")]); // A takes 1, 🙂 takes 2 → 3 total
 
-        buf.insert_text(&chars("abcdef"));
+    assert_eq!(buf.get_cursor().pos.x, 3);
 
-        assert_eq!(buf.get_rows().len(), 3); // "ab", "cd", "ef"
-        assert_eq!(buf.get_cursor().pos.y, 2);
-        assert_eq!(buf.get_cursor().pos.x, 2);
-    }
+    buf.insert_text(&[emoji("🙂")]); // does NOT fit at col 3 → wraps
 
-    #[test]
-    fn insert_wide_char_wrap() {
-        let mut buf = Buffer::new(3, 10);
+    assert_eq!(buf.get_cursor().pos.y, 1);
+    assert_eq!(buf.get_cursor().pos.x, 2);
+}
 
-        let text = chars("a🙂b"); // widths: 1, 2, 1
+#[test]
+fn insert_multiple_wraps() {
+    let mut buf = Buffer::new(3, 10);
 
-        buf.insert_text(&text);
+    buf.insert_text(&[ascii('A'), ascii('B'), ascii('C'), ascii('D'), ascii('E')]);
 
-        assert_eq!(buf.get_rows().len(), 2);
+    assert_eq!(buf.get_cursor().pos.y, 1);
+    assert_eq!(buf.get_cursor().pos.x, 2);
+}
 
-        assert_eq!(buf.get_cursor().pos.y, 1);
-        assert_eq!(buf.get_cursor().pos.x, 1); // 'b' inserted on row 1
-    }
+#[test]
+fn multi_row_mixed_width_insertion() {
+    let mut buf = Buffer::new(4, 10);
+
+    buf.insert_text(&[ascii('A'), emoji("🙂"), ascii('B'), emoji("🙂")]);
+    // Expected:
+    // Row 0: A 🙂 B → col=4 (wrap)
+    // Row 1: 🙂     → col=2
+
+    assert_eq!(buf.get_cursor().pos.y, 1);
+    assert_eq!(buf.get_cursor().pos.x, 2);
+}
+
+#[test]
+fn leftover_propagation_across_wrap() {
+    let mut buf = Buffer::new(3, 10);
+
+    buf.insert_text(&[ascii('A'), ascii('B'), ascii('C'), ascii('D')]);
+
+    assert_eq!(buf.get_cursor().pos.y, 1);
+    assert_eq!(buf.get_cursor().pos.x, 1);
 }

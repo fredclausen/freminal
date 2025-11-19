@@ -5,19 +5,24 @@
 
 use freminal_common::buffer_states::{format_tag::FormatTag, tchar::TChar};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cell {
     value: TChar,
     format: FormatTag,
-    continuation: bool,
+    is_wide_head: bool,
+    is_wide_continuation: bool,
 }
 
 impl Cell {
     #[must_use]
-    pub const fn new(value: TChar, format: FormatTag) -> Self {
+    pub fn new(value: TChar, format: FormatTag) -> Self {
+        let width = value.display_width();
+
         Self {
             value,
             format,
-            continuation: false,
+            is_wide_head: width > 1,
+            is_wide_continuation: false,
         }
     }
 
@@ -26,13 +31,24 @@ impl Cell {
         Self {
             value: TChar::Space, // filler glyph
             format: FormatTag::default(),
-            continuation: true,
+            is_wide_continuation: true,
+            is_wide_head: false,
         }
     }
 
     #[must_use]
-    pub const fn get_character(&self) -> &TChar {
+    pub const fn is_head(&self) -> bool {
+        self.is_wide_head
+    }
+
+    #[must_use]
+    pub const fn tchar(&self) -> &TChar {
         &self.value
+    }
+
+    #[must_use]
+    pub fn display_width(&self) -> usize {
+        self.value.display_width()
     }
 
     #[must_use]
@@ -43,5 +59,10 @@ impl Cell {
             TChar::Space => " ".to_string(),
             TChar::NewLine => "\n".to_string(),
         }
+    }
+
+    #[must_use]
+    pub const fn is_continuation(&self) -> bool {
+        self.is_wide_continuation
     }
 }

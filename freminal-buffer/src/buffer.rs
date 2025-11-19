@@ -51,12 +51,20 @@ impl Buffer {
         let mut col = self.cursor.pos.x;
 
         loop {
-            // ensure row exists
+            // Step 1 — Wrap if needed
+            if col >= self.width {
+                row_idx += 1;
+                col = 0;
+            }
+
+            // Step 2 — Ensure row exists *after wrap*
             if row_idx >= self.rows.len() {
                 self.rows.push(Row::new(self.width));
             }
 
-            match self.rows[row_idx].insert_text(col, &remaining, tag, self.width) {
+            // Step 3 — Now it's safe to index into rows[row_idx]
+
+            match self.rows[row_idx].insert_text(col, &remaining, tag) {
                 InsertResponse::Consumed(final_col) => {
                     self.cursor.pos.x = final_col;
                     self.cursor.pos.y = row_idx;
