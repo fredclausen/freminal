@@ -1375,6 +1375,10 @@ dependencies = [
 [[package]]
 name = "freminal-buffer"
 version = "0.1.0"
+dependencies = [
+ "freminal-common",
+ "tracing",
+]
 
 [[package]]
 name = "freminal-common"
@@ -1391,6 +1395,7 @@ dependencies = [
  "thiserror 2.0.17",
  "toml",
  "tracing",
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -1411,7 +1416,6 @@ dependencies = [
  "test-log",
  "thiserror 2.0.17",
  "tracing",
- "unicode-segmentation",
  "vergen",
 ]
 

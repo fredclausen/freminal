@@ -5,7 +5,7 @@
 
 use core::fmt;
 
-use crate::error::ParserFailures;
+use crate::buffer_states::error::TCharError;
 use anyhow::Result;
 use std::fmt::Write;
 use unicode_segmentation::UnicodeSegmentation;
@@ -41,7 +41,7 @@ impl TChar {
             return Ok(Self::Utf8(v));
         }
 
-        Err(ParserFailures::InvalidTChar(v).into())
+        Err(TCharError::InvalidTChar(v).into())
     }
 
     #[must_use]

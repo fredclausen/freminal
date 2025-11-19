@@ -3,6 +3,8 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-pub mod buffer;
-pub mod data;
-pub mod internal;
+use crate::row::Row;
+
+pub struct Buffer {
+    rows: Vec<Row>,
+}

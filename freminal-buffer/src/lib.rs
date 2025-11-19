@@ -2,3 +2,22 @@
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
+
+#![deny(
+    clippy::pedantic,
+    //clippy::cargo,
+    clippy::nursery,
+    clippy::style,
+    clippy::correctness,
+    clippy::all,
+    clippy::unwrap_used,
+    clippy::expect_used
+)]
+#![allow(dead_code, unused_imports)]
+
+pub mod buffer;
+mod cell;
+mod row;
+
+#[macro_use]
+extern crate tracing;
