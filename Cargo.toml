@@ -1,6 +1,17 @@
 [workspace]
-members = ["freminal", "freminal-common", "freminal-terminal-emulator", "xtask"]
-default-members = ["freminal", "freminal-common", "freminal-terminal-emulator"]
+members = [
+  "freminal",
+  "freminal-buffer",
+  "freminal-common",
+  "freminal-terminal-emulator",
+  "xtask",
+]
+default-members = [
+  "freminal",
+  "freminal-buffer",
+  "freminal-common",
+  "freminal-terminal-emulator",
+]
 resolver = "2"
 
 [workspace.package]

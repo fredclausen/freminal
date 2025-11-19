@@ -1373,6 +1373,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "freminal-buffer"
+version = "0.1.0"
+
+[[package]]
 name = "freminal-common"
 version = "0.1.0"
 dependencies = [
