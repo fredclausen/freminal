@@ -1396,6 +1396,7 @@ dependencies = [
  "toml",
  "tracing",
  "unicode-segmentation",
+ "unicode-width",
 ]
 
 [[package]]

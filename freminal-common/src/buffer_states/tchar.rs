@@ -28,6 +28,23 @@ impl TChar {
         }
     }
 
+    #[must_use]
+    pub fn display_width(&self) -> usize {
+        match self {
+            Self::Ascii(_) | Self::Space => 1,
+
+            // newline is not a cell; it causes a line break handled by Buffer
+            Self::NewLine => 0,
+
+            Self::Utf8(v) => {
+                // Try to interpret as UTF-8; fallback to width 1 for invalid sequences
+                std::str::from_utf8(v)
+                    .map(unicode_width::UnicodeWidthStr::width)
+                    .unwrap_or(1)
+            }
+        }
+    }
+
     /// Create a new `TChar` from a vector of u8
     ///
     /// There is no UTF8 validation. That is assumed to have happened before this function is called.

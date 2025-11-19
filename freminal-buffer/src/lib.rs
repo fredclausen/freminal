@@ -16,8 +16,9 @@
 #![allow(dead_code, unused_imports)]
 
 pub mod buffer;
-mod cell;
-mod row;
+pub mod cell;
+pub mod response;
+pub mod row;
 
 #[macro_use]
 extern crate tracing;
