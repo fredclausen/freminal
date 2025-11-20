@@ -7,20 +7,45 @@ use freminal_common::buffer_states::{format_tag::FormatTag, tchar::TChar};
 
 use crate::{cell::Cell, response::InsertResponse};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RowOrigin {
+    HardBreak,
+    SoftWrap,
+    ScrollFill,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RowJoin {
+    NewLogicalLine,
+    ContinueLogicalLine,
+}
+
 #[derive(Debug, Clone)]
 pub struct Row {
-    characters: Vec<Cell>,
+    cells: Vec<Cell>,
     width: usize,
-    remaining_width: usize,
+    pub origin: RowOrigin,
+    pub join: RowJoin,
 }
 
 impl Row {
     #[must_use]
     pub const fn new(width: usize) -> Self {
         Self {
-            characters: Vec::new(),
+            cells: Vec::new(),
             width,
-            remaining_width: width,
+            origin: RowOrigin::ScrollFill,
+            join: RowJoin::NewLogicalLine,
+        }
+    }
+
+    #[must_use]
+    pub const fn new_with_origin(width: usize, origin: RowOrigin, join: RowJoin) -> Self {
+        Self {
+            cells: Vec::new(),
+            width,
+            origin,
+            join,
         }
     }
 
@@ -36,8 +61,8 @@ impl Row {
         let mut cols = 0;
         let mut idx = 0;
 
-        while idx < self.characters.len() {
-            let cell = &self.characters[idx];
+        while idx < self.cells.len() {
+            let cell = &self.cells[idx];
             if cell.is_head() {
                 cols += cell.display_width();
                 idx += cell.display_width();
@@ -53,45 +78,43 @@ impl Row {
 
     #[must_use]
     pub fn get_char_at(&self, idx: usize) -> Option<&Cell> {
-        self.characters.get(idx)
+        self.cells.get(idx)
     }
 
     #[must_use]
     pub const fn get_characters(&self) -> &Vec<Cell> {
-        &self.characters
+        &self.cells
     }
 
     /// Clean up when overwriting wide cells:
     /// - If overwriting a continuation, clear the head + all its continuations.
     /// - If overwriting a head, clear its continuations.
     fn cleanup_wide_overwrite(&mut self, col: usize) {
-        if col >= self.characters.len() {
+        if col >= self.cells.len() {
             return;
         }
 
         // Overwriting a continuation: clean up head + all continuations.
-        if self.characters[col].is_continuation() {
+        if self.cells[col].is_continuation() {
             if col == 0 {
                 // Invariant violation; nothing to the left
                 return;
             }
             // find head to the left
             let mut head = col - 1;
-            while head > 0 && !self.characters[head].is_head() {
+            while head > 0 && !self.cells[head].is_head() {
                 head -= 1;
             }
-            if !self.characters[head].is_head() {
+            if !self.cells[head].is_head() {
                 return;
             }
 
             // clear head + all following continuations
             let mut idx = head;
-            while idx < self.characters.len() && self.characters[idx].is_continuation()
-                || idx == head
-            {
-                self.characters[idx] = Cell::new(TChar::Space, FormatTag::default());
+            while idx < self.cells.len() && self.cells[idx].is_continuation() || idx == head {
+                self.cells[idx] = Cell::new(TChar::Space, FormatTag::default());
                 idx += 1;
-                if idx >= self.characters.len() {
+                if idx >= self.cells.len() {
                     break;
                 }
             }
@@ -99,10 +122,10 @@ impl Row {
         }
 
         // Overwriting a head: clear trailing continuations
-        if self.characters[col].is_head() {
+        if self.cells[col].is_head() {
             let mut idx = col + 1;
-            while idx < self.characters.len() && self.characters[idx].is_continuation() {
-                self.characters[idx] = Cell::new(TChar::Space, FormatTag::default());
+            while idx < self.cells.len() && self.cells[idx].is_continuation() {
+                self.cells[idx] = Cell::new(TChar::Space, FormatTag::default());
                 idx += 1;
             }
         }
@@ -116,7 +139,10 @@ impl Row {
     ) -> InsertResponse {
         let mut col = start_col;
 
-        // row cannot start past width
+        // ---------------------------------------------------------------
+        // SAFETY CHECK: If start_col is out of bounds, nothing fits here.
+        // We just report all text as leftover.
+        // ---------------------------------------------------------------
         if col >= self.width {
             return InsertResponse::Leftover {
                 data: text.to_vec(),
@@ -124,10 +150,13 @@ impl Row {
             };
         }
 
+        // ---------------------------------------------------------------
+        // Walk each character and try to insert it.
+        // ---------------------------------------------------------------
         for (i, tchar) in text.iter().enumerate() {
             let w = tchar.display_width();
 
-            // RULE 1: per-glyph overflow check
+            // RULE 1: Glyph won't fit — overflow mid-insertion.
             if col + w > self.width {
                 return InsertResponse::Leftover {
                     data: text[i..].to_vec(),
@@ -135,47 +164,60 @@ impl Row {
                 };
             }
 
-            // --- Pad up to col (bounded) ---
-            if col > self.characters.len() {
-                let pad = col - self.characters.len();
+            // -----------------------------------------------------------
+            // Pad row up to current col if needed
+            // -----------------------------------------------------------
+            if col > self.cells.len() {
+                let pad = col - self.cells.len();
                 for _ in 0..pad {
-                    self.characters.push(Cell::new(TChar::Space, tag.clone()));
+                    self.cells.push(Cell::new(TChar::Space, tag.clone()));
                 }
             }
 
-            // --- Cleanup wide-glyph overwrite ---
-            if col < self.characters.len() {
+            // -----------------------------------------------------------
+            // Overwriting a wide glyph head/continuation?
+            // Clean up any continuation cells.
+            // -----------------------------------------------------------
+            if col < self.cells.len() {
                 self.cleanup_wide_overwrite(col);
             }
 
-            // --- Insert head ---
+            // -----------------------------------------------------------
+            // Insert head cell
+            // -----------------------------------------------------------
             let head = Cell::new(tchar.clone(), tag.clone());
-            if col < self.characters.len() {
-                self.characters[col] = head;
+            if col < self.cells.len() {
+                self.cells[col] = head;
             } else {
-                self.characters.push(head);
+                self.cells.push(head);
             }
 
-            // --- Insert continuation cells ---
+            // -----------------------------------------------------------
+            // Insert continuation(s) for wide chars
+            // -----------------------------------------------------------
             for offset in 1..w {
-                let cont = Cell::wide_continuation();
                 let idx = col + offset;
+                let cont = Cell::wide_continuation();
 
-                if idx < self.characters.len() {
-                    self.characters[idx] = cont;
+                if idx < self.cells.len() {
+                    self.cells[idx] = cont;
                 } else {
-                    self.characters.push(cont);
+                    self.cells.push(cont);
                 }
             }
 
+            // Move column forward
             col += w;
 
-            // RULE 2: clamp col to width to prevent infinite padding loops
+            // RULE 2: Clamp col to width
             if col > self.width {
                 col = self.width;
             }
         }
 
+        // ---------------------------------------------------------------
+        // All text successfully inserted on this row.
+        // ---------------------------------------------------------------
         InsertResponse::Consumed(col)
     }
 }

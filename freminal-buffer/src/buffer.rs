@@ -10,7 +10,10 @@ use freminal_common::{
     config::FontConfig,
 };
 
-use crate::{response::InsertResponse, row::Row};
+use crate::{
+    response::InsertResponse,
+    row::{Row, RowJoin, RowOrigin},
+};
 
 pub struct Buffer {
     /// All rows in this buffer: scrollback + visible region.
@@ -56,6 +59,9 @@ pub struct Buffer {
 
     /// Current format tag to apply to inserted text.
     current_tag: FormatTag,
+
+    /// LMN mode
+    lnm_enabled: bool,
 }
 
 /// Everything we need to restore when leaving alternate buffer.
@@ -82,7 +88,19 @@ impl Buffer {
             scrollback_limit: 4000,
             kind: BufferType::Primary,
             saved_primary: None,
+            lnm_enabled: false,
         }
+    }
+
+    fn push_row(&mut self, origin: RowOrigin, join: RowJoin) {
+        let row = Row::new_with_origin(self.width, origin, join);
+        self.rows.push(row);
+        self.enforce_scrollback_limit();
+    }
+
+    fn push_row_with_kind(&mut self, origin: RowOrigin, join: RowJoin) {
+        self.rows
+            .push(Row::new_with_origin(self.width, origin, join));
     }
 
     #[must_use]
@@ -172,30 +190,47 @@ impl Buffer {
     pub fn handle_lf(&mut self) {
         match self.kind {
             BufferType::Primary => {
-                // Writing while scrolled back jumps to live bottom.
+                // If scrolled back and writing output: jump to bottom.
                 if self.scroll_offset > 0 {
                     self.scroll_offset = 0;
                 }
 
-                self.cursor.pos.y += 1;
-
-                // Grow rows if needed.
-                if self.cursor.pos.y >= self.rows.len() {
-                    self.rows.push(Row::new(self.width));
+                // LNM: Linefeed implies carriage return
+                if self.lnm_enabled {
+                    self.cursor.pos.x = 0;
                 }
 
-                // Enforce scrollback cap.
+                // Always move down one row
+                self.cursor.pos.y += 1;
+
+                // If row doesn't exist, create a new hard-break row
+                if self.cursor.pos.y >= self.rows.len() {
+                    self.rows.push(Row::new_with_origin(
+                        self.width,
+                        RowOrigin::HardBreak,
+                        RowJoin::NewLogicalLine,
+                    ));
+                } else {
+                    // If row does exist, LF still means: row begins a logical line
+                    let row = &mut self.rows[self.cursor.pos.y];
+                    row.origin = RowOrigin::HardBreak;
+                    row.join = RowJoin::NewLogicalLine;
+                    // Optional: row.cells.clear();
+                }
+
+                // Keep scrollback cap
                 self.enforce_scrollback_limit();
             }
 
             BufferType::Alternate => {
-                // No scrollback; behave like a fixed-height screen.
+                if self.lnm_enabled {
+                    self.cursor.pos.x = 0;
+                }
+
                 if self.cursor.pos.y + 1 < self.height {
-                    // Just move down a row if we’re not at the bottom yet.
                     self.cursor.pos.y += 1;
                 } else {
-                    // At bottom: scroll the screen up by one line.
-                    self.scroll_up();
+                    self.scroll_up(); // fixed-size alternate screen buffer
                 }
             }
         }
