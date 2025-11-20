@@ -1376,8 +1376,11 @@ dependencies = [
 name = "freminal-buffer"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "freminal-common",
+ "test-log",
  "tracing",
+ "vergen",
 ]
 
 [[package]]

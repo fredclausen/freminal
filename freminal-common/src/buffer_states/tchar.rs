@@ -148,6 +148,12 @@ impl From<u8> for TChar {
     }
 }
 
+impl From<char> for TChar {
+    fn from(c: char) -> Self {
+        Self::new_from_single_char(c as u8)
+    }
+}
+
 impl From<Vec<u8>> for TChar {
     fn from(v: Vec<u8>) -> Self {
         match Self::new_from_many_chars(v) {

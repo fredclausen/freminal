@@ -96,7 +96,6 @@ impl Buffer {
     fn push_row(&mut self, origin: RowOrigin, join: RowJoin) {
         let row = Row::new_with_origin(self.width, origin, join);
         self.rows.push(row);
-        self.enforce_scrollback_limit();
     }
 
     fn push_row_with_kind(&mut self, origin: RowOrigin, join: RowJoin) {
