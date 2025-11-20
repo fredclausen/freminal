@@ -49,6 +49,21 @@ impl Row {
         }
     }
 
+    #[must_use]
+    pub const fn from_cells(
+        width: usize,
+        origin: RowOrigin,
+        join: RowJoin,
+        cells: Vec<Cell>,
+    ) -> Self {
+        Self {
+            cells,
+            width,
+            origin,
+            join,
+        }
+    }
+
     pub fn clear(&mut self) {
         self.cells.clear();
     }
@@ -57,6 +72,12 @@ impl Row {
     #[must_use]
     pub const fn max_width(&self) -> usize {
         self.width
+    }
+
+    /// Update the logical width of this row (number of columns).
+    /// This does *not* change the existing cells, only the max width metadata.
+    pub const fn set_max_width(&mut self, new_width: usize) {
+        self.width = new_width;
     }
 
     /// How many cells are currently occupied.

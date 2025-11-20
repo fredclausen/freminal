@@ -11,6 +11,7 @@ use freminal_common::{
 };
 
 use crate::{
+    cell::Cell,
     response::InsertResponse,
     row::{Row, RowJoin, RowOrigin},
 };
@@ -208,6 +209,241 @@ impl Buffer {
         }
     }
 
+    /// Resize the terminal buffer.
+    /// Reflows lines when width changes.
+    /// Adjusts scrollback when height changes.
+    pub fn set_size(&mut self, new_width: usize, new_height: usize) {
+        let width_changed = new_width != self.width;
+        let height_changed = new_height != self.height;
+
+        if !width_changed && !height_changed {
+            return;
+        }
+
+        // ---- WIDTH CHANGE → REFLOW ----
+        if width_changed {
+            self.reflow_to_width(new_width);
+        }
+
+        // ---- HEIGHT CHANGE → GROW/SHRINK SCREEN ----
+        if height_changed {
+            self.resize_height(new_height);
+        }
+
+        // Update buffer scalars
+        self.width = new_width;
+        self.height = new_height;
+
+        // Ensure every row's max_width matches the new buffer width
+        if width_changed {
+            for row in &mut self.rows {
+                row.set_max_width(new_width);
+            }
+        }
+
+        // Always clamp cursor after size change
+        self.clamp_cursor_after_resize();
+    }
+
+    #[allow(clippy::too_many_lines)]
+    pub fn reflow_to_width(&mut self, new_width: usize) {
+        if new_width == 0 || self.rows.is_empty() || new_width == self.width {
+            // Nothing to do
+            return;
+        }
+
+        // Take ownership of the old rows
+        let old_rows = std::mem::take(&mut self.rows);
+
+        // 1) Group rows into logical lines based on RowJoin
+        let mut logical_lines: Vec<Vec<Row>> = Vec::new();
+        let mut current_line: Vec<Row> = Vec::new();
+
+        for row in old_rows {
+            if row.join == RowJoin::NewLogicalLine && !current_line.is_empty() {
+                logical_lines.push(current_line);
+                current_line = Vec::new();
+            }
+            current_line.push(row);
+        }
+        if !current_line.is_empty() {
+            logical_lines.push(current_line);
+        }
+
+        // 2) For each logical line, flatten its cells and re-wrap
+        let mut new_rows: Vec<Row> = Vec::new();
+
+        for line in logical_lines {
+            // Determine origin for the first row of this logical line.
+            let first_origin = line.first().map_or(RowOrigin::HardBreak, |r| r.origin);
+
+            // Flatten all rows in this logical line into a single Vec<Cell>
+            let mut flat_cells: Vec<Cell> = Vec::new();
+            for row in &line {
+                flat_cells.extend(row.get_characters().iter().cloned());
+            }
+
+            if flat_cells.is_empty() {
+                // Empty logical line → keep a single empty row
+                new_rows.push(Row::new_with_origin(
+                    new_width,
+                    first_origin,
+                    RowJoin::NewLogicalLine,
+                ));
+                continue;
+            }
+
+            let mut idx = 0;
+            let mut col = 0;
+            let mut cur_cells: Vec<Cell> = Vec::new();
+            let mut is_first_row_for_line = true;
+
+            while idx < flat_cells.len() {
+                let cell = &flat_cells[idx];
+
+                if cell.is_head() {
+                    let w = cell.display_width().max(1);
+
+                    // If this glyph doesn't fit on the current row (and we already have content),
+                    // flush the current row and start a new one.
+                    if col + w > new_width && col > 0 {
+                        let origin = if is_first_row_for_line {
+                            first_origin
+                        } else {
+                            RowOrigin::SoftWrap
+                        };
+                        let join = if is_first_row_for_line {
+                            RowJoin::NewLogicalLine
+                        } else {
+                            RowJoin::ContinueLogicalLine
+                        };
+
+                        new_rows.push(Row::from_cells(new_width, origin, join, cur_cells));
+
+                        cur_cells = Vec::new();
+                        col = 0;
+                        is_first_row_for_line = false;
+                    }
+
+                    // Now place this glyph (head + continuations) onto the row.
+                    cur_cells.push(cell.clone());
+                    idx += 1;
+
+                    let mut consumed = 1;
+                    while consumed < w
+                        && idx < flat_cells.len()
+                        && flat_cells[idx].is_continuation()
+                    {
+                        cur_cells.push(flat_cells[idx].clone());
+                        idx += 1;
+                        consumed += 1;
+                    }
+
+                    col += w.min(new_width);
+                } else {
+                    // Stray continuation (should be rare): treat as width 1 column.
+                    if col + 1 > new_width && col > 0 {
+                        let origin = if is_first_row_for_line {
+                            first_origin
+                        } else {
+                            RowOrigin::SoftWrap
+                        };
+                        let join = if is_first_row_for_line {
+                            RowJoin::NewLogicalLine
+                        } else {
+                            RowJoin::ContinueLogicalLine
+                        };
+
+                        new_rows.push(Row::from_cells(new_width, origin, join, cur_cells));
+
+                        cur_cells = Vec::new();
+                        col = 0;
+                        is_first_row_for_line = false;
+                    }
+
+                    cur_cells.push(cell.clone());
+                    idx += 1;
+                    col += 1;
+                }
+            }
+
+            // Flush any remaining cells as the final row of this logical line.
+            if !cur_cells.is_empty() {
+                let origin = if is_first_row_for_line {
+                    first_origin
+                } else {
+                    RowOrigin::SoftWrap
+                };
+                let join = if is_first_row_for_line {
+                    RowJoin::NewLogicalLine
+                } else {
+                    RowJoin::ContinueLogicalLine
+                };
+
+                new_rows.push(Row::from_cells(new_width, origin, join, cur_cells));
+            }
+        }
+
+        // 3) Install the new rows and update width
+        self.rows = new_rows;
+        self.width = new_width;
+
+        // 4) Reset scroll offset; ensure cursor is in bounds.
+        self.scroll_offset = 0;
+
+        if self.cursor.pos.y >= self.rows.len() {
+            if self.rows.is_empty() {
+                self.cursor.pos.y = 0;
+            } else {
+                self.cursor.pos.y = self.rows.len() - 1;
+            }
+            self.cursor.pos.x = 0;
+        } else {
+            // Clamp X to the new width
+            if self.cursor.pos.x >= self.width {
+                self.cursor.pos.x = self.width.saturating_sub(1);
+            }
+        }
+    }
+
+    fn resize_height(&mut self, new_height: usize) {
+        let old_height = self.height;
+
+        if new_height > old_height {
+            // Grow: add blank rows at the bottom
+            let grow = new_height - old_height;
+            for _ in 0..grow {
+                self.rows.push(Row::new(self.width));
+            }
+        } else if new_height < old_height {
+            // If cursor is above the bottom of the new visible window, reduce Y by shrink.
+            // If this would take cursor below 0, clamp later in clamp_cursor_after_resize.
+            if self.cursor.pos.y >= new_height {
+                self.cursor.pos.y = new_height - 1;
+            }
+        }
+
+        // After height change the scrollback offset must be reset
+        self.scroll_offset = 0;
+    }
+
+    const fn clamp_cursor_after_resize(&mut self) {
+        // Clamp Y
+        if self.cursor.pos.y >= self.rows.len() {
+            self.cursor.pos.y = self.rows.len().saturating_sub(1);
+        }
+
+        // Clamp X
+        if self.cursor.pos.x >= self.width {
+            self.cursor.pos.x = self.width.saturating_sub(1);
+        }
+
+        if self.rows.is_empty() {
+            self.cursor.pos.x = 0;
+            self.cursor.pos.y = 0;
+        }
+    }
+
     fn enforce_scrollback_limit(&mut self) {
         // Only primary buffer keeps scrollback.
         if self.kind == BufferType::Alternate {
@@ -400,7 +636,7 @@ impl Buffer {
 // ============================================================================
 
 #[cfg(test)]
-mod tests {
+mod basic_tests {
     use super::*;
     use crate::row::Row;
     use freminal_common::buffer_states::buffer_type::BufferType;
@@ -863,5 +1099,172 @@ mod pty_behavior_tests {
 
         assert!(matches!(buf.rows[1].origin, RowOrigin::SoftWrap));
         assert_eq!(buf.cursor.pos.y, 1);
+    }
+}
+
+#[cfg(test)]
+mod resize_tests {
+    use super::*;
+    use crate::row::{RowJoin, RowOrigin};
+    use freminal_common::buffer_states::tchar::TChar;
+
+    // Helper: convert &str to Vec<TChar::Ascii>
+    fn to_tchars(s: &str) -> Vec<TChar> {
+        s.bytes().map(TChar::Ascii).collect()
+    }
+
+    fn row_kinds(buf: &Buffer) -> Vec<(RowOrigin, RowJoin)> {
+        buf.rows.iter().map(|r| (r.origin, r.join)).collect()
+    }
+
+    fn softwrap_count(buf: &Buffer) -> usize {
+        row_kinds(buf)
+            .into_iter()
+            .filter(|(origin, _)| *origin == RowOrigin::SoftWrap)
+            .count()
+    }
+
+    fn hardbreak_count(buf: &Buffer) -> usize {
+        row_kinds(buf)
+            .into_iter()
+            .filter(|(_, join)| *join == RowJoin::NewLogicalLine)
+            .count()
+    }
+
+    #[test]
+    fn narrowing_preserves_logical_line_starts() {
+        let mut buf = Buffer::new(40, 100);
+
+        // Two logical lines
+        buf.insert_text(&to_tchars("first logical line"));
+        buf.handle_lf();
+        buf.insert_text(&to_tchars(
+            "second logical line that is much longer than the width",
+        ));
+
+        let before_hardbreaks = hardbreak_count(&buf);
+
+        // Narrow the terminal
+        buf.set_size(15, 100);
+
+        let after_hardbreaks = hardbreak_count(&buf);
+
+        assert_eq!(
+            before_hardbreaks, after_hardbreaks,
+            "Reflow should preserve the number of logical line starts (HardBreak/NewLogicalLine)"
+        );
+    }
+
+    #[test]
+    fn narrowing_increases_or_preserves_softwrap_for_long_line() {
+        let mut buf = Buffer::new(30, 100);
+
+        buf.insert_text(&to_tchars(
+            "this is a very long logical line that will wrap more when we narrow the width",
+        ));
+
+        let before_softwraps = softwrap_count(&buf);
+
+        buf.set_size(10, 100);
+
+        let after_softwraps = softwrap_count(&buf);
+
+        assert!(
+            after_softwraps >= before_softwraps,
+            "Narrowing should not decrease the number of SoftWrap rows for a long line"
+        );
+
+        // Sanity: all rows should now be configured with the new width
+        for row in &buf.rows {
+            assert_eq!(row.max_width(), 10);
+        }
+    }
+
+    #[test]
+    fn widening_reduces_or_preserves_softwrap_for_long_line() {
+        let mut buf = Buffer::new(10, 100);
+
+        buf.insert_text(&to_tchars(
+            "this is a very long logical line that wraps quite a bit at narrow widths",
+        ));
+
+        let before_softwraps = softwrap_count(&buf);
+
+        buf.set_size(40, 100);
+
+        let after_softwraps = softwrap_count(&buf);
+
+        assert!(
+            after_softwraps <= before_softwraps,
+            "Widening should not increase the number of SoftWrap rows for a long line"
+        );
+
+        for row in &buf.rows {
+            assert_eq!(row.max_width(), 40);
+        }
+    }
+
+    #[test]
+    fn shrink_width_clamps_cursor_x() {
+        let mut buf = Buffer::new(40, 100);
+
+        buf.insert_text(&to_tchars("some text on the first line"));
+        buf.cursor.pos.x = 30;
+        buf.cursor.pos.y = 0;
+
+        buf.set_size(10, 100);
+
+        assert!(
+            buf.cursor.pos.x < 10,
+            "Cursor X should be clamped to new width"
+        );
+        assert!(
+            buf.cursor.pos.y < buf.rows.len(),
+            "Cursor Y should remain within the number of rows"
+        );
+    }
+
+    #[test]
+    fn shrink_height_clamps_cursor_y() {
+        let mut buf = Buffer::new(20, 100);
+
+        // Simulate cursor somewhere deep in the buffer
+        buf.cursor.pos.y = 50;
+        buf.cursor.pos.x = 5;
+
+        buf.set_size(20, 10);
+
+        assert!(
+            buf.cursor.pos.y < buf.rows.len(),
+            "Cursor Y should be clamped to last row after shrinking height"
+        );
+    }
+
+    #[test]
+    fn reflow_keeps_softwrap_as_continuations() {
+        let mut buf = Buffer::new(10, 100);
+
+        buf.insert_text(&to_tchars("1234567890ABCDE")); // this should wrap at width 10
+
+        let before_softwraps = softwrap_count(&buf);
+        assert!(
+            before_softwraps >= 1,
+            "Initial insert should produce at least one SoftWrap row"
+        );
+
+        buf.set_size(8, 100);
+
+        let kinds = row_kinds(&buf);
+
+        // Ensure that any SoftWrap row uses ContinueLogicalLine
+        for (origin, join) in kinds {
+            if origin == RowOrigin::SoftWrap {
+                assert_eq!(
+                    join,
+                    RowJoin::ContinueLogicalLine,
+                    "SoftWrap rows after reflow must continue the logical line"
+                );
+            }
+        }
     }
 }
