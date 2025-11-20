@@ -114,8 +114,6 @@ impl Buffer {
     }
 
     pub fn insert_text(&mut self, text: &[TChar]) {
-        let tag = &self.current_tag;
-
         // If we're in the primary buffer and the user has scrolled back,
         // jump back to the live bottom view when new output arrives.
         if self.kind == BufferType::Primary && self.scroll_offset > 0 {
@@ -126,39 +124,85 @@ impl Buffer {
         let mut row_idx = self.cursor.pos.y;
         let mut col = self.cursor.pos.x;
 
+        // FIX #3: first write into row 0 turns it into a real logical line
+        if row_idx == 0 && self.rows[0].origin == RowOrigin::ScrollFill {
+            let row = &mut self.rows[0];
+            row.origin = RowOrigin::HardBreak;
+            row.join = RowJoin::NewLogicalLine;
+        }
+
         loop {
-            // Step 1 — Wrap if needed
+            // ┌─────────────────────────────────────────────┐
+            // │ PRE-WRAP: if we're already at/past width,   │
+            // │ move to the next row as a soft-wrap row.    │
+            // └─────────────────────────────────────────────┘
             if col >= self.width {
                 row_idx += 1;
                 col = 0;
+
+                if row_idx >= self.rows.len() {
+                    // brand new soft-wrap continuation row
+                    self.push_row(RowOrigin::SoftWrap, RowJoin::ContinueLogicalLine);
+                } else {
+                    // reuse existing row as a soft-wrap continuation
+                    let row = &mut self.rows[row_idx];
+                    row.origin = RowOrigin::SoftWrap;
+                    row.join = RowJoin::ContinueLogicalLine;
+                    row.clear();
+                }
+
+                self.cursor.pos.y = row_idx;
             }
 
-            // Step 2 — Ensure row exists *after wrap*
+            // ┌─────────────────────────────────────────────┐
+            // │ Ensure the target row exists. If we get     │
+            // │ here without wrapping, this is just a       │
+            // │ normal blank row (no SoftWrap metadata).    │
+            // └─────────────────────────────────────────────┘
             if row_idx >= self.rows.len() {
                 self.rows.push(Row::new(self.width));
             }
 
-            match self.rows[row_idx].insert_text(col, &remaining, tag) {
+            // clone tag here to avoid long-lived borrows of &self
+            let tag = self.current_tag.clone();
+
+            // ┌─────────────────────────────────────────────┐
+            // │ Try to insert into this row.                │
+            // └─────────────────────────────────────────────┘
+            match self.rows[row_idx].insert_text(col, &remaining, &tag) {
                 InsertResponse::Consumed(final_col) => {
+                    // All text fit on this row.
                     self.cursor.pos.x = final_col;
                     self.cursor.pos.y = row_idx;
 
-                    // NEW: enforce scrollback limit after we’re done writing
                     self.enforce_scrollback_limit();
                     return;
                 }
 
                 InsertResponse::Leftover { data, final_col } => {
-                    // cursor stops at end of this row
+                    // This row filled; some data remains.
                     self.cursor.pos.x = final_col;
                     self.cursor.pos.y = row_idx;
 
-                    // data that didn't fit
                     remaining = data;
 
-                    // move to next row, at col 0
+                    // Move to next row for continuation.
                     row_idx += 1;
                     col = 0;
+
+                    // POST-WRAP: we now know a wrap actually occurred.
+                    if row_idx >= self.rows.len() {
+                        // brand new continuation
+                        self.push_row(RowOrigin::SoftWrap, RowJoin::ContinueLogicalLine);
+                    } else {
+                        // reuse existing row as continuation
+                        let row = &mut self.rows[row_idx];
+                        row.origin = RowOrigin::SoftWrap;
+                        row.join = RowJoin::ContinueLogicalLine;
+                        row.clear();
+                    }
+
+                    self.cursor.pos.y = row_idx;
                 }
             }
         }
@@ -215,7 +259,7 @@ impl Buffer {
                     let row = &mut self.rows[self.cursor.pos.y];
                     row.origin = RowOrigin::HardBreak;
                     row.join = RowJoin::NewLogicalLine;
-                    // Optional: row.cells.clear();
+                    row.clear();
                 }
 
                 // Keep scrollback cap
@@ -551,5 +595,273 @@ mod tests {
         buf.insert_text(&[TChar::Ascii(b'A')]);
 
         assert_eq!(buf.scroll_offset, 0);
+    }
+}
+
+#[cfg(test)]
+mod pty_behavior_tests {
+    use super::*;
+    use crate::row::{RowJoin, RowOrigin};
+    use freminal_common::buffer_states::tchar::TChar;
+
+    // Helper: convert &str to Vec<TChar::Ascii>
+    fn to_tchars(s: &str) -> Vec<TChar> {
+        s.bytes().map(TChar::Ascii).collect()
+    }
+
+    // Helper: pretty row origins for debugging
+    fn row_kinds(buf: &Buffer) -> Vec<(RowOrigin, RowJoin)> {
+        buf.rows.iter().map(|r| (r.origin, r.join)).collect()
+    }
+
+    // B1 — CR-only redraw: no new rows, cursor stays on same row
+    #[test]
+    fn cr_only_redraw_does_not_create_new_rows() {
+        // width large enough to not wrap
+        let mut buf = Buffer::new(100, 20);
+
+        let initial_rows = buf.rows.len();
+        let initial_row_y = buf.cursor.pos.y;
+
+        // "Loading 1%\rLoading 2%\rLoading 3%\r"
+        buf.insert_text(&to_tchars("Loading 1%"));
+        buf.handle_cr();
+
+        let row_after_first = buf.cursor.pos.y;
+        assert_eq!(
+            row_after_first, initial_row_y,
+            "CR should not move to a new row"
+        );
+
+        buf.insert_text(&to_tchars("Loading 2%"));
+        buf.handle_cr();
+
+        buf.insert_text(&to_tchars("Loading 3%"));
+        buf.handle_cr();
+
+        // Still on the same physical row, and no extra rows created by CR
+        assert_eq!(
+            buf.cursor.pos.y, initial_row_y,
+            "CR redraw loop should not change row index"
+        );
+        assert_eq!(
+            buf.rows.len(),
+            initial_rows,
+            "CR redraw loop should not create new rows"
+        );
+    }
+
+    // B2 — CRLF newline pattern: one new row per LF
+    #[test]
+    fn crlf_creates_new_logical_lines() {
+        let mut buf = Buffer::new(100, 20);
+
+        let start_row = buf.cursor.pos.y;
+
+        // "hello\r\nworld\r\n"
+        buf.insert_text(&to_tchars("hello"));
+        buf.handle_cr();
+        buf.handle_lf(); // first CRLF
+
+        let after_first_lf_row = buf.cursor.pos.y;
+        assert_eq!(
+            after_first_lf_row,
+            start_row + 1,
+            "First CRLF should move cursor to next row"
+        );
+
+        buf.insert_text(&to_tchars("world"));
+        buf.handle_cr();
+        buf.handle_lf(); // second CRLF
+
+        let after_second_lf_row = buf.cursor.pos.y;
+        assert_eq!(
+            after_second_lf_row,
+            start_row + 2,
+            "Second CRLF should move cursor down one more row"
+        );
+
+        // Check row metadata of the line starts
+        let kinds = row_kinds(&buf);
+
+        // At least three rows now: initial + two LF-created rows
+        assert!(
+            kinds.len() >= (start_row + 3),
+            "Expected at least three rows after two CRLFs"
+        );
+
+        let first_line = kinds[start_row];
+        let second_line = kinds[start_row + 1];
+        let third_line = kinds[start_row + 2];
+
+        // All LF-started rows should be HardBreak + NewLogicalLine
+        assert_eq!(
+            first_line.0,
+            RowOrigin::HardBreak,
+            "Initial line should be a HardBreak logical start"
+        );
+        assert_eq!(
+            first_line.1,
+            RowJoin::NewLogicalLine,
+            "Initial row should begin a logical line"
+        );
+
+        assert_eq!(
+            second_line.0,
+            RowOrigin::HardBreak,
+            "Row after first LF should be HardBreak"
+        );
+        assert_eq!(
+            second_line.1,
+            RowJoin::NewLogicalLine,
+            "Row after first LF should begin a new logical line"
+        );
+
+        assert_eq!(
+            third_line.0,
+            RowOrigin::HardBreak,
+            "Row after second LF should be HardBreak"
+        );
+        assert_eq!(
+            third_line.1,
+            RowJoin::NewLogicalLine,
+            "Row after second LF should begin a new logical line"
+        );
+    }
+
+    // B3 — Soft-wrap mid-insertion: long text overflows width into SoftWrap row
+    #[test]
+    fn soft_wrap_marks_continuation_rows() {
+        let width = 10;
+        let mut buf = Buffer::new(width, 100);
+
+        let start_row = buf.cursor.pos.y;
+
+        buf.insert_text(&to_tchars("1234567890ABCDE"));
+
+        // Look for a SoftWrap row after start_row
+        let kinds = row_kinds(&buf);
+        let mut found = false;
+        for (idx, (origin, join)) in kinds.iter().enumerate().skip(start_row + 1) {
+            if *origin == RowOrigin::SoftWrap && *join == RowJoin::ContinueLogicalLine {
+                found = true;
+                // Optionally: assert cursor ended up here
+                assert_eq!(
+                    buf.cursor.pos.y, idx,
+                    "Cursor should end on the soft-wrapped continuation row"
+                );
+                break;
+            }
+        }
+
+        assert!(found,"Soft-wrap should produce at least one SoftWrap/ContinueLogicalLine row after the first");
+    }
+
+    // B6-ish — Wrap into an existing row: reused row must become SoftWrap continuation
+    #[test]
+    fn soft_wrap_reuses_existing_next_row_as_continuation() {
+        let width = 8;
+        let mut buf = Buffer::new(width, 100);
+
+        // Fill the first row exactly, starting from 0
+        buf.insert_text(&to_tchars("ABCDEFGH")); // 8 chars
+
+        let first_row = buf.cursor.pos.y;
+        assert_eq!(first_row, 0);
+
+        // Now write more to force a wrap into the next row
+        buf.insert_text(&to_tchars("ABC"));
+
+        // Cursor must now be on the next row
+        let second_row = buf.cursor.pos.y;
+        assert_eq!(
+            second_row,
+            first_row + 1,
+            "Soft-wrap should move cursor to next row"
+        );
+
+        let kinds = row_kinds(&buf);
+        let wrapped = kinds[second_row];
+
+        assert_eq!(
+            wrapped.0,
+            RowOrigin::SoftWrap,
+            "Wrapped row should have SoftWrap origin"
+        );
+        assert_eq!(
+            wrapped.1,
+            RowJoin::ContinueLogicalLine,
+            "Wrapped row should continue the logical line"
+        );
+    }
+
+    #[test]
+    fn cr_only_redraw_never_creates_new_rows_even_after_wrap() {
+        let mut buf = Buffer::new(10, 100);
+
+        buf.insert_text(&to_tchars("1234567890")); // full row
+        let row0 = buf.cursor.pos.y;
+
+        buf.handle_cr(); // reset X
+        buf.insert_text(&to_tchars("HELLO"));
+
+        assert_eq!(buf.cursor.pos.y, row0, "CR must not change row");
+        assert_eq!(buf.rows.len(), 1, "No new row must be created");
+    }
+
+    #[test]
+    fn lf_after_softwrap_creates_new_hardbreak_row() {
+        let mut buf = Buffer::new(5, 100);
+
+        buf.insert_text(&to_tchars("123456789")); // wraps
+        assert!(matches!(buf.rows[1].origin, RowOrigin::SoftWrap));
+
+        buf.handle_lf(); // HARD BREAK
+
+        let last = buf.cursor.pos.y;
+        assert!(matches!(buf.rows[last].origin, RowOrigin::HardBreak));
+        assert!(matches!(buf.rows[last].join, RowJoin::NewLogicalLine));
+    }
+
+    #[test]
+    fn crlf_moves_to_new_hardbreak_row() {
+        let mut buf = Buffer::new(20, 100);
+
+        buf.insert_text(&to_tchars("hello"));
+        buf.handle_cr();
+        buf.handle_lf();
+
+        let y = buf.cursor.pos.y;
+        assert!(y == 1);
+        assert!(matches!(buf.rows[1].origin, RowOrigin::HardBreak));
+    }
+
+    #[test]
+    fn lnm_enabled_lf_behaves_like_crlf() {
+        let mut buf = Buffer::new(20, 100);
+        buf.lnm_enabled = true;
+
+        buf.insert_text(&to_tchars("hello"));
+        buf.cursor.pos.x = 5;
+
+        buf.handle_lf(); // LNM → CRLF
+
+        assert_eq!(buf.cursor.pos.x, 0, "LNM LF resets X to 0");
+        assert_eq!(buf.cursor.pos.y, 1, "LNM LF advances row");
+    }
+
+    #[test]
+    fn cr_inside_softwrap_does_not_create_new_logical_line() {
+        let mut buf = Buffer::new(5, 100);
+
+        buf.insert_text(&to_tchars("123456")); // soft-wrap at 5
+        assert!(matches!(buf.rows[1].origin, RowOrigin::SoftWrap));
+
+        buf.handle_cr(); // redraw start of continuation row
+
+        buf.insert_text(&to_tchars("ZZ"));
+
+        assert!(matches!(buf.rows[1].origin, RowOrigin::SoftWrap));
+        assert_eq!(buf.cursor.pos.y, 1);
     }
 }

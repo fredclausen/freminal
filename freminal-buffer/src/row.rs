@@ -49,6 +49,10 @@ impl Row {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.cells.clear();
+    }
+
     /// Logical row width (number of *columns*), not number of occupied cells.
     #[must_use]
     pub const fn max_width(&self) -> usize {
@@ -144,10 +148,7 @@ impl Row {
         // We just report all text as leftover.
         // ---------------------------------------------------------------
         if col >= self.width {
-            return InsertResponse::Leftover {
-                data: text.to_vec(),
-                final_col: col,
-            };
+            return InsertResponse::Consumed(col);
         }
 
         // ---------------------------------------------------------------
