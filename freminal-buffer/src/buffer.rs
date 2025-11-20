@@ -205,6 +205,51 @@ impl Buffer {
         self.cursor.pos.x = 0;
     }
 
+    // ----------------------------------------------------------
+    // Scrollback: only valid in the PRIMARY buffer
+    // ----------------------------------------------------------
+
+    /// How many lines above the live bottom we can scroll.
+    const fn max_scroll_offset(&self) -> usize {
+        if self.rows.len() <= self.height {
+            0
+        } else {
+            self.rows.len() - self.height
+        }
+    }
+
+    /// Scroll upward (`lines > 0`) in the primary buffer.
+    pub fn scroll_back(&mut self, lines: usize) {
+        if self.kind != BufferType::Primary {
+            return; // Alternate buffer: no scrollback
+        }
+
+        let max = self.max_scroll_offset();
+        if max == 0 {
+            return;
+        }
+
+        self.scroll_offset = (self.scroll_offset + lines).min(max);
+    }
+
+    /// Scroll downward (`lines > 0`) toward the live bottom.
+    pub fn scroll_forward(&mut self, lines: usize) {
+        if self.kind != BufferType::Primary {
+            return;
+        }
+
+        if self.scroll_offset == 0 {
+            return;
+        }
+
+        self.scroll_offset = self.scroll_offset.saturating_sub(lines);
+    }
+
+    /// Jump back to the live view (row = last row).
+    pub const fn scroll_to_bottom(&mut self) {
+        self.scroll_offset = 0;
+    }
+
     pub fn scroll_up(&mut self) {
         // remove topmost row
         self.rows.remove(0);
@@ -219,6 +264,53 @@ impl Buffer {
                 self.cursor.pos.y -= 1;
             }
         }
+    }
+
+    /// Switch from the primary buffer to the alternate screen.
+    ///
+    /// - Saves current rows, cursor, and `scroll_offset`.
+    /// - Replaces contents with a fresh empty screen (height rows).
+    /// - Disables scrollback semantics for the alternate screen.
+    pub fn enter_alternate(&mut self) {
+        // If we're already in the alternate buffer, do nothing.
+        if self.kind == BufferType::Alternate {
+            return;
+        }
+
+        // Save primary state (rows + cursor + scroll_offset).
+        let saved = SavedPrimaryState {
+            rows: self.rows.clone(),
+            cursor: self.cursor.clone(),
+            scroll_offset: self.scroll_offset,
+        };
+        self.saved_primary = Some(saved);
+
+        // Switch to alternate buffer.
+        self.kind = BufferType::Alternate;
+
+        // Fresh screen: exactly `height` empty rows.
+        self.rows = vec![Row::new(self.width); self.height];
+
+        // Reset cursor and scroll offset for the alternate screen.
+        self.cursor = CursorState::default();
+        self.scroll_offset = 0;
+    }
+
+    /// Leave the alternate screen and restore the primary buffer, if any was saved.
+    pub fn leave_alternate(&mut self) {
+        // If we're not in alternate, nothing to do.
+        if self.kind != BufferType::Alternate {
+            return;
+        }
+
+        if let Some(saved) = self.saved_primary.take() {
+            // Restore saved primary state.
+            self.rows = saved.rows;
+            self.cursor = saved.cursor;
+            self.scroll_offset = saved.scroll_offset;
+        }
+
+        self.kind = BufferType::Primary;
     }
 }
 
@@ -237,21 +329,6 @@ mod tests {
 
     fn ascii(c: char) -> TChar {
         TChar::Ascii(c as u8)
-    }
-
-    // Optional: helper for entering alternate buffer directly
-    fn enter_alt(buf: &mut Buffer) {
-        let saved = SavedPrimaryState {
-            rows: buf.get_rows().clone(),
-            cursor: buf.get_cursor().clone(),
-            scroll_offset: buf.scroll_offset,
-        };
-        buf.saved_primary = Some(saved);
-
-        buf.kind = BufferType::Alternate;
-        buf.rows = vec![Row::new(buf.width); buf.height];
-        buf.cursor = CursorState::default();
-        buf.scroll_offset = 0;
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -311,7 +388,7 @@ mod tests {
     #[test]
     fn alt_buffer_has_no_scrollback() {
         let mut buf = Buffer::new(5, 3);
-        enter_alt(&mut buf);
+        buf.enter_alternate();
 
         assert_eq!(buf.rows.len(), 3);
         assert_eq!(buf.kind, BufferType::Alternate);
@@ -320,7 +397,7 @@ mod tests {
     #[test]
     fn alt_buffer_lf_scrolls_screen() {
         let mut buf = Buffer::new(5, 3);
-        enter_alt(&mut buf);
+        buf.enter_alternate();
 
         buf.handle_lf();
         buf.handle_lf();
@@ -342,17 +419,102 @@ mod tests {
         let saved_y = buf.cursor.pos.y;
         let saved_rows = buf.rows.len();
 
-        enter_alt(&mut buf);
+        // Enter alternate buffer via API
+        buf.enter_alternate();
 
-        if let Some(saved) = buf.saved_primary.take() {
-            buf.rows = saved.rows;
-            buf.cursor = saved.cursor;
-            buf.scroll_offset = saved.scroll_offset;
-        }
-        buf.kind = BufferType::Primary;
+        // Do some things in alternate screen (optional)
+        buf.handle_lf();
+
+        // Leave alternate, restoring primary
+        buf.leave_alternate();
 
         assert_eq!(buf.kind, BufferType::Primary);
         assert_eq!(buf.rows.len(), saved_rows);
         assert_eq!(buf.cursor.pos.y, saved_y);
+    }
+
+    #[test]
+    fn scrollback_no_effect_when_no_history() {
+        let mut buf = Buffer::new(5, 3);
+
+        buf.scroll_back(10);
+        assert_eq!(buf.scroll_offset, 0);
+    }
+
+    #[test]
+    fn scrollback_clamps_to_max_offset() {
+        let mut buf = Buffer::new(5, 3);
+
+        // Add many lines
+        for _ in 0..10 {
+            buf.handle_lf();
+        }
+
+        let max = buf.rows.len() - buf.height;
+        buf.scroll_back(999);
+
+        assert_eq!(buf.scroll_offset, max);
+    }
+
+    #[test]
+    fn scroll_forward_clamps_to_zero() {
+        let mut buf = Buffer::new(5, 3);
+
+        for _ in 0..10 {
+            buf.handle_lf();
+        }
+
+        buf.scroll_back(5); // scroll up some amount
+        buf.scroll_forward(999); // scroll down more than enough
+
+        assert_eq!(buf.scroll_offset, 0);
+    }
+
+    #[test]
+    fn scroll_to_bottom_resets_offset() {
+        let mut buf = Buffer::new(5, 3);
+
+        for _ in 0..10 {
+            buf.handle_lf();
+        }
+
+        buf.scroll_back(5);
+        assert!(buf.scroll_offset > 0);
+
+        buf.scroll_to_bottom();
+
+        assert_eq!(buf.scroll_offset, 0);
+    }
+
+    #[test]
+    fn no_scrollback_in_alternate_buffer() {
+        let mut buf = Buffer::new(5, 3);
+        buf.enter_alternate();
+
+        for _ in 0..10 {
+            buf.handle_lf(); // scrolls but no scrollback
+        }
+
+        buf.scroll_back(10);
+        assert_eq!(buf.scroll_offset, 0);
+
+        buf.scroll_forward(10);
+        assert_eq!(buf.scroll_offset, 0);
+    }
+
+    #[test]
+    fn insert_text_resets_scrollback() {
+        let mut buf = Buffer::new(10, 5);
+
+        for _ in 0..20 {
+            buf.handle_lf();
+        }
+
+        buf.scroll_back(5);
+        assert!(buf.scroll_offset > 0);
+
+        buf.insert_text(&[TChar::Ascii(b'A')]);
+
+        assert_eq!(buf.scroll_offset, 0);
     }
 }
