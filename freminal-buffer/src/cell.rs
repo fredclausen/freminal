@@ -66,3 +66,57 @@ impl Cell {
         self.is_wide_continuation
     }
 }
+
+#[cfg(test)]
+mod cell_tests {
+    use super::*;
+    use freminal_common::buffer_states::tchar::TChar;
+
+    #[test]
+    fn test_cell_creation() {
+        let cell = Cell::new(TChar::Ascii(b'A'), FormatTag::default());
+        assert_eq!(cell.tchar(), &TChar::Ascii(b'A'));
+        assert!(!cell.is_head());
+        assert!(!cell.is_continuation());
+
+        let wide_char = TChar::Utf8("あ".as_bytes().to_vec());
+        let wide_cell = Cell::new(wide_char.clone(), FormatTag::default());
+        assert_eq!(wide_cell.tchar(), &wide_char);
+        assert!(wide_cell.is_head());
+        assert!(!wide_cell.is_continuation());
+
+        let continuation_cell = Cell::wide_continuation();
+        assert!(continuation_cell.is_continuation());
+        assert!(!continuation_cell.is_head());
+    }
+
+    #[test]
+    fn test_cell_display_width() {
+        let ascii_cell = Cell::new(TChar::Ascii(b'A'), FormatTag::default());
+        assert_eq!(ascii_cell.display_width(), 1);
+
+        let wide_cell = Cell::new(TChar::Utf8("あ".as_bytes().to_vec()), FormatTag::default());
+        assert_eq!(wide_cell.display_width(), 2);
+
+        let space_cell = Cell::new(TChar::Space, FormatTag::default());
+        assert_eq!(space_cell.display_width(), 1);
+
+        let newline_cell = Cell::new(TChar::NewLine, FormatTag::default());
+        assert_eq!(newline_cell.display_width(), 0);
+    }
+
+    #[test]
+    fn test_cell_into_utf8() {
+        let ascii_cell = Cell::new(TChar::Ascii(b'A'), FormatTag::default());
+        assert_eq!(ascii_cell.into_utf8(), "A");
+
+        let wide_cell = Cell::new(TChar::Utf8("あ".as_bytes().to_vec()), FormatTag::default());
+        assert_eq!(wide_cell.into_utf8(), "あ");
+
+        let space_cell = Cell::new(TChar::Space, FormatTag::default());
+        assert_eq!(space_cell.into_utf8(), " ");
+
+        let newline_cell = Cell::new(TChar::NewLine, FormatTag::default());
+        assert_eq!(newline_cell.into_utf8(), "\n");
+    }
+}
