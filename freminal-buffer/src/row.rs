@@ -106,6 +106,16 @@ impl Row {
         self.cells.get(idx)
     }
 
+    /// Return the real cell if present, otherwise an implicit blank.
+    #[must_use]
+    pub fn resolve_cell(&self, col: usize) -> Cell {
+        if col < self.cells.len() {
+            self.cells[col].clone()
+        } else {
+            Cell::blank_with_tag(FormatTag::default())
+        }
+    }
+
     #[must_use]
     pub const fn get_characters(&self) -> &Vec<Cell> {
         &self.cells
@@ -234,5 +244,69 @@ impl Row {
         // All text successfully inserted on this row.
         // ---------------------------------------------------------------
         InsertResponse::Consumed(col)
+    }
+
+    /// Insert `n` spaces starting at `col`, shifting existing cells right.
+    /// This implements VT ICH (Insert Character).
+    pub fn insert_spaces_at(&mut self, col: usize, n: usize, tag: &FormatTag) {
+        let width = self.width;
+
+        if n == 0 || col >= width {
+            return;
+        }
+
+        // How many blanks can actually be inserted within the logical row width?
+        let insert_len = n.min(width.saturating_sub(col));
+
+        // Current number of stored cells (may be < width).
+        let old_len = self.cells.len();
+
+        // We need enough capacity to:
+        //  - hold all existing cells, shifted by insert_len
+        //  - plus any new blank cells starting at `col`
+        //
+        // NOTE: There might be an implicit gap between old_len and `col`,
+        // which represents default-blank cells; we handle that by creating
+        // default blanks in the resized vector.
+        let needed_len = (old_len + insert_len).max(col + insert_len);
+
+        if needed_len == 0 {
+            return;
+        }
+
+        // Resize with default blank cells; many of these will be overwritten.
+        self.cells
+            .resize(needed_len, Cell::blank_with_tag(FormatTag::default()));
+
+        // Shift existing cells [col..old_len) to the right by insert_len.
+        // Anything whose destination is >= width "falls off" to the right.
+        for i in (col..old_len).rev() {
+            let dest = i + insert_len;
+            if dest < width {
+                self.cells[dest] = self.cells[i].clone();
+            }
+            // if dest >= width, the cell is discarded (clamped off the row)
+        }
+
+        // Fill the gap [col..col+insert_len) with blanks using the current tag.
+        for i in col..(col + insert_len) {
+            if i < width {
+                self.cells[i] = Cell::blank_with_tag(tag.clone());
+            }
+        }
+
+        // Finally, clamp physical storage so we don't have cells beyond logical width.
+        if self.cells.len() > width {
+            self.cells.truncate(width);
+        }
+
+        // Maintain sparse-row invariant by trimming trailing default blanks
+        while let Some(last) = self.cells.last() {
+            if last.tchar() == &TChar::Space && last.tag() == &FormatTag::default() {
+                self.cells.pop();
+            } else {
+                break;
+            }
+        }
     }
 }

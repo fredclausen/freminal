@@ -562,6 +562,21 @@ impl Buffer {
         self.cursor.pos.x = 0;
     }
 
+    /// Implements ICH – Insert Characters (spaces).
+    pub fn insert_spaces(&mut self, n: usize) {
+        let row = self.cursor.pos.y;
+        let col = self.cursor.pos.x;
+
+        if row >= self.rows.len() {
+            return;
+        }
+
+        let tag = self.current_tag.clone();
+        self.rows[row].insert_spaces_at(col, n, &tag);
+
+        // Cursor does NOT move for ICH
+    }
+
     // ----------------------------------------------------------
     // Scrollback: only valid in the PRIMARY buffer
     // ----------------------------------------------------------
@@ -1383,5 +1398,125 @@ mod backspace_tests {
         buf.handle_backspace();
         assert_eq!(buf.cursor.pos.y, 1);
         assert_eq!(buf.cursor.pos.x, 0);
+    }
+}
+
+#[cfg(test)]
+mod insert_space_tests {
+    use freminal_common::buffer_states::fonts::FontWeight;
+
+    use super::*;
+
+    // Converts a row to a simple string for visual comparison
+    fn cell_str(buf: &Buffer, row: usize) -> String {
+        (0..buf.width)
+            .map(|col| {
+                let cell = buf.rows[row].resolve_cell(col);
+                match &cell.tchar() {
+                    TChar::Ascii(b) => *b as char,
+                    TChar::Space => ' ',
+                    TChar::NewLine => '⏎',
+                    TChar::Utf8(v) => {
+                        let s = String::from_utf8_lossy(&v[..]);
+                        s.chars().next().unwrap_or('�')
+                    }
+                }
+            })
+            .collect()
+    }
+
+    fn tag_vec(buf: &Buffer, row: usize) -> Vec<FormatTag> {
+        (0..buf.width)
+            .map(|col| buf.rows[row].resolve_cell(col).tag().clone())
+            .collect()
+    }
+
+    /// Construct a `TChar::Ascii` from char
+    fn a(c: char) -> TChar {
+        TChar::Ascii(c as u8)
+    }
+
+    #[test]
+    fn ich_simple_middle_insert() {
+        // width 10 row: ABCDE-----
+        let mut buf = Buffer::new(10, 5);
+
+        let tag = buf.current_tag.clone();
+
+        // Insert ABCDE
+        buf.insert_text(&[a('A'), a('B'), a('C'), a('D'), a('E')]);
+
+        // Move cursor to 'C'
+        buf.cursor.pos.x = 2;
+
+        // ICH(2): insert 2 blanks at col 2
+        buf.insert_spaces(2);
+
+        let row = cell_str(&buf, 0);
+        assert_eq!(&row[..7], "AB  CDE", "Row should shift correctly");
+        assert_eq!(buf.cursor.pos.x, 2, "Cursor must not move");
+
+        // Tag propagation
+        let tags = tag_vec(&buf, 0);
+        assert_eq!(tags[2], tag, "Inserted blank must inherit tag");
+        assert_eq!(tags[3], tag, "Inserted blank must inherit tag");
+    }
+
+    #[test]
+    fn ich_clamps_at_row_end() {
+        let mut buf = Buffer::new(5, 5);
+
+        buf.insert_text(&[a('A'), a('B'), a('C'), a('D'), a('E')]);
+
+        // Cursor at last column
+        buf.cursor.pos.x = 4;
+
+        // ICH(10) -> only 1 can fit
+        buf.insert_spaces(10);
+
+        let row = cell_str(&buf, 0);
+        assert_eq!(row, "ABCD ", "Only one blank should fit");
+    }
+
+    #[test]
+    fn ich_preserves_shifted_tags() {
+        let mut buf = Buffer::new(10, 5);
+
+        // Store original tag1
+        let tag1 = buf.current_tag.clone();
+        buf.insert_text(&[a('A'), a('B'), a('C')]);
+
+        // Change tag via your actual API.
+        // If you don't have color-changing yet, just clone + toggle an attribute.
+        let mut new_tag = tag1.clone();
+        new_tag.font_weight = match new_tag.font_weight {
+            FontWeight::Normal => FontWeight::Bold,
+            FontWeight::Bold => FontWeight::Normal,
+        };
+        buf.current_tag = new_tag.clone();
+
+        // Insert D E using new tag2
+        buf.insert_text(&[a('D'), a('E')]);
+
+        buf.cursor.pos.x = 1;
+        buf.insert_spaces(2);
+
+        let row = cell_str(&buf, 0);
+        assert_eq!(&row[..7], "A  BCDE", "Row layout mismatch");
+
+        let tags_check = tag_vec(&buf, 0);
+
+        // Inserted blanks should use new_tag
+        assert_eq!(tags_check[1], new_tag);
+        assert_eq!(tags_check[2], new_tag);
+
+        // Now verify proper tag retention for shifted cells:
+        // B, C use tag1 (original)
+        assert_eq!(tags_check[3], tag1);
+        assert_eq!(tags_check[4], tag1);
+
+        // D, E use new_tag
+        assert_eq!(tags_check[5], new_tag);
+        assert_eq!(tags_check[6], new_tag);
     }
 }

@@ -27,6 +27,16 @@ impl Cell {
     }
 
     #[must_use]
+    pub const fn blank_with_tag(format: FormatTag) -> Self {
+        Self {
+            value: TChar::Space,
+            format,
+            is_wide_head: false,
+            is_wide_continuation: false,
+        }
+    }
+
+    #[must_use]
     pub fn wide_continuation() -> Self {
         Self {
             value: TChar::Space, // filler glyph
@@ -44,6 +54,11 @@ impl Cell {
     #[must_use]
     pub const fn tchar(&self) -> &TChar {
         &self.value
+    }
+
+    #[must_use]
+    pub const fn tag(&self) -> &FormatTag {
+        &self.format
     }
 
     #[must_use]
