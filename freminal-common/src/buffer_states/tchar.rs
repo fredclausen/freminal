@@ -150,7 +150,16 @@ impl From<u8> for TChar {
 
 impl From<char> for TChar {
     fn from(c: char) -> Self {
-        Self::new_from_single_char(c as u8)
+        if c.is_ascii() {
+            // single-byte fast path
+            Self::new_from_single_char(c as u8)
+        } else {
+            // non-ASCII: encode as UTF-8 scalar
+            let mut buf = [0u8; 4];
+            let s = c.encode_utf8(&mut buf); // &str
+                                             // we know this is valid UTF-8 by construction, so we can skip Result
+            Self::Utf8(s.as_bytes().to_vec())
+        }
     }
 }
 

@@ -207,25 +207,18 @@ impl Row {
             // -----------------------------------------------------------
             // Insert head cell
             // -----------------------------------------------------------
-            let head = Cell::new(tchar.clone(), tag.clone());
-            if col < self.cells.len() {
-                self.cells[col] = head;
-            } else {
-                self.cells.push(head);
+            // Ensure vector is large enough
+            if self.cells.len() < col + w {
+                self.cells
+                    .resize(col + w, Cell::new(TChar::Space, tag.clone()));
             }
 
-            // -----------------------------------------------------------
-            // Insert continuation(s) for wide chars
-            // -----------------------------------------------------------
-            for offset in 1..w {
-                let idx = col + offset;
-                let cont = Cell::wide_continuation();
+            // Insert head
+            self.cells[col] = Cell::new(tchar.clone(), tag.clone());
 
-                if idx < self.cells.len() {
-                    self.cells[idx] = cont;
-                } else {
-                    self.cells.push(cont);
-                }
+            // Insert continuation cells
+            for offset in 1..w {
+                self.cells[col + offset] = Cell::wide_continuation();
             }
 
             // Move column forward

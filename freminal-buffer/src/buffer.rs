@@ -466,6 +466,49 @@ impl Buffer {
         }
     }
 
+    /// Handle ANSI Backspace (BS, 0x08).
+    ///
+    /// Semantics (ECMA-48, VT100):
+    /// - Move cursor left by one cell.
+    /// - If the cell to the left is a continuation cell of a wide glyph,
+    ///   skip left until the glyph head.
+    /// - If cursor is at column 0, do nothing.
+    /// - Never moves vertically and never deletes characters.
+    pub fn handle_backspace(&mut self) {
+        // If already at column 0, no-op.
+        if self.cursor.pos.x == 0 {
+            return;
+        }
+
+        let row_idx = self.cursor.pos.y;
+
+        // Safety: if cursor.y is out of bounds, nothing to do.
+        if row_idx >= self.rows.len() {
+            return;
+        }
+
+        let row = &self.rows[row_idx];
+
+        // Move left by one cell.
+        let mut new_x = self.cursor.pos.x - 1;
+
+        // If the cell is a continuation of a wide glyph,
+        // back up to the head of the glyph.
+        while new_x > 0 {
+            if let Some(cell) = row.get_char_at(new_x) {
+                if !cell.is_continuation() {
+                    break;
+                }
+            } else {
+                // No cell at this position, treat as non-continuation
+                break;
+            }
+            new_x -= 1;
+        }
+
+        self.cursor.pos.x = new_x;
+    }
+
     pub fn handle_lf(&mut self) {
         match self.kind {
             BufferType::Primary => {
@@ -1265,5 +1308,80 @@ mod resize_tests {
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod backspace_tests {
+    use super::*;
+    use freminal_common::buffer_states::tchar::TChar;
+
+    #[test]
+    fn backspace_moves_left_simple() {
+        let mut buf = Buffer::new(80, 24);
+
+        buf.insert_text(&"abc".chars().map(TChar::from).collect::<Vec<_>>());
+        assert_eq!(buf.cursor.pos.x, 3);
+
+        buf.handle_backspace();
+        assert_eq!(buf.cursor.pos.x, 2);
+
+        buf.handle_backspace();
+        assert_eq!(buf.cursor.pos.x, 1);
+
+        buf.handle_backspace();
+        assert_eq!(buf.cursor.pos.x, 0);
+
+        // stays at 0
+        buf.handle_backspace();
+        assert_eq!(buf.cursor.pos.x, 0);
+    }
+
+    #[test]
+    fn backspace_jumps_wide_glyph() {
+        let mut buf = Buffer::new(80, 24);
+
+        // Use a known double-width glyph: "あ"
+        let input = "aあb".chars().map(TChar::from).collect::<Vec<_>>();
+        buf.insert_text(&input);
+
+        // "a" (col 0)
+        // "あ" (cols 1–2)
+        // "b" (col 3)
+        assert_eq!(buf.cursor.pos.x, 4);
+
+        buf.handle_backspace(); // over b → x=3
+        assert_eq!(buf.cursor.pos.x, 3);
+
+        buf.handle_backspace(); // over wide glyph (continuation cell)
+        assert_eq!(buf.cursor.pos.x, 1);
+
+        buf.handle_backspace(); // over 'a'
+        assert_eq!(buf.cursor.pos.x, 0);
+
+        buf.handle_backspace(); // can't go lower
+        assert_eq!(buf.cursor.pos.x, 0);
+    }
+
+    #[test]
+    fn backspace_does_not_move_up_lines() {
+        let mut buf = Buffer::new(10, 24);
+
+        buf.insert_text(&"abcdefghij".chars().map(TChar::from).collect::<Vec<_>>());
+        buf.insert_text(&"K".chars().map(TChar::from).collect::<Vec<_>>());
+
+        // soft wrapped, cursor should be at row 1
+        assert_eq!(buf.cursor.pos.y, 1);
+        assert_eq!(buf.cursor.pos.x, 1);
+
+        // backspace never moves Y
+        buf.handle_backspace();
+        assert_eq!(buf.cursor.pos.y, 1);
+        assert_eq!(buf.cursor.pos.x, 0);
+
+        // at col 0 → stays there
+        buf.handle_backspace();
+        assert_eq!(buf.cursor.pos.y, 1);
+        assert_eq!(buf.cursor.pos.x, 0);
     }
 }
