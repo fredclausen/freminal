@@ -63,6 +63,9 @@ pub struct Buffer {
 
     /// LMN mode
     lnm_enabled: bool,
+
+    /// Preserve the scrollback anchor when resizing
+    preserve_scrollback_anchor: bool,
 }
 
 /// Everything we need to restore when leaving alternate buffer.
@@ -90,6 +93,7 @@ impl Buffer {
             kind: BufferType::Primary,
             saved_primary: None,
             lnm_enabled: false,
+            preserve_scrollback_anchor: false,
         }
     }
 
@@ -111,6 +115,36 @@ impl Buffer {
     #[must_use]
     pub const fn get_cursor(&self) -> &CursorState {
         &self.cursor
+    }
+
+    /// Get the rows that should be *visually displayed* in the GUI.
+    ///
+    /// This returns exactly `height` rows, starting from either:
+    ///  - the live bottom (`scroll_offset` == 0), or
+    ///  - an older section of the buffer (`scroll_offset` > 0)
+    ///
+    /// This slice does NOT allocate.
+    #[must_use]
+    pub fn visible_rows(&self) -> &[Row] {
+        if self.rows.is_empty() {
+            return &[];
+        }
+
+        let total = self.rows.len();
+        let h = self.height;
+
+        // Clamp scroll_offset within bounds.
+        let max_offset = self.max_scroll_offset();
+        let offset = self.scroll_offset.min(max_offset);
+
+        // Compute slice start.
+        // This math is safe because:
+        //   - total >= 1
+        //   - max_offset ensures total >= h
+        let start = total.saturating_sub(h + offset);
+        let end = start + h;
+
+        &self.rows[start.min(total)..end.min(total)]
     }
 
     pub fn insert_text(&mut self, text: &[TChar]) {
@@ -415,15 +449,24 @@ impl Buffer {
                 self.rows.push(Row::new(self.width));
             }
         } else if new_height < old_height {
-            // If cursor is above the bottom of the new visible window, reduce Y by shrink.
-            // If this would take cursor below 0, clamp later in clamp_cursor_after_resize.
+            // If cursor is above the bottom of the new visible window, clamp it.
             if self.cursor.pos.y >= new_height {
-                self.cursor.pos.y = new_height - 1;
+                self.cursor.pos.y = new_height.saturating_sub(1);
             }
         }
 
-        // After height change the scrollback offset must be reset
-        self.scroll_offset = 0;
+        if self.preserve_scrollback_anchor {
+            // IMPORTANT: use new_height, not self.height (which is still old here)
+            let max_offset = if self.rows.len() > new_height {
+                self.rows.len() - new_height
+            } else {
+                0
+            };
+            self.scroll_offset = self.scroll_offset.min(max_offset);
+        } else {
+            // xterm-style
+            self.scroll_offset = 0;
+        }
     }
 
     const fn clamp_cursor_after_resize(&mut self) {
@@ -451,18 +494,48 @@ impl Buffer {
 
         let max_rows = self.height + self.scrollback_limit;
 
-        if self.rows.len() > max_rows {
-            let overflow = self.rows.len() - max_rows;
-
-            // Drop the oldest `overflow` rows.
-            self.rows.drain(0..overflow);
-
-            // Cursor row is an index into `rows`, so adjust it.
-            if self.cursor.pos.y >= overflow {
-                self.cursor.pos.y -= overflow;
-            } else {
-                self.cursor.pos.y = 0;
+        // Nothing to trim, but still make sure scroll_offset is not insane
+        if self.rows.len() <= max_rows {
+            let max_offset = self.max_scroll_offset();
+            if self.scroll_offset > max_offset {
+                self.scroll_offset = max_offset;
             }
+            return;
+        }
+
+        // Number of rows to drop from the top of the scrollback.
+        let overflow = self.rows.len() - max_rows;
+
+        // --- Adjust scroll_offset BEFORE modifying the rows ---
+        //
+        // If the user is scrolled back into the area we're about to delete,
+        // reduce their offset by the number of deleted rows. If that wipes
+        // out all their scrollback, snap them to live view.
+        if self.scroll_offset > 0 {
+            if self.scroll_offset > overflow {
+                self.scroll_offset -= overflow;
+            } else {
+                self.scroll_offset = 0;
+            }
+        }
+
+        // --- Drop the oldest rows ---
+        self.rows.drain(0..overflow);
+
+        // --- Adjust cursor row index ---
+        //
+        // Cursor is always measured relative to self.rows, so subtract
+        // `overflow` from its y-coordinate when possible.
+        if self.cursor.pos.y >= overflow {
+            self.cursor.pos.y -= overflow;
+        } else {
+            self.cursor.pos.y = 0;
+        }
+
+        // Finally, clamp scroll_offset to the new max_scroll_offset().
+        let max_offset = self.max_scroll_offset();
+        if self.scroll_offset > max_offset {
+            self.scroll_offset = max_offset;
         }
     }
 
@@ -1518,5 +1591,264 @@ mod insert_space_tests {
         // D, E use new_tag
         assert_eq!(tags_check[5], new_tag);
         assert_eq!(tags_check[6], new_tag);
+    }
+}
+
+#[cfg(test)]
+mod tests_gui_scroll {
+    use super::*;
+
+    fn make_row(width: usize) -> Row {
+        Row::new_with_origin(width, RowOrigin::HardBreak, RowJoin::NewLogicalLine)
+    }
+
+    fn buffer_with_rows(n: usize, width: usize, height: usize, scrollback: usize) -> Buffer {
+        let mut b = Buffer::new(width, height);
+        b.scrollback_limit = scrollback;
+        b.rows = (0..n).map(|_| make_row(width)).collect();
+
+        // Put cursor at last row to begin
+        b.cursor.pos.y = b.rows.len().saturating_sub(1);
+        b.cursor.pos.x = 0;
+
+        b
+    }
+
+    // ---------------------------------------------------------------
+    // Test 1: basic trimming behavior
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn enforce_limit_trims_excess_rows() {
+        // height = 5, scrollback_limit = 5 → max_rows = 10
+        let mut buf = buffer_with_rows(15, 80, 5, 5);
+
+        buf.enforce_scrollback_limit();
+
+        assert_eq!(buf.rows.len(), 10, "should trim to max_rows");
+        assert_eq!(buf.cursor.pos.y, 9, "cursor adjusted to last row");
+        assert_eq!(buf.scroll_offset, 0, "no scrollback, so offset remains 0");
+    }
+
+    // ---------------------------------------------------------------
+    // Test 2: scroll_offset reduces when rows are trimmed
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn enforce_limit_reduces_scroll_offset() {
+        // height=5, scrollback_limit=5 → max_rows=10
+        // Start with 15 rows, scroll_offset=4
+        let mut buf = buffer_with_rows(15, 80, 5, 5);
+        buf.scroll_offset = 4;
+
+        buf.enforce_scrollback_limit();
+
+        // Overflow = 5 rows trimmed
+        // scroll_offset = 4 → trimmed by 5 → becomes 0
+        assert_eq!(buf.scroll_offset, 0);
+        assert_eq!(buf.rows.len(), 10);
+    }
+
+    // ---------------------------------------------------------------
+    // Test 3: scroll_offset shrinks but is not eliminated
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn enforce_limit_scroll_offset_partially_reduced() {
+        // height=5, scrollback_limit=5 → max_rows=10
+        // rows=14 → overflow=4
+        // scroll_offset=6 → becomes 6-4=2
+        let mut buf = buffer_with_rows(14, 80, 5, 5);
+        buf.scroll_offset = 6;
+
+        buf.enforce_scrollback_limit();
+
+        assert_eq!(buf.rows.len(), 10);
+        assert_eq!(buf.scroll_offset, 2);
+    }
+
+    // ---------------------------------------------------------------
+    // Test 4: cursor shifts downward when rows removed
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn enforce_limit_adjusts_cursor_position() {
+        // rows=12, height=5 → max_rows=10 → overflow=2
+        let mut buf = buffer_with_rows(12, 80, 5, 5);
+
+        buf.cursor.pos.y = 3;
+        buf.enforce_scrollback_limit();
+
+        // Expected: 3 - 2 = 1
+        assert_eq!(buf.cursor.pos.y, 1);
+    }
+
+    // ---------------------------------------------------------------
+    // Test 5: cursor shifts correctly when it survives the trim
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn enforce_limit_cursor_shift_down_by_overflow() {
+        // rows=12 → overflow=2 → trim 2
+        let mut buf = buffer_with_rows(12, 80, 5, 5);
+        buf.cursor.pos.y = 7;
+
+        buf.enforce_scrollback_limit();
+
+        assert_eq!(buf.cursor.pos.y, 5, "cursor should shift by overflow");
+    }
+
+    // ---------------------------------------------------------------
+    // Test 6: no scrollback trimming in alternate buffer
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn enforce_limit_noop_in_alternate_buffer() {
+        let mut buf = buffer_with_rows(20, 80, 5, 5);
+        buf.kind = BufferType::Alternate;
+        buf.scroll_offset = 3;
+        buf.cursor.pos.y = 10;
+
+        let original_len = buf.rows.len();
+
+        buf.enforce_scrollback_limit();
+
+        assert_eq!(buf.rows.len(), original_len, "alternate buffer never trims");
+        assert_eq!(buf.scroll_offset, 3);
+        assert_eq!(buf.cursor.pos.y, 10);
+    }
+
+    // ---------------------------------------------------------------
+    // Test 7: scroll_offset never exceeds new max_scroll_offset()
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn enforce_limit_clamps_scroll_offset_to_max() {
+        // rows=13, height=5 → max_scroll_offset = 13-5 = 8
+        let mut buf = buffer_with_rows(13, 80, 5, 5);
+        buf.scroll_offset = 50; // wildly out of range
+
+        buf.enforce_scrollback_limit();
+
+        let max = buf.max_scroll_offset();
+        assert!(buf.scroll_offset <= max);
+    }
+}
+
+#[cfg(test)]
+mod tests_gui_resize {
+    use super::*;
+    use crate::buffer::{Buffer, BufferType};
+    use crate::row::{Row, RowJoin, RowOrigin};
+
+    // Helper: create a buffer with N rows and a given config
+    fn buffer_with_rows_and_config(
+        n: usize,
+        width: usize,
+        height: usize,
+        scrollback: usize,
+        preserve_anchor: bool,
+    ) -> Buffer {
+        let mut b = Buffer::new(width, height);
+        b.scrollback_limit = scrollback;
+        b.rows = (0..n)
+            .map(|_| Row::new_with_origin(width, RowOrigin::HardBreak, RowJoin::NewLogicalLine))
+            .collect();
+
+        b.cursor.pos.y = b.rows.len().saturating_sub(1);
+        b.cursor.pos.x = 0;
+
+        b.preserve_scrollback_anchor = preserve_anchor;
+        b
+    }
+
+    // ------------------------------------------------------------------
+    // 1. preserve_scrollback_anchor = false → scroll_offset resets
+    // ------------------------------------------------------------------
+    #[test]
+    fn resize_resets_scroll_offset_when_anchor_disabled() {
+        let mut buf = buffer_with_rows_and_config(50, 80, 20, 1000, false);
+
+        buf.scroll_offset = 15;
+        buf.set_size(80, 10); // shrink height
+
+        assert_eq!(
+            buf.scroll_offset, 0,
+            "resize must reset scroll_offset when anchor is disabled"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // 2. preserve_scrollback_anchor = true → scroll_offset preserved on grow
+    // ------------------------------------------------------------------
+    #[test]
+    fn resize_preserves_offset_when_growing_height() {
+        let mut buf = buffer_with_rows_and_config(50, 80, 20, 1000, true);
+
+        buf.scroll_offset = 10;
+        buf.set_size(80, 30); // grow height
+
+        assert_eq!(
+            buf.scroll_offset, 10,
+            "scroll_offset should be unchanged when anchor is enabled on grow"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // 3. preserve_scrollback_anchor = true → offset clamped when shrinking
+    // ------------------------------------------------------------------
+    #[test]
+    fn resize_clamps_scroll_offset_when_shrinking() {
+        // rows = 50, new height = 10 → max_scroll_offset = 50 - 10 = 40
+        let mut buf = buffer_with_rows_and_config(50, 80, 20, 1000, true);
+
+        buf.scroll_offset = 100; // far beyond range
+        buf.set_size(80, 10);
+
+        assert_eq!(
+            buf.scroll_offset, 40,
+            "scroll_offset must clamp to new max_scroll_offset"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // 4. Cursor must clamp within new height
+    // ------------------------------------------------------------------
+    #[test]
+    fn resize_clamps_cursor() {
+        let mut buf = buffer_with_rows_and_config(10, 80, 10, 1000, false);
+
+        buf.cursor.pos.y = 9; // last row
+        buf.set_size(80, 5); // shrink
+
+        assert!(
+            buf.cursor.pos.y <= 4,
+            "cursor must clamp into new visible height"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // 5. Growing height adds rows at the bottom
+    // ------------------------------------------------------------------
+    #[test]
+    fn resize_grow_adds_rows() {
+        let mut buf = buffer_with_rows_and_config(10, 80, 10, 1000, false);
+
+        buf.set_size(80, 15);
+
+        assert_eq!(buf.rows.len(), 15, "growing height must append blank rows");
+    }
+
+    // ------------------------------------------------------------------
+    // 6. Shrinking height does not delete scrollback rows
+    // ------------------------------------------------------------------
+    #[test]
+    fn resize_shrink_retain_scrollback() {
+        let mut buf = buffer_with_rows_and_config(40, 80, 20, 1000, false);
+
+        buf.set_size(80, 10);
+
+        // rows should remain 40, no deletion due to resize
+        assert_eq!(buf.rows.len(), 40);
     }
 }
