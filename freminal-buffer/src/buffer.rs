@@ -66,6 +66,11 @@ pub struct Buffer {
 
     /// Preserve the scrollback anchor when resizing
     preserve_scrollback_anchor: bool,
+
+    /// DECSTBM top and bottom margins, 0-indexed, inclusive.
+    /// When disabled, the region is full-screen: [0, height-1]
+    scroll_region_top: usize,
+    scroll_region_bottom: usize,
 }
 
 /// Everything we need to restore when leaving alternate buffer.
@@ -94,6 +99,8 @@ impl Buffer {
             saved_primary: None,
             lnm_enabled: false,
             preserve_scrollback_anchor: false,
+            scroll_region_top: 0,
+            scroll_region_bottom: height - 1,
         }
     }
 
@@ -175,6 +182,20 @@ impl Buffer {
             "scroll_offset {} exceeds max_scroll_offset {}",
             self.scroll_offset,
             max_off
+        );
+
+        // Scroll region invariants
+        debug_assert!(
+            self.scroll_region_top <= self.scroll_region_bottom,
+            "scroll_region_top {} must be <= scroll_region_bottom {}",
+            self.scroll_region_top,
+            self.scroll_region_bottom
+        );
+        debug_assert!(
+            self.scroll_region_bottom < self.height,
+            "scroll_region_bottom {} must be < height {}",
+            self.scroll_region_bottom,
+            self.height
         );
     }
 
@@ -364,6 +385,13 @@ impl Buffer {
         // ---- HEIGHT CHANGE → GROW/SHRINK SCREEN ----
         if height_changed {
             self.resize_height(new_height);
+
+            // Clamp scroll region to new size.
+            self.scroll_region_bottom = self.scroll_region_bottom.min(new_height.saturating_sub(1));
+
+            if self.scroll_region_top >= self.scroll_region_bottom {
+                self.reset_scroll_region_to_full();
+            }
         }
 
         // Update buffer scalars
@@ -759,6 +787,54 @@ impl Buffer {
         self.rows[row].insert_spaces_at(col, n, &tag);
 
         // Cursor does NOT move for ICH
+    }
+
+    const fn reset_scroll_region_to_full(&mut self) {
+        self.scroll_region_top = 0;
+        self.scroll_region_bottom = self.height.saturating_sub(1);
+    }
+
+    /// Set DECSTBM scroll region (1-based inclusive).
+    /// If invalid, resets to full screen.
+    pub const fn set_scroll_region(&mut self, top1: usize, bottom1: usize) {
+        // the terminal is passing in 1 based values. Clamp
+        let top1 = top1.saturating_sub(1);
+        let bottom1 = bottom1.saturating_sub(1);
+
+        // 0 or missing → ignore and reset
+        if top1 == 0 || bottom1 == 0 {
+            self.reset_scroll_region_to_full();
+            return;
+        }
+
+        // Convert to 0-based
+        let top = top1 - 1;
+        let bottom = bottom1 - 1;
+
+        // Validate
+        if top >= bottom || bottom >= self.height {
+            self.reset_scroll_region_to_full();
+            return;
+        }
+
+        self.scroll_region_top = top;
+        self.scroll_region_bottom = bottom;
+
+        // xterm behavior: move cursor to row 0 of region
+        self.cursor.pos.y = self.scroll_region_top;
+        self.cursor.pos.x = 0;
+    }
+
+    /// Returns true if a cursor movement down passes the bottom margin
+    #[inline]
+    const fn at_scroll_region_bottom(&self) -> bool {
+        self.cursor.pos.y == self.scroll_region_bottom
+    }
+
+    /// Returns true if a cursor movement up passes the top margin
+    #[inline]
+    const fn at_scroll_region_top(&self) -> bool {
+        self.cursor.pos.y == self.scroll_region_top
     }
 
     // ----------------------------------------------------------
