@@ -1378,6 +1378,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "freminal-common",
+ "proptest",
  "test-log",
  "tracing",
  "vergen",
