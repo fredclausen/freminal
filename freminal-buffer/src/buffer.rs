@@ -725,32 +725,69 @@ impl Buffer {
     pub fn handle_lf(&mut self) {
         match self.kind {
             BufferType::Primary => {
-                // If scrolled back and writing output: jump to bottom.
+                // Reset scrollback if output arrives while scrolled back
                 if self.scroll_offset > 0 {
                     self.scroll_offset = 0;
                 }
 
-                // LNM: Linefeed implies CR
+                // LNM: CR implied
                 if self.lnm_enabled {
                     self.cursor.pos.x = 0;
                 }
 
-                // Move cursor down by one row
-                self.cursor.pos.y += 1;
+                let sy = self.cursor_screen_y();
 
-                // If cursor moved past buffer end, append a new row
-                if self.cursor.pos.y >= self.rows.len() {
-                    self.rows.push(Row::new_with_origin(
-                        self.width,
-                        RowOrigin::HardBreak,
-                        RowJoin::NewLogicalLine,
-                    ));
+                // --- DECSTBM applies ONLY when:
+                //     - region is not full screen
+                //     - not scrolled back (already ensured above)
+                if self.scroll_region_top == 0 && self.scroll_region_bottom == self.height - 1 {
+                    //
+                    // FAST PATH: FULL-SCREEN REGION
+                    //
+                    self.cursor.pos.y += 1;
+
+                    if self.cursor.pos.y >= self.rows.len() {
+                        self.rows.push(Row::new_with_origin(
+                            self.width,
+                            RowOrigin::HardBreak,
+                            RowJoin::NewLogicalLine,
+                        ));
+                    } else {
+                        let row = &mut self.rows[self.cursor.pos.y];
+                        row.origin = RowOrigin::HardBreak;
+                        row.join = RowJoin::NewLogicalLine;
+                        row.clear();
+                    }
+
+                    self.enforce_scrollback_limit();
+                    self.debug_assert_invariants();
+                    return;
+                }
+
+                //
+                // PARTIAL REGION (true DECSTBM behavior)
+                //
+                if sy >= self.scroll_region_top && sy <= self.scroll_region_bottom {
+                    if sy < self.scroll_region_bottom {
+                        // Move cursor down inside region
+                        self.cursor.pos.y += 1;
+                    } else {
+                        // At bottom margin → scroll region UP
+                        self.scroll_region_up_primary();
+                        // cursor stays in place
+                    }
                 } else {
-                    // Cursor moved onto an existing row: clear it and mark as hardbreak
-                    let row = &mut self.rows[self.cursor.pos.y];
-                    row.origin = RowOrigin::HardBreak;
-                    row.join = RowJoin::NewLogicalLine;
-                    row.clear();
+                    // Outside DECSTBM → just move down with no scrolling
+                    if self.cursor.pos.y + 1 < self.rows.len() {
+                        self.cursor.pos.y += 1;
+                    } else {
+                        self.rows.push(Row::new_with_origin(
+                            self.width,
+                            RowOrigin::HardBreak,
+                            RowJoin::NewLogicalLine,
+                        ));
+                        self.cursor.pos.y = self.rows.len() - 1;
+                    }
                 }
 
                 self.enforce_scrollback_limit();
@@ -758,37 +795,23 @@ impl Buffer {
             }
 
             BufferType::Alternate => {
-                // LNM: Linefeed implies carriage return
+                // (keep your existing Alternate LF unchanged)
                 if self.lnm_enabled {
                     self.cursor.pos.x = 0;
                 }
 
                 let y = self.cursor.pos.y;
 
-                // In alternate screen, DECSTBM applies strictly to the margins.
-                // Inside the region:
-                //   - if not at bottom margin: move cursor down one row.
-                //   - if at bottom margin: scroll region up (blank line at bottom),
-                //     cursor stays at bottom margin.
-                // Outside the region:
-                //   - move down until bottom of screen, but never scroll.
                 if y >= self.scroll_region_top && y <= self.scroll_region_bottom {
                     if y < self.scroll_region_bottom {
-                        // Just move down within the region
                         if self.cursor.pos.y + 1 < self.height {
                             self.cursor.pos.y += 1;
                         }
                     } else {
-                        // At bottom margin: scroll region up by one line
                         self.scroll_slice_up(self.scroll_region_top, self.scroll_region_bottom);
-                        // Cursor stays on the bottom margin row
                     }
-                } else {
-                    // Outside scroll region: LF never scrolls,
-                    // just moves down while in bounds.
-                    if self.cursor.pos.y + 1 < self.height {
-                        self.cursor.pos.y += 1;
-                    }
+                } else if self.cursor.pos.y + 1 < self.height {
+                    self.cursor.pos.y += 1;
                 }
 
                 self.debug_assert_invariants();
@@ -823,32 +846,52 @@ impl Buffer {
     pub fn handle_ri(&mut self) {
         match self.kind {
             BufferType::Primary => {
-                if self.cursor.pos.y > 0 {
-                    self.cursor.pos.y -= 1;
-                }
-            }
-            BufferType::Alternate => {
-                let y = self.cursor.pos.y;
+                let sy = self.cursor_screen_y();
 
-                if y >= self.scroll_region_top && y <= self.scroll_region_bottom {
-                    if y > self.scroll_region_top {
-                        // Move up within the region
+                // FULL-SCREEN REGION → RI never scrolls
+                if self.scroll_region_top == 0 && self.scroll_region_bottom == self.height - 1 {
+                    if self.cursor.pos.y > 0 {
+                        self.cursor.pos.y -= 1;
+                    }
+                    self.debug_assert_invariants();
+                    return;
+                }
+
+                // PARTIAL DECSTBM
+                if sy >= self.scroll_region_top && sy <= self.scroll_region_bottom {
+                    if sy > self.scroll_region_top {
+                        // move up inside region
                         self.cursor.pos.y -= 1;
                     } else {
-                        // At top margin: scroll region DOWN by one line
-                        self.scroll_slice_down(self.scroll_region_top, self.scroll_region_bottom);
-                        // Cursor stays at top margin
+                        // at top → scroll region DOWN
+                        self.scroll_region_down_primary();
                     }
                 } else {
-                    // Outside region: just move up while in bounds
+                    // outside region → never scroll
                     if self.cursor.pos.y > 0 {
                         self.cursor.pos.y -= 1;
                     }
                 }
+
+                self.debug_assert_invariants();
+            }
+
+            BufferType::Alternate => {
+                // (unchanged)
+                let y = self.cursor.pos.y;
+
+                if y >= self.scroll_region_top && y <= self.scroll_region_bottom {
+                    if y > self.scroll_region_top {
+                        self.cursor.pos.y -= 1;
+                    } else {
+                        self.scroll_slice_down(self.scroll_region_top, self.scroll_region_bottom);
+                    }
+                } else if self.cursor.pos.y > 0 {
+                    self.cursor.pos.y -= 1;
+                }
+                self.debug_assert_invariants();
             }
         }
-
-        self.debug_assert_invariants();
     }
 
     /// IL – Insert Lines within DECSTBM region.
@@ -861,10 +904,7 @@ impl Buffer {
 
         match self.kind {
             BufferType::Alternate => {
-                if self.height == 0 || self.rows.is_empty() {
-                    return;
-                }
-
+                // leave as-is
                 let y = self.cursor.pos.y;
                 if y < self.scroll_region_top || y > self.scroll_region_bottom {
                     return;
@@ -876,39 +916,32 @@ impl Buffer {
                 for _ in 0..count {
                     self.scroll_slice_down(y, self.scroll_region_bottom);
                 }
+
+                self.debug_assert_invariants();
             }
 
             BufferType::Primary => {
-                // IL must NOT operate when scrolled back.
                 if self.scroll_offset > 0 {
                     return;
                 }
 
                 let sy = self.cursor_screen_y();
-
-                // Must be inside DECSTBM region (screen coords)
                 if sy < self.scroll_region_top || sy > self.scroll_region_bottom {
                     return;
                 }
 
-                let count = n.min(self.scroll_region_bottom - sy + 1);
+                let (t, b) = self.scroll_region_rows();
+                let offset = sy - self.scroll_region_top;
+                let row = t + offset;
 
-                // Convert screen → buffer row index.
-                let start = self.visible_window_start() + sy;
-                let end = self.visible_window_start() + self.scroll_region_bottom;
-
+                let count = n.min(b - row + 1);
                 for _ in 0..count {
-                    self.scroll_slice_down(start, end);
+                    self.scroll_slice_down(row, b);
                 }
 
                 self.debug_assert_invariants();
-                return;
             }
         }
-
-        // Alternate screen behavior (unchanged)
-
-        self.debug_assert_invariants();
     }
 
     /// DL – Delete Lines within DECSTBM region.
@@ -921,11 +954,6 @@ impl Buffer {
 
         match self.kind {
             BufferType::Alternate => {
-                // Alternate buffer behavior (unchanged)
-                if self.height == 0 || self.rows.is_empty() {
-                    return;
-                }
-
                 let y = self.cursor.pos.y;
                 if y < self.scroll_region_top || y > self.scroll_region_bottom {
                     return;
@@ -937,35 +965,32 @@ impl Buffer {
                 for _ in 0..count {
                     self.scroll_slice_up(y, self.scroll_region_bottom);
                 }
+
+                self.debug_assert_invariants();
             }
 
             BufferType::Primary => {
-                // DL must NOT operate while scrolled back
                 if self.scroll_offset > 0 {
                     return;
                 }
 
                 let sy = self.cursor_screen_y();
-
                 if sy < self.scroll_region_top || sy > self.scroll_region_bottom {
                     return;
                 }
 
-                let count = n.min(self.scroll_region_bottom - sy + 1);
+                let (t, b) = self.scroll_region_rows();
+                let offset = sy - self.scroll_region_top;
+                let row = t + offset;
 
-                let start = self.visible_window_start() + sy;
-                let end = self.visible_window_start() + self.scroll_region_bottom;
-
+                let count = n.min(b - row + 1);
                 for _ in 0..count {
-                    self.scroll_slice_up(start, end);
+                    self.scroll_slice_up(row, b);
                 }
 
                 self.debug_assert_invariants();
-                return;
             }
         }
-
-        self.debug_assert_invariants();
     }
 
     /// Implements ICH – Insert Characters (spaces).
