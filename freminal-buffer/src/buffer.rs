@@ -1852,3 +1852,409 @@ mod tests_gui_resize {
         assert_eq!(buf.rows.len(), 40);
     }
 }
+
+#[cfg(test)]
+mod scrollback_wrapping_scroll_visible_tests {
+    use super::*;
+    use freminal_common::buffer_states::tchar::TChar;
+
+    fn to_tchars(s: &str) -> Vec<TChar> {
+        s.bytes().map(TChar::Ascii).collect()
+    }
+
+    fn make_buffer(width: usize, height: usize, lines: usize) -> Buffer {
+        let mut b = Buffer::new(width, height);
+        for _ in 0..lines {
+            b.insert_text(&to_tchars("line"));
+            b.handle_lf();
+        }
+        b
+    }
+
+    /// Helper: recompute the expected visible slice using the same math
+    /// as `Buffer::visible_rows` and compare contents.
+    fn assert_visible_rows_consistent(b: &Buffer) {
+        let total = b.rows.len();
+        let h = b.height;
+
+        if total == 0 {
+            assert_eq!(b.visible_rows().len(), 0);
+            return;
+        }
+
+        let max_offset = b.max_scroll_offset();
+        let offset = b.scroll_offset.min(max_offset);
+
+        let start = total.saturating_sub(h + offset);
+        let mut end = start + h;
+        if end > total {
+            end = total;
+        }
+
+        let expected = &b.rows[start..end];
+        let visible = b.visible_rows();
+
+        assert_eq!(
+            visible.len(),
+            expected.len(),
+            "visible_rows length mismatch"
+        );
+
+        for (row_vis, row_exp) in visible.iter().zip(expected.iter()) {
+            assert_eq!(
+                row_vis.get_characters(),
+                row_exp.get_characters(),
+                "visible row content mismatch"
+            );
+        }
+    }
+
+    #[test]
+    fn visible_rows_respects_scroll_offset_at_bottom() {
+        // Many logical lines, no wrapping needed for this test.
+        let mut b = make_buffer(20, 3, 10);
+
+        // At live bottom
+        b.scroll_offset = 0;
+        assert_visible_rows_consistent(&b);
+    }
+
+    #[test]
+    fn visible_rows_respects_scroll_offset_in_scrollback() {
+        let mut b = make_buffer(20, 3, 10);
+
+        // Scroll back into history
+        b.scroll_back(2);
+        assert!(b.scroll_offset > 0);
+
+        assert_visible_rows_consistent(&b);
+    }
+}
+
+#[cfg(test)]
+mod scrollback_reflow_tests {
+    use super::*;
+    use freminal_common::buffer_states::tchar::TChar;
+
+    fn t(s: &str) -> Vec<TChar> {
+        s.bytes().map(TChar::Ascii).collect()
+    }
+
+    fn assert_visible_rows_sane(b: &Buffer) {
+        let vis = b.visible_rows();
+        assert!(
+            vis.len() <= b.height,
+            "visible_rows must not exceed buffer height"
+        );
+        // Also ensure the slice is a valid contiguous chunk of rows
+        // (length 0 is fine).
+        if !b.rows.is_empty() {
+            assert!(!vis.is_empty(), "non-empty buffer should have visible rows");
+        }
+    }
+
+    #[test]
+    fn reflow_resets_scroll_offset_and_visible_rows_valid() {
+        let mut b = Buffer::new(20, 3);
+
+        // Create enough rows so scrollback is actually possible
+        for _ in 0..10 {
+            b.insert_text(&t("X"));
+            b.handle_lf();
+        }
+
+        let max_off = b.max_scroll_offset();
+        assert!(max_off > 0);
+
+        b.scroll_back(2);
+        assert!(b.scroll_offset > 0, "should be scrolled back before reflow");
+
+        // Change width to trigger reflow_to_width
+        b.set_size(10, 3);
+
+        // reflow_to_width resets scroll_offset
+        assert_eq!(b.scroll_offset, 0);
+
+        // visible_rows must be sane after reflow
+        assert_visible_rows_sane(&b);
+    }
+
+    #[test]
+    fn reflow_preserves_valid_row_state_after_widening() {
+        let mut b = Buffer::new(5, 4);
+
+        // Create a long line likely to wrap at width=5
+        b.insert_text(&t(
+            "this is a long logical line that should wrap at narrow widths",
+        ));
+
+        let rows_before = b.rows.len();
+        assert!(rows_before >= 1);
+
+        // Widen the terminal; this may unwrap some rows,
+        // but we do NOT assert that the row count must go down.
+        b.set_size(40, 4);
+
+        // Scroll offset is always reset by reflow
+        assert_eq!(b.scroll_offset, 0);
+
+        // All rows should now use the new width
+        for row in &b.rows {
+            assert_eq!(row.max_width(), 40);
+        }
+
+        // visible_rows must remain sane
+        assert_visible_rows_sane(&b);
+    }
+}
+
+#[cfg(test)]
+mod scrollback_height_resize_wrapping_tests {
+    use super::*;
+    use freminal_common::buffer_states::tchar::TChar;
+
+    fn t(s: &str) -> Vec<TChar> {
+        s.bytes().map(TChar::Ascii).collect()
+    }
+
+    fn assert_visible_rows_sane(b: &Buffer) {
+        let vis = b.visible_rows();
+        assert!(
+            vis.len() <= b.height,
+            "visible_rows must not exceed buffer height"
+        );
+        if !b.rows.is_empty() {
+            assert!(!vis.is_empty(), "non-empty buffer should have visible rows");
+        }
+    }
+
+    #[test]
+    fn shrink_height_with_wrapped_content_keeps_visible_rows_valid() {
+        let mut b = Buffer::new(5, 6);
+
+        // Produce some wrapped content and extra rows
+        b.insert_text(&t("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
+        for _ in 0..5 {
+            b.handle_lf();
+            b.insert_text(&t("extra line"));
+        }
+
+        // Allow preserving anchor so resize_height will clamp instead of reset
+        b.preserve_scrollback_anchor = true;
+
+        // Try to scroll back; may or may not succeed depending on layout
+        b.scroll_back(3);
+
+        // Now shrink height
+        b.set_size(5, 3);
+
+        // Whatever scroll_offset is now, visible_rows must be well-formed
+        assert_visible_rows_sane(&b);
+    }
+}
+
+#[cfg(test)]
+mod visible_rows_boundary_tests {
+    use super::*;
+
+    #[test]
+    fn visible_rows_small_buffer_returns_all_rows() {
+        let mut b = Buffer::new(10, 5);
+
+        // initial row + 2 LFs → 3 rows total
+        b.handle_lf();
+        b.handle_lf();
+
+        assert_eq!(b.rows.len(), 3);
+
+        let vis = b.visible_rows();
+        // Since rows.len() < height, we should get all rows.
+        assert_eq!(vis.len(), b.rows.len());
+    }
+
+    #[test]
+    fn visible_rows_exact_height() {
+        let mut b = Buffer::new(10, 3);
+
+        b.handle_lf();
+        b.handle_lf(); // 3 rows total
+
+        assert_eq!(b.rows.len(), 3);
+
+        let vis = b.visible_rows();
+        assert_eq!(vis.len(), 3);
+    }
+
+    #[test]
+    fn visible_rows_top_of_scrollback_is_first_rows() {
+        let mut b = Buffer::new(10, 3);
+
+        for _ in 0..10 {
+            b.handle_lf();
+        }
+
+        b.scroll_back(999); // scroll to top
+        let vis = b.visible_rows();
+
+        assert_eq!(vis.len(), 3);
+        // The first visible row must be the first buffer row
+        assert_eq!(vis[0].get_characters(), b.rows[0].get_characters());
+    }
+}
+
+#[cfg(test)]
+mod alt_buffer_visible_rows_tests {
+    use super::*;
+
+    #[test]
+    fn alt_buffer_visible_rows_always_height() {
+        let mut b = Buffer::new(5, 4);
+
+        b.enter_alternate();
+        let vis = b.visible_rows();
+
+        assert_eq!(vis.len(), 4);
+        assert!(vis.iter().all(|r| r.get_characters().is_empty()));
+    }
+
+    #[test]
+    fn leave_alt_restores_primary_visible_rows() {
+        let mut b = Buffer::new(5, 4);
+
+        for _ in 0..10 {
+            b.handle_lf();
+        }
+
+        b.scroll_back(2);
+        let before = b.visible_rows()[0].get_characters().clone();
+
+        b.enter_alternate();
+        b.leave_alternate();
+
+        let after = b.visible_rows()[0].get_characters().clone();
+        assert_eq!(before, after);
+    }
+}
+
+#[cfg(test)]
+mod cr_wrap_scrollback_tests {
+    use super::*;
+    use freminal_common::buffer_states::tchar::TChar;
+
+    fn t(s: &str) -> Vec<TChar> {
+        s.bytes().map(TChar::Ascii).collect()
+    }
+
+    fn assert_visible_rows_consistent(b: &Buffer) {
+        let total = b.rows.len();
+        let h = b.height;
+
+        if total == 0 {
+            assert_eq!(b.visible_rows().len(), 0);
+            return;
+        }
+
+        let max_offset = b.max_scroll_offset();
+        let offset = b.scroll_offset.min(max_offset);
+
+        let start = total.saturating_sub(h + offset);
+        let mut end = start + h;
+        if end > total {
+            end = total;
+        }
+
+        let expected = &b.rows[start..end];
+        let visible = b.visible_rows();
+
+        assert_eq!(
+            visible.len(),
+            expected.len(),
+            "visible_rows length mismatch"
+        );
+
+        for (row_vis, row_exp) in visible.iter().zip(expected.iter()) {
+            assert_eq!(
+                row_vis.get_characters(),
+                row_exp.get_characters(),
+                "visible row content mismatch"
+            );
+        }
+    }
+
+    #[test]
+    fn cr_in_wrap_then_scrollback_has_consistent_visible_slice() {
+        let mut b = Buffer::new(5, 3);
+
+        // Cause a wrap
+        b.insert_text(&t("1234567890")); // wraps
+        b.handle_cr();
+        b.insert_text(&t("ZZ"));
+
+        // Try scrolling into history (may or may not move offset much)
+        b.scroll_back(1);
+
+        // Whatever the final scroll_offset is, visible_rows must be a
+        // correct slice of rows.
+        assert_visible_rows_consistent(&b);
+    }
+}
+
+#[cfg(test)]
+mod scroll_up_scrollback_tests {
+    use super::*;
+
+    #[test]
+    fn scroll_up_shifts_cursor_and_keeps_scrollback_consistent() {
+        let mut b = Buffer::new(10, 3);
+
+        // populate 6 rows
+        for _ in 0..5 {
+            b.handle_lf();
+        }
+
+        b.cursor.pos.y = 2;
+
+        b.scroll_up(); // remove row 0
+
+        assert_eq!(b.rows.len(), 6);
+        assert_eq!(b.cursor.pos.y, 1, "cursor must shift downward by 1");
+        assert_eq!(b.scroll_offset, 0);
+    }
+
+    #[test]
+    fn scroll_up_does_not_break_scrollback_offset() {
+        let mut b = Buffer::new(10, 3);
+
+        for _ in 0..20 {
+            b.handle_lf();
+        }
+
+        b.scroll_back(5);
+
+        b.scroll_up(); // remove row 0
+        assert_eq!(b.scroll_offset, 5, "scroll_offset must not change");
+    }
+}
+
+#[cfg(test)]
+mod alt_primary_scroll_offset_restore_tests {
+    use super::*;
+
+    #[test]
+    fn leaving_alt_restores_scrollback_offset() {
+        let mut b = Buffer::new(10, 5);
+
+        for _ in 0..20 {
+            b.handle_lf();
+        }
+        b.scroll_back(3);
+        assert_eq!(b.scroll_offset, 3);
+
+        b.enter_alternate();
+        b.handle_lf();
+        b.handle_lf();
+
+        b.leave_alternate();
+        assert_eq!(b.scroll_offset, 3);
+    }
+}
