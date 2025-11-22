@@ -97,6 +97,92 @@ impl Buffer {
         }
     }
 
+    /// Internal consistency checks for debug builds.
+    ///
+    /// This is called from most mutating entry points. In release builds
+    /// it compiles down to a no-op.
+    #[cfg(debug_assertions)]
+    fn debug_assert_invariants(&self) {
+        // If there are no rows at all, we expect a fully reset buffer state.
+        if self.rows.is_empty() {
+            debug_assert_eq!(self.cursor.pos.y, 0, "empty buffer must keep cursor.y at 0");
+            debug_assert_eq!(self.cursor.pos.x, 0, "empty buffer must keep cursor.x at 0");
+            debug_assert_eq!(
+                self.scroll_offset, 0,
+                "empty buffer must have zero scroll_offset"
+            );
+            return;
+        }
+
+        // Cursor Y must always point at an existing row.
+        debug_assert!(
+            self.cursor.pos.y < self.rows.len(),
+            "cursor.pos.y {} out of bounds for rows.len() {}",
+            self.cursor.pos.y,
+            self.rows.len()
+        );
+
+        // Cursor X must be within [0, width) if width > 0.
+        if self.width == 0 {
+            debug_assert_eq!(
+                self.cursor.pos.x, 0,
+                "width=0 buffer must keep cursor.x at 0"
+            );
+        } else {
+            debug_assert!(
+                self.cursor.pos.x <= self.width,
+                "cursor.pos.x {} out of bounds for width {}",
+                self.cursor.pos.x,
+                self.width
+            );
+        }
+
+        // Scrollback invariants by buffer kind.
+        match self.kind {
+            BufferType::Primary => {
+                // Primary buffer: rows must never exceed height + scrollback_limit.
+                let max_rows = self.height + self.scrollback_limit;
+                debug_assert!(
+                    self.rows.len() <= max_rows,
+                    "primary buffer has {} rows but max_rows is {} (height={} + scrollback_limit={})",
+                    self.rows.len(),
+                    max_rows,
+                    self.height,
+                    self.scrollback_limit
+                );
+            }
+            BufferType::Alternate => {
+                // Alternate buffer: fixed-size, no scrollback.
+                debug_assert_eq!(
+                    self.rows.len(),
+                    self.height,
+                    "alternate buffer must have exactly `height` rows (got rows.len()={}, height={})",
+                    self.rows.len(),
+                    self.height
+                );
+                debug_assert_eq!(
+                    self.scroll_offset, 0,
+                    "alternate buffer must never have a scroll_offset (got {})",
+                    self.scroll_offset
+                );
+            }
+        }
+
+        // Scroll offset must always be within [0, max_scroll_offset].
+        let max_off = self.max_scroll_offset();
+        debug_assert!(
+            self.scroll_offset <= max_off,
+            "scroll_offset {} exceeds max_scroll_offset {}",
+            self.scroll_offset,
+            max_off
+        );
+    }
+
+    // In release builds this is a no-op, so we can call it freely.
+    #[cfg(not(debug_assertions))]
+    #[inline]
+    fn debug_assert_invariants(&self) {}
+
     fn push_row(&mut self, origin: RowOrigin, join: RowJoin) {
         let row = Row::new_with_origin(self.width, origin, join);
         self.rows.push(row);
@@ -119,11 +205,15 @@ impl Buffer {
 
     /// Get the rows that should be *visually displayed* in the GUI.
     ///
-    /// This returns exactly `height` rows, starting from either:
-    ///  - the live bottom (`scroll_offset` == 0), or
-    ///  - an older section of the buffer (`scroll_offset` > 0)
-    ///
-    /// This slice does NOT allocate.
+    /// Contract:
+    /// - Returns a contiguous slice of `self.rows`.
+    /// - `visible_rows().len() <= self.height`.
+    /// - When `self.rows.len() <= self.height`, the slice is the entire buffer.
+    /// - When `scroll_offset == 0`, the slice is the last `height` rows
+    ///   (the live bottom).
+    /// - When `scroll_offset > 0`, the slice is shifted upwards into
+    ///   scrollback, clamped so it never goes before the oldest row.
+    /// - Never allocates; always borrows from `self.rows`.
     #[must_use]
     pub fn visible_rows(&self) -> &[Row] {
         if self.rows.is_empty() {
@@ -137,10 +227,6 @@ impl Buffer {
         let max_offset = self.max_scroll_offset();
         let offset = self.scroll_offset.min(max_offset);
 
-        // Compute slice start.
-        // This math is safe because:
-        //   - total >= 1
-        //   - max_offset ensures total >= h
         let start = total.saturating_sub(h + offset);
         let end = start + h;
 
@@ -189,12 +275,28 @@ impl Buffer {
             }
 
             // ┌─────────────────────────────────────────────┐
-            // │ Ensure the target row exists. If we get     │
-            // │ here without wrapping, this is just a       │
-            // │ normal blank row (no SoftWrap metadata).    │
+            // │ Ensure the target row exists.               │
+            // │ If we got here without PRE-WRAP, it's a     │
+            // │ normal new logical line. If col == 0 and    │
+            // │ row_idx > 0, we are in a wrap continuation. │
             // └─────────────────────────────────────────────┘
             if row_idx >= self.rows.len() {
-                self.rows.push(Row::new(self.width));
+                let is_wrap_continuation = col == 0 && row_idx > 0;
+
+                let origin = if is_wrap_continuation {
+                    RowOrigin::SoftWrap
+                } else {
+                    RowOrigin::HardBreak
+                };
+
+                let join = if is_wrap_continuation {
+                    RowJoin::ContinueLogicalLine
+                } else {
+                    RowJoin::NewLogicalLine
+                };
+
+                self.rows
+                    .push(Row::new_with_origin(self.width, origin, join));
             }
 
             // clone tag here to avoid long-lived borrows of &self
@@ -237,6 +339,7 @@ impl Buffer {
                     }
 
                     self.cursor.pos.y = row_idx;
+                    // `col` stays 0; next loop iteration writes at start of continuation row.
                 }
             }
         }
@@ -276,6 +379,7 @@ impl Buffer {
 
         // Always clamp cursor after size change
         self.clamp_cursor_after_resize();
+        self.debug_assert_invariants();
     }
 
     #[allow(clippy::too_many_lines)]
@@ -537,6 +641,8 @@ impl Buffer {
         if self.scroll_offset > max_offset {
             self.scroll_offset = max_offset;
         }
+
+        self.debug_assert_invariants();
     }
 
     /// Handle ANSI Backspace (BS, 0x08).
@@ -548,38 +654,40 @@ impl Buffer {
     /// - If cursor is at column 0, do nothing.
     /// - Never moves vertically and never deletes characters.
     pub fn handle_backspace(&mut self) {
-        // If already at column 0, no-op.
+        // Backspace is a purely local operation. Do NOT perform scrollback
+        // enforcement or invariants after this function.
+
         if self.cursor.pos.x == 0 {
             return;
         }
 
         let row_idx = self.cursor.pos.y;
 
-        // Safety: if cursor.y is out of bounds, nothing to do.
         if row_idx >= self.rows.len() {
             return;
         }
 
         let row = &self.rows[row_idx];
 
-        // Move left by one cell.
         let mut new_x = self.cursor.pos.x - 1;
 
-        // If the cell is a continuation of a wide glyph,
-        // back up to the head of the glyph.
+        // Skip left over continuation cells of a wide glyph
         while new_x > 0 {
             if let Some(cell) = row.get_char_at(new_x) {
                 if !cell.is_continuation() {
                     break;
                 }
             } else {
-                // No cell at this position, treat as non-continuation
                 break;
             }
             new_x -= 1;
         }
 
         self.cursor.pos.x = new_x;
+
+        // This MUST be the only post-condition for backspace.
+        debug_assert!(self.cursor.pos.y < self.rows.len());
+        debug_assert!(self.cursor.pos.x < self.width);
     }
 
     pub fn handle_lf(&mut self) {
@@ -615,6 +723,7 @@ impl Buffer {
 
                 // Keep scrollback cap
                 self.enforce_scrollback_limit();
+                self.debug_assert_invariants();
             }
 
             BufferType::Alternate => {
@@ -627,6 +736,8 @@ impl Buffer {
                 } else {
                     self.scroll_up(); // fixed-size alternate screen buffer
                 }
+
+                self.debug_assert_invariants();
             }
         }
     }
@@ -675,6 +786,8 @@ impl Buffer {
         }
 
         self.scroll_offset = (self.scroll_offset + lines).min(max);
+
+        self.debug_assert_invariants();
     }
 
     /// Scroll downward (`lines > 0`) toward the live bottom.
@@ -688,11 +801,13 @@ impl Buffer {
         }
 
         self.scroll_offset = self.scroll_offset.saturating_sub(lines);
+        self.debug_assert_invariants();
     }
 
     /// Jump back to the live view (row = last row).
-    pub const fn scroll_to_bottom(&mut self) {
+    pub fn scroll_to_bottom(&mut self) {
         self.scroll_offset = 0;
+        self.debug_assert_invariants();
     }
 
     pub fn scroll_up(&mut self) {
@@ -739,6 +854,8 @@ impl Buffer {
         // Reset cursor and scroll offset for the alternate screen.
         self.cursor = CursorState::default();
         self.scroll_offset = 0;
+
+        self.debug_assert_invariants();
     }
 
     /// Leave the alternate screen and restore the primary buffer, if any was saved.
@@ -756,6 +873,8 @@ impl Buffer {
         }
 
         self.kind = BufferType::Primary;
+
+        self.debug_assert_invariants();
     }
 }
 
